@@ -29,6 +29,9 @@ namespace Lilly.IntegratedModManager
         public List<ManagerTagData> Tags = new List<ManagerTagData>();
         public List<ManagerModData> Mods = new List<ManagerModData>();
         public List<ManagerPresetData> Presets = new List<ManagerPresetData>();
+        public List<string> FavoriteFolderKeys = new List<string>();
+        public List<string> RecentFolderKeys = new List<string>();
+        public List<string> ExcludedPackageIds = new List<string>();
 
         public override void ExposeData()
         {
@@ -37,6 +40,9 @@ namespace Lilly.IntegratedModManager
             Scribe_Collections.Look(ref Tags, "tags", LookMode.Deep);
             Scribe_Collections.Look(ref Mods, "mods", LookMode.Deep);
             Scribe_Collections.Look(ref Presets, "presets", LookMode.Deep);
+            Scribe_Collections.Look(ref FavoriteFolderKeys, "favoriteFolderKeys", LookMode.Value);
+            Scribe_Collections.Look(ref RecentFolderKeys, "recentFolderKeys", LookMode.Value);
+            Scribe_Collections.Look(ref ExcludedPackageIds, "excludedPackageIds", LookMode.Value);
             if (Scribe.mode == LoadSaveMode.PostLoadInit)
                 EnsureInitialized();
         }
@@ -51,6 +57,12 @@ namespace Lilly.IntegratedModManager
                 Tags = new List<ManagerTagData>();
             if (Presets == null)
                 Presets = new List<ManagerPresetData>();
+            if (FavoriteFolderKeys == null)
+                FavoriteFolderKeys = new List<string>();
+            if (RecentFolderKeys == null)
+                RecentFolderKeys = new List<string>();
+            if (ExcludedPackageIds == null)
+                ExcludedPackageIds = new List<string>();
             for (int i = Presets.Count - 1; i >= 0; i--)
             {
                 if (Presets[i] == null || Presets[i].Id.NullOrEmpty() ||
@@ -103,6 +115,8 @@ namespace Lilly.IntegratedModManager
             }
             HashSet<string> assignedPackageIds =
                 new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            HashSet<string> excludedPackageIds = new HashSet<string>(ExcludedPackageIds,
+                StringComparer.OrdinalIgnoreCase);
 
             for (int i = 0; i < Categories.Count; i++)
             {
@@ -115,6 +129,7 @@ namespace Lilly.IntegratedModManager
 
                 if (category.ModIds == null)
                     category.ModIds = new List<string>();
+                category.ModIds.RemoveAll(excludedPackageIds.Contains);
                 if (category.Folders == null)
                     category.Folders = new List<ManagerFolderData>();
                 if (category.Folders.Count == 0)
@@ -134,6 +149,7 @@ namespace Lilly.IntegratedModManager
 
                     if (folder.ModIds == null)
                         folder.ModIds = new List<string>();
+                    folder.ModIds.RemoveAll(excludedPackageIds.Contains);
                     for (int modIndex = folder.ModIds.Count - 1; modIndex >= 0; modIndex--)
                     {
                         string packageId = folder.ModIds[modIndex];
@@ -172,6 +188,8 @@ namespace Lilly.IntegratedModManager
                     continue;
 
                 string packageId = mod.PackageId;
+                if (excludedPackageIds.Contains(packageId))
+                    continue;
                 GetOrCreateModData(mod);
 
                 if (assignedPackageIds.Add(packageId))
@@ -196,6 +214,9 @@ namespace Lilly.IntegratedModManager
                     uncategorized.ModIds.Add(packageId);
                 }
             }
+
+            Mods.RemoveAll(modData => modData == null ||
+                excludedPackageIds.Contains(modData.PackageId));
 
             for (int tagIndex = Tags.Count - 1; tagIndex >= 0; tagIndex--)
             {

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 using Verse;
 
@@ -14,19 +15,25 @@ namespace Lilly.IntegratedModManager
             public readonly ManagerCategoryData Category;
             public readonly ManagerTagData Tag;
             public readonly ManagerFolderData Folder;
+            public readonly string Key;
+            public readonly bool IsCurrent;
 
             public FolderMoveTarget(
                 string title,
                 string sourceName,
                 ManagerCategoryData category,
                 ManagerTagData tag,
-                ManagerFolderData folder)
+                ManagerFolderData folder,
+                string key,
+                bool isCurrent)
             {
                 Title = title;
                 SourceName = sourceName;
                 Category = category;
                 Tag = tag;
                 Folder = folder;
+                Key = key ?? string.Empty;
+                IsCurrent = isCurrent;
             }
         }
 
@@ -69,11 +76,11 @@ namespace Lilly.IntegratedModManager
             int lastFirstColumn = Mathf.Max(0, columns.Count - 3);
             if (columns.Count > 3)
             {
-                if (Widgets.ButtonText(new Rect(rect.width - 100f, 34f, 40f, 28f), "‹"))
+                if (Widgets.ButtonText(new Rect(rect.width - 116f, 34f, 30f, 28f), "‹"))
                     firstColumn = Mathf.Max(0, firstColumn - 1);
-                Widgets.Label(new Rect(rect.width - 58f, 34f, 20f, 28f),
+                Widgets.Label(new Rect(rect.width - 82f, 34f, 40f, 28f),
                     (firstColumn + 1) + "–" + Mathf.Min(firstColumn + 3, columns.Count));
-                if (Widgets.ButtonText(new Rect(rect.width - 30f, 34f, 40f, 28f), "›"))
+                if (Widgets.ButtonText(new Rect(rect.width - 40f, 34f, 30f, 28f), "›"))
                     firstColumn = Mathf.Min(lastFirstColumn, firstColumn + 1);
             }
             firstColumn = Mathf.Clamp(firstColumn, 0, lastFirstColumn);
@@ -98,18 +105,45 @@ namespace Lilly.IntegratedModManager
                         columnRect.width - 16f, 26f), targets[0].SourceName);
                     Rect listRect = new Rect(columnRect.x + 6f, columnRect.y + 34f,
                         columnRect.width - 12f, columnRect.height - 40f);
+                    IntegratedModManagerSettings settings = IntegratedModManagerMod.Instance.Settings;
                     List<FolderMoveTarget> visibleTargets = targets.FindAll(target =>
                         searchText.NullOrEmpty() || target.Folder.Name.IndexOf(
                             searchText, StringComparison.OrdinalIgnoreCase) >= 0);
+                    visibleTargets = visibleTargets
+                        .OrderByDescending(target => settings.FavoriteFolderKeys.Contains(target.Key))
+                        .ThenBy(target =>
+                        {
+                            int recentIndex = settings.RecentFolderKeys.IndexOf(target.Key);
+                            return recentIndex < 0 ? int.MaxValue : recentIndex;
+                        })
+                        .ToList();
                     float viewHeight = Mathf.Max(listRect.height, visibleTargets.Count * 32f);
                     Widgets.BeginScrollView(listRect, ref columnScroll[visibleColumn],
                         new Rect(0f, 0f, listRect.width - 16f, viewHeight));
                     for (int i = 0; i < visibleTargets.Count; i++)
                     {
                         FolderMoveTarget target = visibleTargets[i];
-                        Rect buttonRect = new Rect(0f, i * 32f, listRect.width - 18f, 28f);
+                        Rect buttonRect = new Rect(0f, i * 32f, listRect.width - 48f, 28f);
+                        if (target.IsCurrent)
+                            Widgets.DrawHighlight(buttonRect);
+                        string favoriteLabel = settings.FavoriteFolderKeys.Contains(target.Key) ? "★" : "☆";
+                        if (Widgets.ButtonText(new Rect(listRect.width - 44f, i * 32f, 30f, 28f),
+                            favoriteLabel))
+                        {
+                            if (settings.FavoriteFolderKeys.Contains(target.Key))
+                                settings.FavoriteFolderKeys.Remove(target.Key);
+                            else
+                                settings.FavoriteFolderKeys.Add(target.Key);
+                            IntegratedModManagerMod.Instance.WriteSettings();
+                        }
                         if (Widgets.ButtonText(buttonRect, target.Title))
                         {
+                            settings.RecentFolderKeys.Remove(target.Key);
+                            settings.RecentFolderKeys.Insert(0, target.Key);
+                            if (settings.RecentFolderKeys.Count > 10)
+                                settings.RecentFolderKeys.RemoveRange(10,
+                                    settings.RecentFolderKeys.Count - 10);
+                            IntegratedModManagerMod.Instance.WriteSettings();
                             if (onTargetSelected != null)
                                 onTargetSelected(target);
                             Close();
