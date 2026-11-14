@@ -332,7 +332,11 @@ namespace Lilly.IntegratedModManager
                 Rect labelRect = new Rect(enabledRect.xMax + 4f, rowRect.y,
                     Mathf.Max(24f, editRect.x - enabledRect.xMax - 7f), 32f);
                 string label = category.Name + " (" + GetInstalledCount(category) + ")";
+                Color previousLabelColor = GUI.color;
+                if (HasCategoryLoadOrderIssue(category))
+                    GUI.color = new Color(1f, 0.28f, 0.28f, 1f);
                 Widgets.Label(labelRect, label);
+                GUI.color = previousLabelColor;
                 TooltipHandler.TipRegion(labelRect, label);
                 HandleCategoryTabReorder(category, labelRect);
                 if (Widgets.ButtonText(editRect, "E"))
@@ -354,6 +358,20 @@ namespace Lilly.IntegratedModManager
             float titleWidth = Text.CalcSize(label).x;
             float requiredCardWidth = Mathf.Max(157f, titleWidth + 63f);
             return requiredCardWidth + 6f;
+        }
+
+        private bool HasCategoryLoadOrderIssue(ManagerCategoryData category)
+        {
+            if (category == null || category.Folders == null)
+                return false;
+            for (int folderIndex = 0; folderIndex < category.Folders.Count; folderIndex++)
+            {
+                ManagerFolderData folder = category.Folders[folderIndex];
+                if (folder != null && folder.ModIds != null &&
+                    folder.ModIds.Any(loadOrderIssuePackageIds.Contains))
+                    return true;
+            }
+            return false;
         }
 
         private float GetTabScrollbarReserve(float availableWidth)
