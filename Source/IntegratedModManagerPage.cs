@@ -46,6 +46,7 @@ namespace Lilly.IntegratedModManager
         private string searchText = "";
         private ModFilter currentModFilter = ModFilter.All;
         private bool tagMode;
+        private bool modListHasKeyboardFocus;
         private Vector2 categoryTabScroll;
         private Vector2 tagTabScroll;
         private Vector2 modListScroll;
@@ -117,8 +118,6 @@ namespace Lilly.IntegratedModManager
 
             float searchTop = 48f + tabContentHeight + tabScrollbarReserve + 4f;
             Rect searchRect = new Rect(20f, searchTop, inRect.width * 0.66f - 30f, 30f);
-            DrawSearchField(searchRect);
-
             float contentTop = searchTop + 38f;
             float contentBottom = inRect.height - BottomHeight - 20f;
             float contentHeight = Mathf.Max(100f, contentBottom - contentTop);
@@ -127,8 +126,13 @@ namespace Lilly.IntegratedModManager
             Rect detailsRect = new Rect(leftWidth, contentTop, inRect.width - leftWidth - 20f,
                 contentHeight);
 
+            if (Event.current.type == EventType.MouseDown)
+                modListHasKeyboardFocus = listRect.Contains(Event.current.mousePosition);
+            DrawSearchField(searchRect);
+
             DrawModList(listRect);
             DrawDetails(detailsRect);
+            HandleModListNavigation(listRect);
             DrawBottomButtons(new Rect(20f, inRect.height - BottomHeight - 8f,
                 inRect.width - 40f, BottomHeight));
             HandleSelectAll();
@@ -1263,6 +1267,100 @@ namespace Lilly.IntegratedModManager
 
             SelectAllVisible();
             current.Use();
+        }
+
+        private void HandleModListNavigation(Rect listRect)
+        {
+            Event current = Event.current;
+            if (current.type == EventType.MouseDown)
+                modListHasKeyboardFocus = listRect.Contains(current.mousePosition);
+
+            if (!modListHasKeyboardFocus || current.type != EventType.KeyDown ||
+                (current.keyCode != KeyCode.UpArrow && current.keyCode != KeyCode.DownArrow) ||
+                current.control || current.alt || current.command)
+                return;
+
+            if (visibleMods.Count == 0)
+                return;
+
+            int currentIndex = visibleMods.FindIndex(mod =>
+                string.Equals(mod.PackageId, primarySelectedPackageId,
+                    StringComparison.OrdinalIgnoreCase));
+            int nextIndex;
+            if (currentIndex < 0)
+                nextIndex = current.keyCode == KeyCode.DownArrow ? 0 : visibleMods.Count - 1;
+            else
+                nextIndex = Mathf.Clamp(currentIndex +
+                    (current.keyCode == KeyCode.DownArrow ? 1 : -1), 0, visibleMods.Count - 1);
+
+            if (nextIndex == currentIndex)
+            {
+                current.Use();
+                return;
+            }
+
+            SelectMod(nextIndex, false, current.shift && lastSelectedIndex >= 0);
+            float rowY = GetVisibleModRowY(visibleMods[nextIndex].PackageId);
+            float viewportHeight = Mathf.Max(1f, listRect.height - 16f);
+            if (rowY < modListScroll.y)
+                modListScroll.y = rowY;
+            else if (rowY + RowHeight > modListScroll.y + viewportHeight)
+                modListScroll.y = rowY + RowHeight - viewportHeight;
+            modListScroll.y = Mathf.Max(0f, modListScroll.y);
+            current.Use();
+        }
+
+        private float GetVisibleModRowY(string packageId)
+        {
+            float y = 0f;
+            if (tagMode)
+            {
+                ManagerTagData tag = FindCurrentTag();
+                if (tag == null)
+                    return 0f;
+                for (int folderIndex = 0; folderIndex < tag.Folders.Count; folderIndex++)
+                {
+                    ManagerFolderData folder = tag.Folders[folderIndex];
+                    y += RowHeight;
+                    if (folder.Collapsed)
+                        continue;
+                    List<string> ids = GetTagFolderModIds(tag, folder);
+                    for (int i = 0; i < ids.Count; i++)
+                    {
+                        ModMetaData mod = FindMod(ids[i]);
+                        if (mod == null || !MatchesSearch(mod))
+                            continue;
+                        if (string.Equals(mod.PackageId, packageId,
+                            StringComparison.OrdinalIgnoreCase))
+                            return y;
+                        y += RowHeight;
+                    }
+                }
+            }
+            else
+            {
+                ManagerCategoryData category = FindCurrentCategory();
+                if (category == null)
+                    return 0f;
+                for (int folderIndex = 0; folderIndex < category.Folders.Count; folderIndex++)
+                {
+                    ManagerFolderData folder = category.Folders[folderIndex];
+                    y += RowHeight;
+                    if (folder.Collapsed)
+                        continue;
+                    for (int i = 0; i < folder.ModIds.Count; i++)
+                    {
+                        ModMetaData mod = FindMod(folder.ModIds[i]);
+                        if (mod == null || !MatchesSearch(mod))
+                            continue;
+                        if (string.Equals(mod.PackageId, packageId,
+                            StringComparison.OrdinalIgnoreCase))
+                            return y;
+                        y += RowHeight;
+                    }
+                }
+            }
+            return 0f;
         }
 
         private void SelectAllVisible()
@@ -2828,7 +2926,10 @@ namespace Lilly.IntegratedModManager
             Close();
 
             Find.WindowStack.Add(new Dialog_MessageBox(
-                "모드 목록을 적용했습니다. 변경사항은 게임을 재시작한 뒤 적용됩니다."));
+                "모드 목록을 적용했습니다. 변경사항은 게임을 재시작한 뒤 적용됩니다.",
+                "확인", null,
+                "재시작", () => GenCommandLine.Restart(),
+                null, false, null, null, WindowLayer.Dialog));
         }
 
         private void OpenSavePresetDialog()
