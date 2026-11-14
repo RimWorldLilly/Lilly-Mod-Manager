@@ -1290,6 +1290,13 @@ namespace Lilly.IntegratedModManager
             float actionX = inner.x;
             float actionY = y;
             bool hasActionButtons = false;
+            string workshopPageUrl = GetSteamWorkshopPageUrl(mod);
+            if (!workshopPageUrl.NullOrEmpty())
+            {
+                DrawDetailActionButton(inner, ref actionX, ref actionY, 150f,
+                    "WorkshopPage".Translate(), () => OpenUrl(workshopPageUrl));
+                hasActionButtons = true;
+            }
             if (GetAvailableModActionCount(mod) > 0)
             {
                 DrawDetailActionButton(inner, ref actionX, ref actionY, 140f,
@@ -2153,9 +2160,18 @@ namespace Lilly.IntegratedModManager
             List<string> selectedIds = packageIds == null
                 ? new List<string>()
                 : packageIds.Distinct(StringComparer.OrdinalIgnoreCase).ToList();
-            Find.WindowStack.Add(new ManagerFolderNameDialog(
-                ManagerTranslation.Get("LMM_0047"),
-                "",
+            Find.WindowStack.Add(new ManagerTagSelectDialog(
+                tags,
+                tag =>
+                {
+                    if (selectedIds.Count > 0)
+                        SetTagForSelection(selectedIds, tag, true);
+                    else
+                    {
+                        tagMode = true;
+                        SelectTag(tag);
+                    }
+                },
                 name =>
                 {
                     ManagerTagData existingTag = tags.FirstOrDefault(tag =>
@@ -4049,6 +4065,25 @@ namespace Lilly.IntegratedModManager
                 }
             }
 
+            return string.Empty;
+        }
+
+        private static string GetSteamWorkshopPageUrl(ModMetaData mod)
+        {
+            if (mod == null)
+                return string.Empty;
+
+            ulong workshopId = GetWorkshopItemId(mod);
+            if (workshopId > 0UL)
+                return "https://steamcommunity.com/sharedfiles/filedetails/?id=" + workshopId;
+
+            string[] propertyNames = { "WorkshopUri", "WorkshopUrl", "WorkshopPage", "SteamWorkshopUrl" };
+            for (int i = 0; i < propertyNames.Length; i++)
+            {
+                object value = ReadMetadataValue(mod, propertyNames[i]);
+                if (value != null && !value.ToString().NullOrEmpty())
+                    return value.ToString();
+            }
             return string.Empty;
         }
 
