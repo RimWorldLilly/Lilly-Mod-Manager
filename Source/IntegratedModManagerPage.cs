@@ -1001,12 +1001,12 @@ namespace Lilly.IntegratedModManager
             {
                 if (Event.current.control || Event.current.shift)
                 {
-                    SelectMod(visibleIndex, Event.current.control, Event.current.shift);
+                    SelectModByPackageId(mod.PackageId, Event.current.control, Event.current.shift);
                 }
                 else
                 {
                     if (!selectedPackageIds.Contains(mod.PackageId))
-                        SelectMod(visibleIndex, false, false);
+                        SelectModByPackageId(mod.PackageId, false, false);
                     else
                         primarySelectedPackageId = mod.PackageId;
                     dragPackageId = mod.PackageId;
@@ -1040,7 +1040,10 @@ namespace Lilly.IntegratedModManager
             bool protectedMod = IsProtected(mod);
             Widgets.Checkbox(checkRect.position, ref checkedValue, checkRect.width, protectedMod);
             if (!protectedMod && state != null && checkedValue != state.Enabled)
+            {
                 state.Enabled = checkedValue;
+                RefreshVisibleMods();
+            }
 
             Rect nameRect = new Rect(checkRect.xMax + 5f, rowRect.y,
                 rowRect.width - checkRect.width - 12f, rowRect.height);
@@ -1087,7 +1090,7 @@ namespace Lilly.IntegratedModManager
                 }
             }
             if (Widgets.ButtonInvisible(nameRect))
-                SelectMod(visibleIndex, Event.current.control, Event.current.shift);
+                SelectModByPackageId(mod.PackageId, Event.current.control, Event.current.shift);
 
             string name = GetDisplayName(mod);
             Widgets.Label(nameRect, protectedMod ? name + ManagerTranslation.Get("LMM_0001") : name);
@@ -1738,6 +1741,14 @@ namespace Lilly.IntegratedModManager
             primarySelectedPackageId = selectedPackageIds.Contains(packageId)
                 ? packageId
                 : selectedPackageIds.FirstOrDefault();
+        }
+
+        private void SelectModByPackageId(string packageId, bool control, bool shift)
+        {
+            int index = visibleMods.FindIndex(mod => mod != null &&
+                string.Equals(mod.PackageId, packageId, StringComparison.OrdinalIgnoreCase));
+            if (index >= 0)
+                SelectMod(index, control, shift);
         }
 
         private void SetSelectedEnabled(bool enabled)
