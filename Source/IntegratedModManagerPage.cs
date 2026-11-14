@@ -1511,27 +1511,34 @@ namespace Lilly.IntegratedModManager
                 for (int i = 0; i < requirements.Count; i++)
                 {
                     ModRequirement requirement = requirements[i];
+                    bool requirementSatisfied = IsRequirementSatisfiedInManager(requirement);
                     if (requirement == null ||
-                        (requirement.IsSatisfied && !displayFulfilledRequirements))
+                        (requirementSatisfied && !displayFulfilledRequirements))
                         continue;
 
                     Rect requirementRect = new Rect(inner.x + 8f, y,
                         inner.width - 8f, 24f);
                     Rect statusIconRect = new Rect(requirementRect.x,
                         requirementRect.y + 2f, 20f, 20f);
-                    if (requirement.StatusIcon != null)
-                        GUI.DrawTexture(statusIconRect, requirement.StatusIcon,
+                    string requirementPackageId = GetRequirementPackageId(requirement);
+                    bool requirementInstalled = FindMod(requirementPackageId) != null;
+                    Texture2D statusIcon = requirementSatisfied
+                        ? ModRequirement.Resolved
+                        : requirementInstalled
+                            ? ModRequirement.Installed
+                            : ModRequirement.NotInstalled;
+                    if (statusIcon != null)
+                        GUI.DrawTexture(statusIconRect, statusIcon,
                             ScaleMode.ScaleToFit);
 
                     string requirementName = ReadMetadataValue(requirement, "displayName") as string;
                     if (requirementName.NullOrEmpty())
                         requirementName = ReadMetadataValue(requirement, "packageId") as string;
-                    string requirementPackageId = GetRequirementPackageId(requirement);
                     if (requirementName.NullOrEmpty())
                         requirementName = requirementPackageId;
                     if (requirementName.NullOrEmpty())
                         requirementName = requirement.RequirementTypeLabel;
-                    string workshopUrl = !requirement.IsSatisfied &&
+                    string workshopUrl = !requirementSatisfied &&
                         FindMod(requirementPackageId) == null
                             ? GetMissingDependencyWorkshopUrl(mod, requirement, requirementPackageId)
                             : string.Empty;
@@ -1540,7 +1547,9 @@ namespace Lilly.IntegratedModManager
                         requirementRect.y,
                         requirementRect.width - 24f - workshopButtonWidth, requirementRect.height);
                     Widgets.Label(requirementNameRect, requirementName);
-                    TooltipHandler.TipRegion(requirementRect, requirement.Tooltip);
+                    TooltipHandler.TipRegion(requirementRect, requirementSatisfied
+                        ? ManagerTranslation.Get("LMM_0147") + requirementName
+                        : requirement.Tooltip);
                     if (!requirementPackageId.NullOrEmpty() &&
                         Widgets.ButtonInvisible(requirementNameRect))
                         SelectDependency(requirementPackageId);
@@ -1668,7 +1677,7 @@ namespace Lilly.IntegratedModManager
             {
                 y += 28f;
                 y += requirements.Count(requirement => requirement != null &&
-                    (!requirement.IsSatisfied || displayFulfilledRequirements)) * 24f;
+                    (!IsRequirementSatisfiedInManager(requirement) || displayFulfilledRequirements)) * 24f;
             }
 
             List<string> folderIssues = GetCachedModLoadFolderIssues(mod);
@@ -4038,13 +4047,8 @@ namespace Lilly.IntegratedModManager
                 {
                     if (requirement == null)
                         continue;
-                    string requirementId = ReadMetadataValue(requirement, "packageId") as string;
-                    if (requirementId.NullOrEmpty())
-                        requirementId = ReadMetadataValue(requirement, "PackageId") as string;
-                    if (requirementId.NullOrEmpty())
-                        requirementId = ReadDependencyPackageId(requirement);
-                    if (string.Equals(requirementId, dependency.PackageId,
-                        StringComparison.OrdinalIgnoreCase) && !requirement.IsSatisfied)
+                    if (RequirementMatchesPackage(requirement, dependency.PackageId) &&
+                        !IsRequirementSatisfiedInManager(requirement))
                     {
                         hasVerdict = true;
                         return false;
@@ -4068,6 +4072,78 @@ namespace Lilly.IntegratedModManager
             return dependencyMustPrecedeSubject
                 ? dependencyPosition < subjectPosition
                 : subjectPosition < dependencyPosition;
+        }
+
+        private bool IsRequirementSatisfiedInManager(ModRequirement requirement)
+        {
+            if (requirement == null)
+                return true;
+
+            bool incompatible = requirement is ModIncompatibility;
+            List<string> packageIds = GetRequirementPackageIds(requirement);
+            for (int i = 0; i < packageIds.Count; i++)
+            {
+                ModMetaData target = FindMod(packageIds[i]);
+                bool active = IsModActiveInManager(target);
+                if (incompatible)
+                {
+                    if (active)
+                        return false;
+                }
+                else if (active)
+                {
+                    return true;
+                }
+            }
+            return incompatible;
+        }
+
+        private bool IsModActiveInManager(ModMetaData mod)
+        {
+            if (mod == null || mod.PackageId.NullOrEmpty())
+                return false;
+            if (IsProtected(mod))
+                return true;
+            if (activeLoadPositions.ContainsKey(mod.PackageId))
+                return true;
+
+            // 관리 목록에 없는 모드는 실제 게임 활성 상태를 따른다.
+            return FindCategoryForPackage(mod.PackageId) == null && mod.Active;
+        }
+
+        private static bool RequirementMatchesPackage(
+            ModRequirement requirement,
+            string packageId)
+        {
+            if (requirement == null || packageId.NullOrEmpty())
+                return false;
+            List<string> packageIds = GetRequirementPackageIds(requirement);
+            for (int i = 0; i < packageIds.Count; i++)
+            {
+                if (string.Equals(packageIds[i], packageId, StringComparison.OrdinalIgnoreCase))
+                    return true;
+            }
+            return false;
+        }
+
+        private static List<string> GetRequirementPackageIds(ModRequirement requirement)
+        {
+            List<string> packageIds = new List<string>();
+            if (requirement == null)
+                return packageIds;
+            if (!requirement.packageId.NullOrEmpty())
+                packageIds.Add(requirement.packageId);
+            if (requirement.alternativePackageIds != null)
+            {
+                for (int i = 0; i < requirement.alternativePackageIds.Count; i++)
+                {
+                    string packageId = requirement.alternativePackageIds[i];
+                    if (!packageId.NullOrEmpty() &&
+                        !packageIds.Contains(packageId, StringComparer.OrdinalIgnoreCase))
+                        packageIds.Add(packageId);
+                }
+            }
+            return packageIds;
         }
 
         private static string GetRequirementPackageId(ModRequirement requirement)
@@ -4221,6 +4297,10 @@ namespace Lilly.IntegratedModManager
             if (mod == null || mod.PackageId.NullOrEmpty())
                 return ModRowIssue.None;
 
+            // 행 강조(선행/후행 포함)는 활성 모드만 대상으로 한다.
+            if (!IsModActiveInManager(mod))
+                return ModRowIssue.None;
+
             ModRowIssue cached;
             if (modRowIssueCache.TryGetValue(mod.PackageId, out cached))
                 return cached == ModRowIssue.None && IsLoadOrderCheckTarget(mod) &&
@@ -4233,7 +4313,7 @@ namespace Lilly.IntegratedModManager
             {
                 foreach (ModRequirement requirement in mod.GetRequirements())
                 {
-                    if (requirement == null || requirement.IsSatisfied)
+                    if (requirement == null || IsRequirementSatisfiedInManager(requirement))
                         continue;
                     string requirementType = requirement.RequirementTypeLabel ?? string.Empty;
                     string tooltip = requirement.Tooltip ?? string.Empty;
@@ -4270,6 +4350,7 @@ namespace Lilly.IntegratedModManager
         {
             loadOrderIssuePackageIds.Clear();
             activeLoadPositions.Clear();
+            modRowIssueCache.Clear();
             List<string> activeOrder = new List<string>();
             for (int categoryIndex = 0; categoryIndex < categories.Count; categoryIndex++)
             {
