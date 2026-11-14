@@ -10,6 +10,7 @@ namespace Lilly.IntegratedModManager
         private readonly string title;
         private readonly Func<string, bool> acceptAction;
         private string inputName;
+        private bool focusNameOnNextDraw = true;
 
         public override Vector2 InitialSize
         {
@@ -53,8 +54,14 @@ namespace Lilly.IntegratedModManager
             Widgets.Label(new Rect(0f, 0f, rect.width, 32f), title);
             Text.Font = GameFont.Small;
 
+            GUI.SetNextControlName("LillyModManagerNameInput");
             inputName = Widgets.TextField(
                 new Rect(0f, 42f, rect.width, 32f), inputName);
+            if (focusNameOnNextDraw)
+            {
+                GUI.FocusControl("LillyModManagerNameInput");
+                focusNameOnNextDraw = false;
+            }
 
             float buttonWidth = 120f;
             float buttonY = rect.height - 42f;

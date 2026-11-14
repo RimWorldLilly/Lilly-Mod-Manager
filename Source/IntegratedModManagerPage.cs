@@ -1383,6 +1383,29 @@ namespace Lilly.IntegratedModManager
                 Find.WindowStack.Add(new FloatMenu(options));
         }
 
+        private void OpenMoveCategoryMenu()
+        {
+            if (selectedPackageIds.Count == 0)
+                return;
+
+            List<FloatMenuOption> options = new List<FloatMenuOption>();
+            for (int i = 0; i < categories.Count; i++)
+            {
+                ManagerCategoryData target = categories[i];
+                if (target == null || target.Id == currentCategoryId)
+                    continue;
+
+                ManagerCategoryData category = target;
+                options.Add(new FloatMenuOption(category.Name,
+                    () => MoveSelectionTo(category)));
+            }
+
+            if (options.Count > 0)
+                Find.WindowStack.Add(new FloatMenu(options));
+            else
+                Messages.Message("이동할 다른 카테고리가 없습니다.", MessageTypeDefOf.RejectInput);
+        }
+
         private void OpenMoveSelectionToNewFolder(ManagerCategoryData category)
         {
             List<string> movingIds = selectedPackageIds.ToList();
@@ -1838,6 +1861,9 @@ namespace Lilly.IntegratedModManager
                     () => SetSelectedEnabled(false)));
                 options.Add(new FloatMenuOption("선택 해제",
                     () => ClearSelection()));
+                if (!tagMode)
+                    options.Add(new FloatMenuOption("카테고리 이동...",
+                        () => OpenMoveCategoryMenu()));
                 options.Add(new FloatMenuOption("폴더 이동/추가...",
                     () =>
                     {
