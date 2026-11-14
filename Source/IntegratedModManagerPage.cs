@@ -72,6 +72,7 @@ namespace Lilly.IntegratedModManager
         private Vector2 modListScroll;
         private Vector2 descriptionScroll;
         private Vector2 workshopGalleryScroll;
+        private string workshopGalleryPackageId;
         private Vector2 detailsScroll;
         private float modListViewportHeight;
         private string dragPackageId;
@@ -1369,22 +1370,51 @@ namespace Lilly.IntegratedModManager
             if (scrollbarWidth > 0f)
                 contentHeight = GetDetailsContentHeight(mod, viewport.width - scrollbarWidth);
             Rect viewRect = new Rect(0f, 0f, viewport.width - scrollbarWidth, contentHeight);
+            bool pointerInsideViewport = Mouse.IsOver(viewport);
             Widgets.BeginScrollView(viewport, ref detailsScroll, viewRect);
             Rect inner = new Rect(0f, 0f, viewRect.width, viewRect.height);
 
             float y = inner.y;
-            Texture2D previewImage = mod.PreviewImage;
-            if (previewImage != null)
+            Texture2D modPreviewImage = mod.PreviewImage;
+            if (!string.Equals(workshopGalleryPackageId, mod.PackageId,
+                StringComparison.OrdinalIgnoreCase))
             {
-                float previewHeight = Mathf.Min(190f,
-                    inner.width * previewImage.height / Mathf.Max(1f, previewImage.width));
-                Rect previewRect = new Rect(inner.x, y, inner.width, previewHeight);
-                GUI.DrawTexture(previewRect, previewImage, ScaleMode.ScaleToFit);
-                y += previewHeight + 8f;
+                workshopGalleryPackageId = mod.PackageId;
+                workshopGalleryScroll = Vector2.zero;
             }
+            WorkshopPreviewGallery.GalleryEntry gallery = WorkshopPreviewGallery.Request(
+                GetCachedWorkshopId(mod));
+            IReadOnlyList<WorkshopPreviewGallery.GalleryImage> galleryImages =
+                WorkshopPreviewGallery.GetImages(gallery);
+            float previewHeight = 0f;
+            if (modPreviewImage != null)
+                previewHeight = Mathf.Min(190f,
+                    inner.width * modPreviewImage.height /
+                    Mathf.Max(1f, modPreviewImage.width));
+            else if (galleryImages.Count > 0)
+                previewHeight = 190f;
+
+            float previewTop = y;
+            if (previewHeight > 0f)
+                y += previewHeight + 8f;
 
             string workshopPageUrl = GetSteamWorkshopPageUrl(mod);
-            DrawWorkshopGallery(inner, ref y, mod);
+            int hoveredImageIndex = DrawWorkshopGallery(inner, ref y, galleryImages,
+                pointerInsideViewport);
+            if (previewHeight > 0f)
+            {
+                Rect previewRect = new Rect(inner.x, previewTop, inner.width, previewHeight);
+                Widgets.DrawBoxSolid(previewRect, new Color(0.08f, 0.08f, 0.08f, 1f));
+                int displayIndex = hoveredImageIndex;
+                if (displayIndex < 0 && modPreviewImage == null && galleryImages.Count > 0)
+                    displayIndex = 0;
+                Texture2D previewTexture = displayIndex >= 0
+                    ? WorkshopPreviewGallery.GetTexture(galleryImages[displayIndex],
+                        Time.realtimeSinceStartup)
+                    : modPreviewImage;
+                if (previewTexture != null)
+                    GUI.DrawTexture(previewRect, previewTexture, ScaleMode.ScaleToFit);
+            }
 
             Text.Font = GameFont.Medium;
             Rect detailNameRect = new Rect(inner.x, y, inner.width - 34f, 36f);
@@ -1631,20 +1661,19 @@ namespace Lilly.IntegratedModManager
         {
             float y = 0f;
             Texture2D previewImage = mod.PreviewImage;
+            ulong workshopId = GetCachedWorkshopId(mod);
+            IReadOnlyList<WorkshopPreviewGallery.GalleryImage> gallery =
+                WorkshopPreviewGallery.GetImages(WorkshopPreviewGallery.Request(workshopId));
             if (previewImage != null)
                 y += Mathf.Min(190f, width * previewImage.height /
                     Mathf.Max(1f, previewImage.width)) + 8f;
-            ulong workshopId = GetCachedWorkshopId(mod);
-            if (workshopId > 0UL)
+            else if (gallery.Count > 0)
+                y += 190f + 8f;
+            if (gallery.Count > 0)
             {
-                IReadOnlyList<Texture2D> gallery = WorkshopPreviewGallery.GetTextures(
-                    WorkshopPreviewGallery.Request(workshopId));
-                if (gallery.Count > 0)
-                {
-                    float galleryWidth = Mathf.Max(width, gallery.Count * 106f);
-                    y += 76f + (galleryWidth > width
-                        ? ManagerUiMetrics.HorizontalScrollbarHeight : 0f) + 6f;
-                }
+                float galleryWidth = Mathf.Max(width, gallery.Count * 106f);
+                y += 76f + (galleryWidth > width
+                    ? ManagerUiMetrics.HorizontalScrollbarHeight : 0f) + 6f;
             }
 
             y += 38f;
@@ -5559,19 +5588,17 @@ namespace Lilly.IntegratedModManager
             return string.Empty;
         }
 
-        private void DrawWorkshopGallery(Rect inner, ref float y, ModMetaData mod)
+        private int DrawWorkshopGallery(
+            Rect inner,
+            ref float y,
+            IReadOnlyList<WorkshopPreviewGallery.GalleryImage> images,
+            bool pointerInsideViewport)
         {
-            ulong workshopId = GetWorkshopItemId(mod);
-            if (workshopId == 0UL)
-                return;
+            if (images == null || images.Count == 0)
+                return -1;
 
-            WorkshopPreviewGallery.GalleryEntry gallery = WorkshopPreviewGallery.Request(workshopId);
-            IReadOnlyList<Texture2D> images = WorkshopPreviewGallery.GetTextures(gallery);
-            if (images.Count == 0)
-                return;
-
-            float cellWidth = 106f;
-            float galleryHeight = 76f;
+            const float cellWidth = 106f;
+            const float galleryHeight = 76f;
             float contentWidth = Mathf.Max(inner.width, images.Count * cellWidth);
             float horizontalScrollbarHeight = contentWidth > inner.width
                 ? ManagerUiMetrics.HorizontalScrollbarHeight
@@ -5580,13 +5607,28 @@ namespace Lilly.IntegratedModManager
                 galleryHeight + horizontalScrollbarHeight);
             Rect viewRect = new Rect(0f, 0f, contentWidth, galleryHeight);
             Widgets.BeginScrollView(galleryRect, ref workshopGalleryScroll, viewRect);
+            int hoveredIndex = -1;
             for (int i = 0; i < images.Count; i++)
             {
-                Rect imageRect = new Rect(i * cellWidth, 0f, cellWidth - 6f, galleryHeight - 4f);
-                GUI.DrawTexture(imageRect, images[i], ScaleMode.ScaleToFit);
+                Rect imageRect = new Rect(i * cellWidth, 0f, cellWidth - 6f,
+                    galleryHeight - 4f);
+                bool hovered = pointerInsideViewport && Mouse.IsOver(imageRect);
+                if (hovered)
+                {
+                    hoveredIndex = i;
+                    Widgets.DrawBoxSolid(imageRect, new Color(0.32f, 0.27f, 0.18f, 1f));
+                }
+                Texture2D texture = hovered
+                    ? WorkshopPreviewGallery.GetTexture(images[i], Time.realtimeSinceStartup)
+                    : WorkshopPreviewGallery.GetStillTexture(images[i]);
+                if (texture != null)
+                    GUI.DrawTexture(imageRect, texture, ScaleMode.ScaleToFit);
+                if (hovered)
+                    Widgets.DrawBox(imageRect);
             }
             Widgets.EndScrollView();
             y += galleryRect.height + 6f;
+            return hoveredIndex;
         }
 
         private static object ReadMetadataValue(object mod, string name)
