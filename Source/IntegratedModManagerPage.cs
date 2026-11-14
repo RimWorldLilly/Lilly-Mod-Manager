@@ -41,6 +41,7 @@ namespace Lilly.IntegratedModManager
         private bool filterSubscribed;
         private bool filterUntagged;
         private bool filterUncategorized;
+        private bool filterUseAnd = true;
         private bool tagMode;
         private bool displayFulfilledRequirements;
         private bool modListHasKeyboardFocus;
@@ -155,7 +156,9 @@ namespace Lilly.IntegratedModManager
                 ManagerTranslation.Get("LMM_0111")
             };
             float[] filterWidths = filterLabels.Select(label => Text.CalcSize(label).x + 28f).ToArray();
-            float filterWidth = filterWidths.Sum() + 6f * (filterWidths.Length - 1);
+            float radioWidth = Text.CalcSize(ManagerTranslation.Get("LMM_0140")).x +
+                Text.CalcSize(ManagerTranslation.Get("LMM_0141")).x + 54f;
+            float filterWidth = filterWidths.Sum() + 6f * (filterWidths.Length - 1) + radioWidth + 8f;
             float searchWidth = Mathf.Max(120f, rect.width - 54f - filterWidth - 12f);
             string newSearchText = Widgets.TextField(
                 new Rect(rect.x + 54f, rect.y, searchWidth, rect.height),
@@ -197,6 +200,19 @@ namespace Lilly.IntegratedModManager
             filterX += filterWidths[3] + 6f;
             filtersChanged |= DrawFilterCheckbox(ref filterUncategorized, filterLabels[4],
                 new Rect(filterX, rect.y, filterWidths[4], rect.height));
+            filterX += filterWidths[4] + 8f;
+
+            bool priorFilterUseAnd = filterUseAnd;
+            float andWidth = Text.CalcSize(ManagerTranslation.Get("LMM_0140")).x + 20f;
+            float orWidth = Text.CalcSize(ManagerTranslation.Get("LMM_0141")).x + 20f;
+            if (Widgets.RadioButtonLabeled(new Rect(filterX, rect.y, andWidth, rect.height),
+                ManagerTranslation.Get("LMM_0140"), filterUseAnd))
+                filterUseAnd = true;
+            filterX += andWidth;
+            if (Widgets.RadioButtonLabeled(new Rect(filterX, rect.y, orWidth, rect.height),
+                ManagerTranslation.Get("LMM_0141"), !filterUseAnd))
+                filterUseAnd = false;
+            filtersChanged |= priorFilterUseAnd != filterUseAnd;
 
             if (filtersChanged)
             {
@@ -3803,17 +3819,43 @@ namespace Lilly.IntegratedModManager
         {
             ManagerModData state = FindModState(mod.PackageId);
             bool active = state != null && state.Enabled;
-            if (filterActive && !active)
-                return false;
-            if (filterInactive && active)
-                return false;
-            if (filterSubscribed && !IsSteamSubscribed(mod))
-                return false;
-            if (filterUntagged && state != null && state.TagIds != null && state.TagIds.Count > 0)
-                return false;
-            if (filterUncategorized && !IsInUncategorizedFolder(mod.PackageId))
-                return false;
-            return true;
+            bool untagged = state == null || state.TagIds == null || state.TagIds.Count == 0;
+            bool subscribed = IsSteamSubscribed(mod);
+            bool uncategorized = IsInUncategorizedFolder(mod.PackageId);
+            int selectedCount = 0;
+            int matchedCount = 0;
+
+            if (filterActive)
+            {
+                selectedCount++;
+                if (active) matchedCount++;
+            }
+            if (filterInactive)
+            {
+                selectedCount++;
+                if (!active) matchedCount++;
+            }
+            if (filterSubscribed)
+            {
+                selectedCount++;
+                if (subscribed) matchedCount++;
+            }
+            if (filterUntagged)
+            {
+                selectedCount++;
+                if (untagged) matchedCount++;
+            }
+            if (filterUncategorized)
+            {
+                selectedCount++;
+                if (uncategorized) matchedCount++;
+            }
+
+            if (selectedCount == 0)
+                return true;
+            return filterUseAnd
+                ? matchedCount == selectedCount
+                : matchedCount > 0;
         }
 
         private bool IsInUncategorizedFolder(string packageId)
