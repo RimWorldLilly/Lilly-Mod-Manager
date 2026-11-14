@@ -146,4 +146,6 @@
   <LMM_0142>Loads before: </LMM_0142>
   <LMM_0143>Load order requirement conflicts with the current enabled order.</LMM_0143>
   <LMM_0144>This Workshop item is no longer available.</LMM_0144>
+  <LMM_0145>A required mod is missing or not enabled.</LMM_0145>
+  <LMM_0146>A required mod version does not match.</LMM_0146>
 </LanguageData>

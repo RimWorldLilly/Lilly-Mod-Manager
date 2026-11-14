@@ -16,6 +16,14 @@ namespace Lilly.IntegratedModManager
 {
     internal sealed class IntegratedModManagerPage : Page
     {
+        private enum ModRowIssue
+        {
+            None,
+            RequiredMod,
+            Version,
+            LoadOrder
+        }
+
         private const float RowHeight = 27f;
         private const float BottomHeight = 30f;
 
@@ -37,6 +45,8 @@ namespace Lilly.IntegratedModManager
             new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
         private readonly Dictionary<string, ulong> workshopIdCache =
             new Dictionary<string, ulong>(StringComparer.OrdinalIgnoreCase);
+        private readonly Dictionary<string, ModRowIssue> modRowIssueCache =
+            new Dictionary<string, ModRowIssue>(StringComparer.OrdinalIgnoreCase);
 
         private string currentCategoryId;
         private string currentTagId;
@@ -991,6 +1001,8 @@ namespace Lilly.IntegratedModManager
         private void DrawModRow(ModMetaData mod, int visibleIndex, float width, float y)
         {
             Rect rowRect = new Rect(0f, y, width, RowHeight);
+            bool rowIsVisible = y + RowHeight >= modListScroll.y &&
+                y <= modListScroll.y + modListViewportHeight;
             Rect checkboxHitRect = new Rect(rowRect.x, rowRect.y, 32f, rowRect.height);
             Widgets.DrawBoxSolid(rowRect, visibleIndex % 2 == 0
                 ? new Color(0.095f, 0.095f, 0.095f, 1f)
@@ -1108,17 +1120,25 @@ namespace Lilly.IntegratedModManager
 
             string name = GetDisplayName(mod);
             Color previousTextColor = GUI.color;
-            bool hasLoadOrderIssue = loadOrderIssuePackageIds.Contains(mod.PackageId);
-            if (hasLoadOrderIssue)
-            {
+            ModRowIssue rowIssue = rowIsVisible ? GetModRowIssue(mod) : ModRowIssue.None;
+            if (rowIssue == ModRowIssue.RequiredMod)
                 GUI.color = new Color(1f, 0.28f, 0.28f, 1f);
-                TooltipHandler.TipRegion(nameRect, ManagerTranslation.Get("LMM_0143"));
+            else if (rowIssue == ModRowIssue.Version)
+                GUI.color = new Color(1f, 0.82f, 0.2f, 1f);
+            else if (rowIssue == ModRowIssue.LoadOrder)
+                GUI.color = new Color(1f, 0.55f, 0.16f, 1f);
+            if (rowIssue != ModRowIssue.None)
+            {
+                string tooltipKey = rowIssue == ModRowIssue.RequiredMod
+                    ? "LMM_0145"
+                    : rowIssue == ModRowIssue.Version
+                        ? "LMM_0146"
+                        : "LMM_0143";
+                TooltipHandler.TipRegion(nameRect, ManagerTranslation.Get(tooltipKey));
             }
             string rowName = protectedMod ? name + ManagerTranslation.Get("LMM_0001") : name;
             Widgets.Label(nameRect, rowName);
             bool workshopItemMissing = false;
-            bool rowIsVisible = y + RowHeight >= modListScroll.y &&
-                y <= modListScroll.y + modListViewportHeight;
             if (rowIsVisible && mod.OnSteamWorkshop)
             {
                 ulong workshopId = GetCachedWorkshopId(mod);
@@ -1250,21 +1270,9 @@ namespace Lilly.IntegratedModManager
                 new[] { "Dependencies", "RequiredMods", "LoadAfter" });
             List<string> loadBeforeIds = GetDependencyIds(mod, new[] { "LoadBefore" });
             if (loadAfterIds.Count > 0)
-            {
-                string text = ManagerTranslation.Get("LMM_0059") +
-                    FormatDependencyNames(loadAfterIds);
-                float height = Text.CalcHeight(text, inner.width);
-                Widgets.Label(new Rect(inner.x, y, inner.width, height), text);
-                y += height + 3f;
-            }
+                DrawDependencyLinks(inner, ref y, ManagerTranslation.Get("LMM_0059"), loadAfterIds);
             if (loadBeforeIds.Count > 0)
-            {
-                string text = ManagerTranslation.Get("LMM_0142") +
-                    FormatDependencyNames(loadBeforeIds);
-                float height = Text.CalcHeight(text, inner.width);
-                Widgets.Label(new Rect(inner.x, y, inner.width, height), text);
-                y += height + 3f;
-            }
+                DrawDependencyLinks(inner, ref y, ManagerTranslation.Get("LMM_0142"), loadBeforeIds);
 
             ManagerModData modData = FindModState(mod.PackageId);
             Widgets.Label(new Rect(inner.x, y, 48f, 26f), ManagerTranslation.Get("LMM_0089"));
@@ -1357,6 +1365,16 @@ namespace Lilly.IntegratedModManager
                     Widgets.Label(new Rect(statusIconRect.xMax + 4f, requirementRect.y,
                         requirementRect.width - 24f, requirementRect.height), requirementName);
                     TooltipHandler.TipRegion(requirementRect, requirement.Tooltip);
+                    string requirementPackageId = ReadMetadataValue(requirement, "packageId") as string;
+                    if (requirementPackageId.NullOrEmpty())
+                        requirementPackageId = ReadMetadataValue(requirement, "PackageId") as string;
+                    if (requirementPackageId.NullOrEmpty())
+                        requirementPackageId = ReadMetadataValue(requirement, "packageIdPlayerFacing") as string;
+                    if (requirementPackageId.NullOrEmpty())
+                        requirementPackageId = ReadMetadataValue(requirement, "PackageIdPlayerFacing") as string;
+                    if (!requirementPackageId.NullOrEmpty() &&
+                        Widgets.ButtonInvisible(requirementRect))
+                        SelectDependency(requirementPackageId);
                     y += 24f;
                 }
 
@@ -3319,6 +3337,177 @@ namespace Lilly.IntegratedModManager
                 names.Add(dependency == null ? packageId : GetDisplayName(dependency));
             }
             return string.Join(", ", names);
+        }
+
+        private void DrawDependencyLinks(
+            Rect bounds,
+            ref float y,
+            string label,
+            IList<string> packageIds)
+        {
+            const float lineHeight = 22f;
+            float x = bounds.x;
+            float labelWidth = Text.CalcSize(label).x;
+            Widgets.Label(new Rect(x, y, labelWidth + 2f, lineHeight), label);
+            x += labelWidth + 2f;
+
+            for (int i = 0; i < packageIds.Count; i++)
+            {
+                ModMetaData dependency = FindMod(packageIds[i]);
+                string name = dependency == null ? packageIds[i] : GetDisplayName(dependency);
+                string segment = name + (i + 1 < packageIds.Count ? ", " : "");
+                float width = Mathf.Max(16f, Text.CalcSize(segment).x);
+                if (x + width > bounds.xMax && x > bounds.x)
+                {
+                    y += lineHeight;
+                    x = bounds.x;
+                }
+
+                Rect linkRect = new Rect(x, y, Mathf.Min(width, bounds.xMax - x), lineHeight);
+                Color oldColor = GUI.color;
+                GUI.color = new Color(0.7f, 0.82f, 1f, 1f);
+                Widgets.Label(linkRect, segment);
+                Widgets.DrawLineHorizontal(linkRect.x, linkRect.yMax - 2f,
+                    Mathf.Min(Text.CalcSize(name).x, linkRect.width));
+                GUI.color = oldColor;
+                TooltipHandler.TipRegion(linkRect, packageIds[i]);
+                if (Widgets.ButtonInvisible(linkRect))
+                    SelectDependency(packageIds[i]);
+                x += width;
+            }
+
+            y += lineHeight + 3f;
+        }
+
+        private void SelectDependency(string packageId)
+        {
+            if (packageId.NullOrEmpty() || FindMod(packageId) == null)
+                return;
+
+            ManagerCategoryData ownerCategory = null;
+            ManagerFolderData ownerFolder = null;
+            for (int categoryIndex = 0; categoryIndex < categories.Count && ownerFolder == null; categoryIndex++)
+            {
+                ManagerCategoryData category = categories[categoryIndex];
+                for (int folderIndex = 0; category.Folders != null && folderIndex < category.Folders.Count; folderIndex++)
+                {
+                    ManagerFolderData folder = category.Folders[folderIndex];
+                    if (folder.ModIds != null && folder.ModIds.Any(id =>
+                        string.Equals(id, packageId, StringComparison.OrdinalIgnoreCase)))
+                    {
+                        ownerCategory = category;
+                        ownerFolder = folder;
+                        break;
+                    }
+                }
+            }
+
+            if (ownerFolder != null)
+            {
+                tagMode = false;
+                currentCategoryId = ownerCategory.Id;
+                currentFolderId = ownerFolder.Id;
+                ownerFolder.Collapsed = false;
+                selectedPackageIds.Clear();
+                primarySelectedPackageId = null;
+                lastSelectedIndex = -1;
+                RefreshVisibleMods();
+                int visibleIndex = visibleMods.FindIndex(mod => string.Equals(
+                    mod.PackageId, packageId, StringComparison.OrdinalIgnoreCase));
+                if (visibleIndex >= 0)
+                {
+                    SelectMod(visibleIndex, false, false);
+                    float rowY = GetVisibleModRowY(packageId);
+                    modListScroll.y = Mathf.Max(0f, rowY - RowHeight);
+                    return;
+                }
+            }
+            else
+            {
+                ManagerTagData ownerTag = null;
+                ManagerFolderData ownerTagFolder = null;
+                for (int tagIndex = 0; tagIndex < tags.Count && ownerTagFolder == null; tagIndex++)
+                {
+                    ManagerTagData tag = tags[tagIndex];
+                    for (int folderIndex = 0; tag.Folders != null && folderIndex < tag.Folders.Count; folderIndex++)
+                    {
+                        ManagerFolderData folder = tag.Folders[folderIndex];
+                        if (folder.ModIds != null && folder.ModIds.Any(id =>
+                            string.Equals(id, packageId, StringComparison.OrdinalIgnoreCase)))
+                        {
+                            ownerTag = tag;
+                            ownerTagFolder = folder;
+                            break;
+                        }
+                    }
+                }
+                if (ownerTagFolder != null)
+                {
+                    tagMode = true;
+                    currentTagId = ownerTag.Id;
+                    currentFolderId = ownerTagFolder.Id;
+                    ownerTagFolder.Collapsed = false;
+                    selectedPackageIds.Clear();
+                    primarySelectedPackageId = null;
+                    lastSelectedIndex = -1;
+                    RefreshVisibleMods();
+                    int visibleIndex = visibleMods.FindIndex(mod => string.Equals(
+                        mod.PackageId, packageId, StringComparison.OrdinalIgnoreCase));
+                    if (visibleIndex >= 0)
+                    {
+                        SelectMod(visibleIndex, false, false);
+                        float rowY = GetVisibleModRowY(packageId);
+                        modListScroll.y = Mathf.Max(0f, rowY - RowHeight);
+                        return;
+                    }
+                }
+            }
+
+            selectedPackageIds.Clear();
+            primarySelectedPackageId = packageId;
+            lastSelectedIndex = -1;
+        }
+
+        private ModRowIssue GetModRowIssue(ModMetaData mod)
+        {
+            if (mod == null || mod.PackageId.NullOrEmpty())
+                return ModRowIssue.None;
+
+            ModRowIssue cached;
+            if (modRowIssueCache.TryGetValue(mod.PackageId, out cached))
+                return cached == ModRowIssue.None && loadOrderIssuePackageIds.Contains(mod.PackageId)
+                    ? ModRowIssue.LoadOrder
+                    : cached;
+
+            ModRowIssue issue = ModRowIssue.None;
+            try
+            {
+                foreach (ModRequirement requirement in mod.GetRequirements())
+                {
+                    if (requirement == null || requirement.IsSatisfied)
+                        continue;
+                    string requirementType = requirement.RequirementTypeLabel ?? string.Empty;
+                    string tooltip = requirement.Tooltip ?? string.Empty;
+                    bool isVersionIssue = requirementType.IndexOf("version",
+                        StringComparison.OrdinalIgnoreCase) >= 0 ||
+                        requirementType.IndexOf("버전", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                        tooltip.IndexOf("version", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                        tooltip.IndexOf("버전", StringComparison.OrdinalIgnoreCase) >= 0;
+                    if (isVersionIssue)
+                        issue = ModRowIssue.Version;
+                    else if (issue != ModRowIssue.Version)
+                        issue = ModRowIssue.RequiredMod;
+                }
+            }
+            catch (Exception)
+            {
+                // Keep the row usable if game metadata contains an invalid requirement.
+            }
+
+            modRowIssueCache[mod.PackageId] = issue;
+            return issue == ModRowIssue.None && loadOrderIssuePackageIds.Contains(mod.PackageId)
+                ? ModRowIssue.LoadOrder
+                : issue;
         }
 
         private void RebuildLoadOrderIssueIds()
