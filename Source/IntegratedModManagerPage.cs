@@ -277,9 +277,7 @@ namespace Lilly.IntegratedModManager
                 float actionX = tabRect.x + 4f;
                 float actionY = tabRect.y + 32f;
                 float[] actionWidths = { 22f, 22f, 24f, 22f, 22f, 22f };
-                float actionWidthTotal = actionWidths.Sum();
-                float actionGap = Mathf.Max(3f,
-                    (tabRect.width - 8f - actionWidthTotal) / (actionWidths.Length - 1));
+                const float actionGap = 3f;
                 if (Widgets.ButtonText(new Rect(actionX, actionY, actionWidths[0], 24f), "+"))
                     OpenCreateCategoryDialog(categoryIndex);
                 float buttonX = actionX + actionWidths[0] + actionGap;
