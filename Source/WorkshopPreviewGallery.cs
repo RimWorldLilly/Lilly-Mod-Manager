@@ -5,12 +5,22 @@ using System.Linq;
 using System.Net.Http;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
+using System.Threading;
 using UnityEngine;
 
 namespace Lilly.IntegratedModManager
 {
     internal static class WorkshopPreviewGallery
     {
+        internal enum WorkshopItemStatus
+        {
+            Unknown,
+            Checking,
+            Available,
+            Missing,
+            CheckFailed
+        }
+
         internal sealed class GalleryEntry
         {
             internal volatile bool Loading;
@@ -25,6 +35,11 @@ namespace Lilly.IntegratedModManager
         };
         private static readonly ConcurrentDictionary<ulong, GalleryEntry> Entries =
             new ConcurrentDictionary<ulong, GalleryEntry>();
+        private static readonly ConcurrentDictionary<ulong, WorkshopItemStatus> ItemStatuses =
+            new ConcurrentDictionary<ulong, WorkshopItemStatus>();
+        private static readonly SemaphoreSlim AvailabilityRequestLimit = new SemaphoreSlim(2, 2);
+        private static readonly Regex WorkshopResultRegex = new Regex(
+            @"\""result\""\s*:\s*(\d+)", RegexOptions.Compiled | RegexOptions.IgnoreCase);
         private static readonly Regex UrlRegex = new Regex(
             @"https?:\\?/\\?/[^\""'\s<>]+", RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
@@ -39,6 +54,64 @@ namespace Lilly.IntegratedModManager
                 Task.Run(() => LoadAsync(workshopId, entry));
             }
             return entry;
+        }
+
+        internal static WorkshopItemStatus RequestAvailability(ulong workshopId)
+        {
+            if (workshopId == 0UL)
+                return WorkshopItemStatus.Unknown;
+            WorkshopItemStatus status;
+            if (!ItemStatuses.TryGetValue(workshopId, out status))
+            {
+                if (ItemStatuses.TryAdd(workshopId, WorkshopItemStatus.Checking))
+                    Task.Run(() => CheckAvailabilityAsync(workshopId));
+                return WorkshopItemStatus.Checking;
+            }
+            return status;
+        }
+
+        private static async Task CheckAvailabilityAsync(ulong workshopId)
+        {
+            await AvailabilityRequestLimit.WaitAsync().ConfigureAwait(false);
+            try
+            {
+                using (HttpContent content = new FormUrlEncodedContent(new[]
+                {
+                    new KeyValuePair<string, string>("itemcount", "1"),
+                    new KeyValuePair<string, string>("publishedfileids[0]", workshopId.ToString())
+                }))
+                using (HttpResponseMessage response = await Client.PostAsync(
+                    "https://api.steampowered.com/ISteamRemoteStorage/GetPublishedFileDetails/v1/",
+                    content).ConfigureAwait(false))
+                {
+                    response.EnsureSuccessStatusCode();
+                    string json = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+                    Match resultMatch = WorkshopResultRegex.Match(json);
+                    if (!resultMatch.Success)
+                    {
+                        ItemStatuses[workshopId] = WorkshopItemStatus.CheckFailed;
+                        return;
+                    }
+
+                    int result;
+                    if (!int.TryParse(resultMatch.Groups[1].Value, out result))
+                        ItemStatuses[workshopId] = WorkshopItemStatus.CheckFailed;
+                    else
+                        ItemStatuses[workshopId] = result == 1
+                            ? WorkshopItemStatus.Available
+                            : result == 9
+                                ? WorkshopItemStatus.Missing
+                                : WorkshopItemStatus.CheckFailed;
+                }
+            }
+            catch (Exception)
+            {
+                ItemStatuses[workshopId] = WorkshopItemStatus.CheckFailed;
+            }
+            finally
+            {
+                AvailabilityRequestLimit.Release();
+            }
         }
 
         internal static IReadOnlyList<Texture2D> GetTextures(GalleryEntry entry)

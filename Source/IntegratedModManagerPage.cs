@@ -35,6 +35,8 @@ namespace Lilly.IntegratedModManager
             new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
         private readonly Dictionary<string, List<string>> loadBeforeCache =
             new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
+        private readonly Dictionary<string, ulong> workshopIdCache =
+            new Dictionary<string, ulong>(StringComparer.OrdinalIgnoreCase);
 
         private string currentCategoryId;
         private string currentTagId;
@@ -56,6 +58,7 @@ namespace Lilly.IntegratedModManager
         private Vector2 modListScroll;
         private Vector2 descriptionScroll;
         private Vector2 workshopGalleryScroll;
+        private float modListViewportHeight;
         private string dragPackageId;
         private bool isDraggingMod;
         private readonly List<string> dragSelection = new List<string>();
@@ -809,6 +812,7 @@ namespace Lilly.IntegratedModManager
 
             Widgets.DrawBox(rect);
             Rect innerRect = rect.ContractedBy(8f);
+            modListViewportHeight = innerRect.height;
             float viewHeight = Mathf.Max(innerRect.height, GetFolderListHeight(category));
             float scrollbarWidth = viewHeight > innerRect.height
                 ? ManagerUiMetrics.VerticalScrollbarWidth
@@ -902,6 +906,7 @@ namespace Lilly.IntegratedModManager
 
             Widgets.DrawBox(rect);
             Rect innerRect = rect.ContractedBy(8f);
+            modListViewportHeight = innerRect.height;
             float viewHeight = Mathf.Max(innerRect.height, GetFolderListHeight(tag));
             float scrollbarWidth = viewHeight > innerRect.height
                 ? ManagerUiMetrics.VerticalScrollbarWidth
@@ -1100,12 +1105,30 @@ namespace Lilly.IntegratedModManager
 
             string name = GetDisplayName(mod);
             Color previousTextColor = GUI.color;
-            if (loadOrderIssuePackageIds.Contains(mod.PackageId))
+            bool hasLoadOrderIssue = loadOrderIssuePackageIds.Contains(mod.PackageId);
+            if (hasLoadOrderIssue)
             {
                 GUI.color = new Color(1f, 0.28f, 0.28f, 1f);
                 TooltipHandler.TipRegion(nameRect, ManagerTranslation.Get("LMM_0143"));
             }
-            Widgets.Label(nameRect, protectedMod ? name + ManagerTranslation.Get("LMM_0001") : name);
+            string rowName = protectedMod ? name + ManagerTranslation.Get("LMM_0001") : name;
+            Widgets.Label(nameRect, rowName);
+            bool workshopItemMissing = false;
+            bool rowIsVisible = y + RowHeight >= modListScroll.y &&
+                y <= modListScroll.y + modListViewportHeight;
+            if (rowIsVisible && mod.OnSteamWorkshop)
+            {
+                ulong workshopId = GetCachedWorkshopId(mod);
+                workshopItemMissing = WorkshopPreviewGallery.RequestAvailability(workshopId) ==
+                    WorkshopPreviewGallery.WorkshopItemStatus.Missing;
+            }
+            if (workshopItemMissing)
+            {
+                float strikeWidth = Mathf.Min(Text.CalcSize(rowName).x, nameRect.width);
+                Widgets.DrawLineHorizontal(nameRect.x, rowRect.y + RowHeight * 0.52f,
+                    strikeWidth);
+                TooltipHandler.TipRegion(nameRect, ManagerTranslation.Get("LMM_0144"));
+            }
             GUI.color = previousTextColor;
         }
 
@@ -2542,6 +2565,18 @@ namespace Lilly.IntegratedModManager
                     Messages.Message(message,
                         failures.Count == 0 ? MessageTypeDefOf.TaskCompletion : MessageTypeDefOf.RejectInput);
                 }, destructive: true));
+        }
+
+        private ulong GetCachedWorkshopId(ModMetaData mod)
+        {
+            if (mod == null || mod.PackageId.NullOrEmpty())
+                return 0UL;
+            ulong workshopId;
+            if (workshopIdCache.TryGetValue(mod.PackageId, out workshopId))
+                return workshopId;
+            workshopId = GetWorkshopItemId(mod);
+            workshopIdCache[mod.PackageId] = workshopId;
+            return workshopId;
         }
 
         private static ulong GetWorkshopItemId(ModMetaData mod)
