@@ -16,16 +16,6 @@ namespace Lilly.IntegratedModManager
 {
     internal sealed class IntegratedModManagerPage : Page
     {
-        private enum ModFilter
-        {
-            All,
-            Active,
-            Inactive,
-            Subscribed,
-            Untagged,
-            Uncategorized
-        }
-
         private const float RowHeight = 27f;
         private const float BottomHeight = 30f;
 
@@ -46,7 +36,11 @@ namespace Lilly.IntegratedModManager
         private int lastSelectedIndex = -1;
         private string currentFolderId;
         private string searchText = "";
-        private ModFilter currentModFilter = ModFilter.All;
+        private bool filterActive;
+        private bool filterInactive;
+        private bool filterSubscribed;
+        private bool filterUntagged;
+        private bool filterUncategorized;
         private bool tagMode;
         private bool displayFulfilledRequirements;
         private bool modListHasKeyboardFocus;
@@ -152,8 +146,19 @@ namespace Lilly.IntegratedModManager
         private void DrawSearchField(Rect rect)
         {
             Widgets.Label(new Rect(rect.x, rect.y, 52f, rect.height), ManagerTranslation.Get("LMM_0021"));
+            string[] filterLabels =
+            {
+                ManagerTranslation.Get("LMM_0115"),
+                ManagerTranslation.Get("LMM_0112"),
+                ManagerTranslation.Get("LMM_0110"),
+                ManagerTranslation.Get("LMM_0114"),
+                ManagerTranslation.Get("LMM_0111")
+            };
+            float[] filterWidths = filterLabels.Select(label => Text.CalcSize(label).x + 28f).ToArray();
+            float filterWidth = filterWidths.Sum() + 6f * (filterWidths.Length - 1);
+            float searchWidth = Mathf.Max(120f, rect.width - 54f - filterWidth - 12f);
             string newSearchText = Widgets.TextField(
-                new Rect(rect.x + 54f, rect.y, rect.width - 196f, rect.height),
+                new Rect(rect.x + 54f, rect.y, searchWidth, rect.height),
                 searchText);
             if (!string.Equals(newSearchText, searchText, StringComparison.Ordinal))
             {
@@ -165,7 +170,7 @@ namespace Lilly.IntegratedModManager
             }
 
             if (!searchText.NullOrEmpty() &&
-                Widgets.ButtonText(new Rect(rect.xMax - 150f, rect.y, 34f, rect.height), "×"))
+                Widgets.ButtonText(new Rect(rect.x + 54f + searchWidth - 36f, rect.y, 34f, rect.height), "×"))
             {
                 searchText = "";
                 selectedPackageIds.Clear();
@@ -174,50 +179,40 @@ namespace Lilly.IntegratedModManager
                 RefreshVisibleMods();
             }
 
-            Rect filterRect = new Rect(rect.xMax - 112f, rect.y, 108f, rect.height);
-            if (Widgets.ButtonText(filterRect, GetFilterLabel()))
+            float filterX = rect.x + 54f + searchWidth + 12f;
+            bool filtersChanged = false;
+            bool activeChanged = DrawFilterCheckbox(ref filterActive, filterLabels[0],
+                new Rect(filterX, rect.y, filterWidths[0], rect.height));
+            filtersChanged |= activeChanged;
+            filterX += filterWidths[0] + 6f;
+            bool inactiveChanged = DrawFilterCheckbox(ref filterInactive, filterLabels[1],
+                new Rect(filterX, rect.y, filterWidths[1], rect.height));
+            filtersChanged |= inactiveChanged;
+            filterX += filterWidths[1] + 6f;
+            filtersChanged |= DrawFilterCheckbox(ref filterSubscribed, filterLabels[2],
+                new Rect(filterX, rect.y, filterWidths[2], rect.height));
+            filterX += filterWidths[2] + 6f;
+            filtersChanged |= DrawFilterCheckbox(ref filterUntagged, filterLabels[3],
+                new Rect(filterX, rect.y, filterWidths[3], rect.height));
+            filterX += filterWidths[3] + 6f;
+            filtersChanged |= DrawFilterCheckbox(ref filterUncategorized, filterLabels[4],
+                new Rect(filterX, rect.y, filterWidths[4], rect.height));
+
+            if (filtersChanged)
             {
-                currentModFilter = NextFilter(currentModFilter);
+                if (activeChanged && filterActive)
+                    filterInactive = false;
+                if (inactiveChanged && filterInactive)
+                    filterActive = false;
                 RefreshVisibleMods();
             }
         }
 
-        private static ModFilter NextFilter(ModFilter filter)
+        private static bool DrawFilterCheckbox(ref bool value, string label, Rect rect)
         {
-            switch (filter)
-            {
-                case ModFilter.All:
-                    return ModFilter.Active;
-                case ModFilter.Active:
-                    return ModFilter.Inactive;
-                case ModFilter.Inactive:
-                    return ModFilter.Subscribed;
-                case ModFilter.Subscribed:
-                    return ModFilter.Untagged;
-                case ModFilter.Untagged:
-                    return ModFilter.Uncategorized;
-                default:
-                    return ModFilter.All;
-            }
-        }
-
-        private string GetFilterLabel()
-        {
-            switch (currentModFilter)
-            {
-                case ModFilter.Active:
-                    return ManagerTranslation.Get("LMM_0115");
-                case ModFilter.Inactive:
-                    return ManagerTranslation.Get("LMM_0112");
-                case ModFilter.Subscribed:
-                    return ManagerTranslation.Get("LMM_0110");
-                case ModFilter.Untagged:
-                    return ManagerTranslation.Get("LMM_0114");
-                case ModFilter.Uncategorized:
-                    return ManagerTranslation.Get("LMM_0111");
-                default:
-                    return ManagerTranslation.Get("LMM_0113");
-            }
+            bool previous = value;
+            Widgets.CheckboxLabeled(rect, label, ref value);
+            return previous != value;
         }
 
         private void DrawCategoryTabs(Rect rect)
@@ -3808,22 +3803,17 @@ namespace Lilly.IntegratedModManager
         {
             ManagerModData state = FindModState(mod.PackageId);
             bool active = state != null && state.Enabled;
-
-            switch (currentModFilter)
-            {
-                case ModFilter.Active:
-                    return active;
-                case ModFilter.Inactive:
-                    return !active;
-                case ModFilter.Subscribed:
-                    return IsSteamSubscribed(mod);
-                case ModFilter.Untagged:
-                    return state == null || state.TagIds == null || state.TagIds.Count == 0;
-                case ModFilter.Uncategorized:
-                    return IsInUncategorizedFolder(mod.PackageId);
-                default:
-                    return true;
-            }
+            if (filterActive && !active)
+                return false;
+            if (filterInactive && active)
+                return false;
+            if (filterSubscribed && !IsSteamSubscribed(mod))
+                return false;
+            if (filterUntagged && state != null && state.TagIds != null && state.TagIds.Count > 0)
+                return false;
+            if (filterUncategorized && !IsInUncategorizedFolder(mod.PackageId))
+                return false;
+            return true;
         }
 
         private bool IsInUncategorizedFolder(string packageId)
