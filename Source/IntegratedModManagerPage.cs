@@ -49,6 +49,7 @@ namespace Lilly.IntegratedModManager
         private Vector2 tagTabScroll;
         private Vector2 modListScroll;
         private Vector2 descriptionScroll;
+        private Vector2 workshopGalleryScroll;
         private string dragPackageId;
         private bool isDraggingMod;
         private readonly List<string> dragSelection = new List<string>();
@@ -1153,6 +1154,16 @@ namespace Lilly.IntegratedModManager
                 y += previewHeight + 8f;
             }
 
+            string workshopPageUrl = GetSteamWorkshopPageUrl(mod);
+            if (!workshopPageUrl.NullOrEmpty())
+            {
+                if (Widgets.ButtonText(new Rect(inner.x, y, 180f, 28f),
+                    "WorkshopPage".Translate()))
+                    OpenUrl(workshopPageUrl);
+                y += 34f;
+            }
+            DrawWorkshopGallery(inner, ref y, mod);
+
             Text.Font = GameFont.Medium;
             Widgets.Label(new Rect(inner.x, y, inner.width, 36f), GetDisplayName(mod));
             Text.Font = GameFont.Small;
@@ -1301,13 +1312,6 @@ namespace Lilly.IntegratedModManager
             float actionX = inner.x;
             float actionY = y;
             bool hasActionButtons = false;
-            string workshopPageUrl = GetSteamWorkshopPageUrl(mod);
-            if (!workshopPageUrl.NullOrEmpty())
-            {
-                DrawDetailActionButton(inner, ref actionX, ref actionY, 150f,
-                    "WorkshopPage".Translate(), () => OpenUrl(workshopPageUrl));
-                hasActionButtons = true;
-            }
             if (GetAvailableModActionCount(mod) > 0)
             {
                 DrawDetailActionButton(inner, ref actionX, ref actionY, 140f,
@@ -2503,12 +2507,52 @@ namespace Lilly.IntegratedModManager
                 if (value != null && ulong.TryParse(value.ToString(), out directId) && directId > 0UL)
                     return directId;
             }
+
+            MethodInfo getPublishedFileId = typeof(ModMetaData).GetMethod("GetPublishedFileId",
+                BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic,
+                null, Type.EmptyTypes, null);
+            if (getPublishedFileId != null)
+            {
+                try
+                {
+                    ulong publishedId = ParseWorkshopId(getPublishedFileId.Invoke(mod, null));
+                    if (publishedId > 0UL)
+                        return publishedId;
+                }
+                catch (Exception)
+                {
+                    // A Steamworks ID type may not be available outside Steam.
+                }
+            }
             string url = GetWorkshopUrl(mod);
             if (url.NullOrEmpty())
                 return 0UL;
             Match match = Regex.Match(url, @"(?:id=|/)(\d{6,})", RegexOptions.IgnoreCase);
             ulong id;
             return match.Success && ulong.TryParse(match.Groups[1].Value, out id) ? id : 0UL;
+        }
+
+        private static ulong ParseWorkshopId(object value)
+        {
+            if (value == null)
+                return 0UL;
+            ulong parsed;
+            if (ulong.TryParse(value.ToString(), out parsed))
+                return parsed;
+
+            Type type = value.GetType();
+            FieldInfo[] fields = type.GetFields(BindingFlags.Instance |
+                BindingFlags.Public | BindingFlags.NonPublic);
+            for (int i = 0; i < fields.Length; i++)
+            {
+                if (fields[i].Name.IndexOf("PublishedFile", StringComparison.OrdinalIgnoreCase) < 0 &&
+                    fields[i].Name.IndexOf("Value", StringComparison.OrdinalIgnoreCase) < 0)
+                    continue;
+                object fieldValue = fields[i].GetValue(value);
+                if (fieldValue != null && ulong.TryParse(fieldValue.ToString(), out parsed))
+                    return parsed;
+            }
+            return 0UL;
         }
 
         private static bool TryUnsubscribeWorkshopItem(ulong itemId)
@@ -4138,6 +4182,36 @@ namespace Lilly.IntegratedModManager
                     return value.ToString();
             }
             return string.Empty;
+        }
+
+        private void DrawWorkshopGallery(Rect inner, ref float y, ModMetaData mod)
+        {
+            ulong workshopId = GetWorkshopItemId(mod);
+            if (workshopId == 0UL)
+                return;
+
+            WorkshopPreviewGallery.GalleryEntry gallery = WorkshopPreviewGallery.Request(workshopId);
+            IReadOnlyList<Texture2D> images = WorkshopPreviewGallery.GetTextures(gallery);
+            if (images.Count == 0)
+                return;
+
+            float cellWidth = 106f;
+            float galleryHeight = 76f;
+            float contentWidth = Mathf.Max(inner.width, images.Count * cellWidth);
+            float horizontalScrollbarHeight = contentWidth > inner.width
+                ? ManagerUiMetrics.HorizontalScrollbarHeight
+                : 0f;
+            Rect galleryRect = new Rect(inner.x, y, inner.width,
+                galleryHeight + horizontalScrollbarHeight);
+            Rect viewRect = new Rect(0f, 0f, contentWidth, galleryHeight);
+            Widgets.BeginScrollView(galleryRect, ref workshopGalleryScroll, viewRect);
+            for (int i = 0; i < images.Count; i++)
+            {
+                Rect imageRect = new Rect(i * cellWidth, 0f, cellWidth - 6f, galleryHeight - 4f);
+                GUI.DrawTexture(imageRect, images[i], ScaleMode.ScaleToFit);
+            }
+            Widgets.EndScrollView();
+            y += galleryRect.height + 6f;
         }
 
         private static object ReadMetadataValue(object mod, string name)

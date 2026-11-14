@@ -39,9 +39,9 @@ namespace Lilly.IntegratedModManager
 
         private readonly List<List<FolderMoveTarget>> columns;
         private readonly Action<FolderMoveTarget> onTargetSelected;
-        private readonly Vector2[] columnScroll = new Vector2[3];
+        private readonly Vector2[] columnScroll;
+        private Vector2 horizontalScroll;
         private string searchText = string.Empty;
-        private int firstColumn;
 
         public override Vector2 InitialSize
         {
@@ -55,6 +55,7 @@ namespace Lilly.IntegratedModManager
         {
             this.columns = columns ?? new List<List<FolderMoveTarget>>();
             this.onTargetSelected = onTargetSelected;
+            columnScroll = new Vector2[Mathf.Max(1, this.columns.Count)];
             doCloseX = true;
             absorbInputAroundWindow = true;
             closeOnCancel = true;
@@ -73,29 +74,21 @@ namespace Lilly.IntegratedModManager
                 new Rect(searchRect.x + 48f, searchRect.y, searchRect.width - 48f, searchRect.height),
                 searchText);
 
-            int lastFirstColumn = Mathf.Max(0, columns.Count - 3);
-            if (columns.Count > 3)
-            {
-                if (Widgets.ButtonText(new Rect(rect.width - 116f, 34f, 30f, 28f), "‹"))
-                    firstColumn = Mathf.Max(0, firstColumn - 1);
-                Widgets.Label(new Rect(rect.width - 82f, 34f, 40f, 28f),
-                    (firstColumn + 1) + "–" + Mathf.Min(firstColumn + 3, columns.Count));
-                if (Widgets.ButtonText(new Rect(rect.width - 40f, 34f, 30f, 28f), "›"))
-                    firstColumn = Mathf.Min(lastFirstColumn, firstColumn + 1);
-            }
-            firstColumn = Mathf.Clamp(firstColumn, 0, lastFirstColumn);
-
-            float columnWidth = (rect.width - 30f) / 3f;
+            float columnWidth = Mathf.Max(220f, (rect.width - 30f) / 3f);
             float y = 70f;
             float listHeight = rect.height - 80f;
-
-            for (int visibleColumn = 0; visibleColumn < 3; visibleColumn++)
+            Rect columnsRect = new Rect(0f, y, rect.width, listHeight);
+            float contentWidth = Mathf.Max(columnsRect.width, columns.Count * columnWidth);
+            float horizontalScrollbarHeight = contentWidth > columnsRect.width
+                ? ManagerUiMetrics.HorizontalScrollbarHeight
+                : 0f;
+            Rect columnsViewRect = new Rect(0f, 0f, contentWidth,
+                Mathf.Max(0f, columnsRect.height - horizontalScrollbarHeight));
+            Widgets.BeginScrollView(columnsRect, ref horizontalScroll, columnsViewRect);
+            for (int columnIndex = 0; columnIndex < columns.Count; columnIndex++)
             {
-                int columnIndex = firstColumn + visibleColumn;
-                if (columnIndex >= columns.Count)
-                    break;
                 List<FolderMoveTarget> targets = columns[columnIndex];
-                float x = 10f + visibleColumn * columnWidth;
+                float x = columnIndex * columnWidth + 10f;
                 Rect columnRect = new Rect(x, y, columnWidth - 10f, listHeight);
                 Widgets.DrawBoxSolid(columnRect, new Color(0.08f, 0.08f, 0.08f, 1f));
 
@@ -121,7 +114,7 @@ namespace Lilly.IntegratedModManager
                     float scrollbarWidth = viewHeight > listRect.height
                         ? ManagerUiMetrics.VerticalScrollbarWidth
                         : 0f;
-                    Widgets.BeginScrollView(listRect, ref columnScroll[visibleColumn],
+                    Widgets.BeginScrollView(listRect, ref columnScroll[columnIndex],
                         new Rect(0f, 0f, listRect.width - scrollbarWidth, viewHeight));
                     for (int i = 0; i < visibleTargets.Count; i++)
                     {
@@ -162,6 +155,7 @@ namespace Lilly.IntegratedModManager
                         columnRect.width - 16f, 24f), ManagerTranslation.Get("LMM_0097"));
                 }
             }
+            Widgets.EndScrollView();
         }
     }
 }
