@@ -130,15 +130,24 @@ namespace Lilly.IntegratedModManager
             Widgets.Label(new Rect(20f, 10f, inRect.width - 470f, 36f),
                 "Lilly - Integrated Mod Manager");
             Text.Font = GameFont.Small;
-            if (Widgets.ButtonText(new Rect(inRect.width - 150f, 10f, 130f, 30f), ManagerTranslation.Get("LMM_0067")))
-                SortAllCategories();
             float contentBottom = inRect.height - BottomHeight - 20f;
             float sidebarWidth = inRect.width * 0.25f;
             float mainX = 20f + sidebarWidth + 12f;
             float mainWidth = Mathf.Max(100f, inRect.width - mainX - 20f);
-            DrawCategoryTabs(new Rect(20f, 48f, sidebarWidth, contentBottom - 48f));
 
-            Rect searchRect = new Rect(mainX, 48f, mainWidth, 30f);
+            const float searchTop = 48f;
+            const float searchHeight = 30f;
+            const float sortButtonWidth = 130f;
+            const float searchGap = 8f;
+            if (Widgets.ButtonText(new Rect(20f, searchTop, sortButtonWidth, searchHeight),
+                ManagerTranslation.Get("LMM_0067")))
+                SortAllCategories();
+            Rect searchRect = new Rect(20f + sortButtonWidth + searchGap, searchTop,
+                Mathf.Max(100f, inRect.width - 40f - sortButtonWidth - searchGap), searchHeight);
+            float sectionTop = searchRect.yMax + 8f;
+            DrawCategoryTabs(new Rect(20f, sectionTop, sidebarWidth,
+                contentBottom - sectionTop));
+
             float contentTop = searchRect.yMax + 8f;
             float contentHeight = Mathf.Max(100f, contentBottom - contentTop);
             float listWidth = Mathf.Min(mainWidth - 120f, inRect.width * 0.25f);
@@ -4224,7 +4233,127 @@ namespace Lilly.IntegratedModManager
 
         private void OpenSavePresetDialog()
         {
-            Find.WindowStack.Add(new ManagerPresetSaveDialog(presets, SavePreset));
+            Find.WindowStack.Add(new ManagerPresetSaveDialog(
+                presets, SavePreset, SaveVanillaModList));
+        }
+
+        private void SaveVanillaModList(string requestedName)
+        {
+            string name = SanitizeModListName(requestedName);
+            if (name.NullOrEmpty())
+            {
+                Messages.Message(ManagerTranslation.Get("LMM_0064"),
+                    MessageTypeDefOf.RejectInput);
+                return;
+            }
+
+            List<string> activePackageIds = new List<string>();
+            for (int categoryIndex = 0; categoryIndex < categories.Count; categoryIndex++)
+            {
+                ManagerCategoryData category = categories[categoryIndex];
+                if (category == null || category.Folders == null)
+                    continue;
+                for (int folderIndex = 0; folderIndex < category.Folders.Count; folderIndex++)
+                {
+                    ManagerFolderData folder = category.Folders[folderIndex];
+                    if (folder == null || folder.ModIds == null)
+                        continue;
+                    foreach (string packageId in folder.ModIds)
+                    {
+                        ModMetaData mod = FindMod(packageId);
+                        ManagerModData state = FindModState(packageId);
+                        if (mod != null && (IsProtected(mod) ||
+                            (category.Enabled && state != null && state.Enabled)))
+                            activePackageIds.Add(mod.PackageId);
+                    }
+                }
+            }
+            activePackageIds = OrderByDependencies(activePackageIds);
+
+            FileInfo existingFile = GenFilePaths.AllModListFiles.FirstOrDefault(file =>
+                string.Equals(Path.GetFileNameWithoutExtension(file.Name), name,
+                    StringComparison.OrdinalIgnoreCase));
+            if (existingFile != null)
+            {
+                Find.WindowStack.Add(new Dialog_MessageBox(
+                    ManagerTranslation.Get("LMM_0162") + name,
+                    ManagerTranslation.Get("LMM_0134"),
+                    () => WriteVanillaModList(name, activePackageIds),
+                    ManagerTranslation.Get("LMM_0074"), null,
+                    null, false, null, null, WindowLayer.Dialog));
+                return;
+            }
+
+            WriteVanillaModList(name, activePackageIds);
+        }
+
+        private static string SanitizeModListName(string name)
+        {
+            if (name.NullOrEmpty())
+                return "";
+            char[] invalidCharacters = Path.GetInvalidFileNameChars();
+            string sanitized = new string(name.Trim().Select(character =>
+                invalidCharacters.Contains(character) ? '_' : character).ToArray());
+            return sanitized.Trim().Trim('.');
+        }
+
+        private static void WriteVanillaModList(string name, List<string> packageIds)
+        {
+            try
+            {
+                Type modListType = typeof(RimWorld.ModList);
+                object modList = Activator.CreateInstance(modListType, true);
+                FieldInfo idsField = modListType.GetField("ids",
+                    BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public);
+                if (modList == null || idsField == null)
+                    throw new MissingMemberException("Could not initialize the vanilla mod list.");
+                idsField.SetValue(modList, packageIds);
+
+                MethodInfo[] saveMethods = typeof(GameDataSaveLoader).GetMethods(
+                    BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic)
+                    .Where(method => method.Name == "SaveModList")
+                    .OrderByDescending(method => method.GetParameters().Length).ToArray();
+                foreach (MethodInfo method in saveMethods)
+                {
+                    ParameterInfo[] parameters = method.GetParameters();
+                    object[] arguments = new object[parameters.Length];
+                    bool supported = true;
+                    for (int i = 0; i < parameters.Length; i++)
+                    {
+                        Type parameterType = parameters[i].ParameterType;
+                        if (parameterType.IsAssignableFrom(modListType))
+                            arguments[i] = modList;
+                        else if (parameterType == typeof(string))
+                            arguments[i] = name;
+                        else if (parameterType.IsAssignableFrom(typeof(List<string>)))
+                            arguments[i] = packageIds;
+                        else if (parameterType == typeof(string[]))
+                            arguments[i] = packageIds.ToArray();
+                        else
+                        {
+                            supported = false;
+                            break;
+                        }
+                    }
+                    if (!supported)
+                        continue;
+
+                    object result = method.Invoke(null, arguments);
+                    if (method.ReturnType == typeof(bool) && result is bool && !(bool)result)
+                        throw new IOException("The game rejected the mod list save request.");
+                    Messages.Message(ManagerTranslation.Get("LMM_0161") + name,
+                        MessageTypeDefOf.PositiveEvent);
+                    return;
+                }
+
+                throw new MissingMethodException("Could not find a compatible vanilla mod list save method.");
+            }
+            catch (Exception exception)
+            {
+                Log.Warning("Failed to save vanilla mod list '" + name + "': " + exception);
+                Messages.Message(ManagerTranslation.Get("LMM_0163"),
+                    MessageTypeDefOf.RejectInput);
+            }
         }
 
         private void SavePreset(string name, ManagerPresetData existingPreset)

@@ -11,6 +11,7 @@ namespace Lilly.IntegratedModManager
         private const float RowHeight = 38f;
         private readonly IList<ManagerPresetData> presets;
         private readonly Action<string, ManagerPresetData> onSave;
+        private readonly Action<string> onSaveVanillaList;
         private Vector2 scrollPosition;
         private string inputName = "";
         private bool focusNameOnNextDraw = true;
@@ -21,10 +22,12 @@ namespace Lilly.IntegratedModManager
 
         internal ManagerPresetSaveDialog(
             IList<ManagerPresetData> presets,
-            Action<string, ManagerPresetData> onSave)
+            Action<string, ManagerPresetData> onSave,
+            Action<string> onSaveVanillaList)
         {
             this.presets = presets ?? new List<ManagerPresetData>();
             this.onSave = onSave;
+            this.onSaveVanillaList = onSaveVanillaList;
             doCloseX = true;
             absorbInputAroundWindow = true;
             closeOnCancel = true;
@@ -89,12 +92,28 @@ namespace Lilly.IntegratedModManager
             Widgets.EndScrollView();
 
             float buttonY = rect.height - 34f;
+            if (Widgets.ButtonText(new Rect(0f, buttonY, 190f, 30f),
+                ManagerTranslation.Get("LMM_0160")))
+                SaveVanillaList();
             if (Widgets.ButtonText(new Rect(rect.width - 250f, buttonY, 120f, 30f),
                 ManagerTranslation.Get("LMM_0124")))
                 Close();
             if (Widgets.ButtonText(new Rect(rect.width - 120f, buttonY, 120f, 30f),
                 ManagerTranslation.Get("LMM_0135")))
                 SaveNewPreset();
+        }
+
+        private void SaveVanillaList()
+        {
+            string name = inputName == null ? "" : inputName.Trim();
+            if (name.NullOrEmpty())
+            {
+                Messages.Message(ManagerTranslation.Get("LMM_0064"),
+                    RimWorld.MessageTypeDefOf.RejectInput);
+                return;
+            }
+            if (onSaveVanillaList != null)
+                onSaveVanillaList(name);
         }
 
         private void SaveNewPreset()

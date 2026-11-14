@@ -160,4 +160,8 @@
   <LMM_0157>Move this mod before following mods</LMM_0157>
   <LMM_0158>Categories</LMM_0158>
   <LMM_0159>Tags</LMM_0159>
+  <LMM_0160>Save vanilla mod list</LMM_0160>
+  <LMM_0161>Vanilla mod list saved: </LMM_0161>
+  <LMM_0162>Overwrite the vanilla mod list with the same name? </LMM_0162>
+  <LMM_0163>Failed to save the vanilla mod list.</LMM_0163>
 </LanguageData>
