@@ -170,8 +170,10 @@ namespace Lilly.IntegratedModManager
                 Text.CalcSize(ManagerTranslation.Get("LMM_0141")).x + 54f;
             float filterWidth = filterWidths.Sum() + 6f * (filterWidths.Length - 1) + radioWidth + 8f;
             float searchWidth = Mathf.Max(120f, rect.width - 54f - filterWidth - 12f);
+            bool hasSearchText = !searchText.NullOrEmpty();
+            float clearButtonWidth = hasSearchText ? 34f : 0f;
             string newSearchText = Widgets.TextField(
-                new Rect(rect.x + 54f, rect.y, searchWidth, rect.height),
+                new Rect(rect.x + 54f, rect.y, searchWidth - clearButtonWidth, rect.height),
                 searchText);
             if (!string.Equals(newSearchText, searchText, StringComparison.Ordinal))
             {
@@ -182,8 +184,9 @@ namespace Lilly.IntegratedModManager
                 RefreshVisibleMods();
             }
 
-            if (!searchText.NullOrEmpty() &&
-                Widgets.ButtonText(new Rect(rect.x + 54f + searchWidth - 36f, rect.y, 34f, rect.height), "×"))
+            if (hasSearchText &&
+                Widgets.ButtonText(new Rect(rect.x + 54f + searchWidth - clearButtonWidth,
+                    rect.y, clearButtonWidth, rect.height), "×"))
             {
                 searchText = "";
                 selectedPackageIds.Clear();
