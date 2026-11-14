@@ -4429,10 +4429,9 @@ namespace Lilly.IntegratedModManager
                 presets.Add(snapshot);
             else
             {
-                int index = presets.IndexOf(existingPreset);
-                if (index < 0)
+                if (!presets.Remove(existingPreset))
                     return;
-                presets[index] = snapshot;
+                presets.Add(snapshot);
             }
 
             SavePresetsToSettings();

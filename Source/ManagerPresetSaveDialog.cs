@@ -153,7 +153,7 @@ namespace Lilly.IntegratedModManager
             Widgets.BeginScrollView(listRect, ref presetScrollPosition, viewRect);
             for (int i = 0; i < presets.Count; i++)
             {
-                ManagerPresetData preset = presets[i];
+                ManagerPresetData preset = presets[presets.Count - 1 - i];
                 if (preset == null)
                     continue;
 
