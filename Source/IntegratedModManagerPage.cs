@@ -3269,7 +3269,29 @@ namespace Lilly.IntegratedModManager
                 return;
             }
             Find.WindowStack.Add(new ManagerPresetLoadDialog(
-                presets, LoadPreset, ConfirmDeletePreset));
+                presets, LoadPreset, ConfirmDeletePreset, ImportVanillaModList));
+        }
+
+        private void ImportVanillaModList(IList<string> activePackageIds)
+        {
+            HashSet<string> active = new HashSet<string>(
+                activePackageIds ?? new List<string>(), StringComparer.OrdinalIgnoreCase);
+            for (int i = 0; i < categories.Count; i++)
+                categories[i].Enabled = true;
+
+            for (int i = 0; i < modStates.Count; i++)
+            {
+                ManagerModData state = modStates[i];
+                ModMetaData mod = FindMod(state.PackageId);
+                if (mod == null)
+                    continue;
+
+                state.Enabled = IsProtected(mod) || active.Contains(mod.PackageId);
+            }
+
+            RefreshVisibleMods();
+            Messages.Message(ManagerTranslation.Get("LMM_0133"),
+                MessageTypeDefOf.PositiveEvent);
         }
 
         private void LoadPreset(ManagerPresetData preset)
