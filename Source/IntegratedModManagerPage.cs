@@ -228,16 +228,20 @@ namespace Lilly.IntegratedModManager
             List<ManagerCategoryData> visibleCategories = categories
                 .Where(MatchesCategorySearch)
                 .ToList();
-            float tabWidth = 300f;
             float tabContentHeight = rect.height - GetTabScrollbarReserve(rect.width);
-            float viewWidth = Mathf.Max(rect.width, visibleCategories.Count * tabWidth);
+            float contentWidth = visibleCategories.Sum(GetCategoryTabSlotWidth);
+            if (visibleCategories.Count > 0)
+                contentWidth -= 6f;
+            float viewWidth = Mathf.Max(rect.width, contentWidth);
             Rect viewRect = new Rect(0f, 0f, viewWidth, rect.height);
             Widgets.BeginScrollView(rect, ref categoryTabScroll, viewRect);
+            float tabX = 0f;
             for (int i = 0; i < visibleCategories.Count; i++)
             {
                 ManagerCategoryData category = visibleCategories[i];
                 int categoryIndex = categories.IndexOf(category);
-                Rect tabRect = new Rect(i * tabWidth, 0f, tabWidth - 6f, tabContentHeight);
+                float tabSlotWidth = GetCategoryTabSlotWidth(category);
+                Rect tabRect = new Rect(tabX, 0f, tabSlotWidth - 6f, tabContentHeight);
                 if (isDraggingMod && Event.current.type == EventType.MouseUp &&
                     tabRect.Contains(Event.current.mousePosition))
                 {
@@ -255,7 +259,7 @@ namespace Lilly.IntegratedModManager
                     category.Enabled = enabled;
 
                 Rect labelRect = new Rect(enabledRect.xMax + 4f, tabRect.y,
-                    Mathf.Max(30f, tabRect.width - enabledRect.width - 172f), 30f);
+                    Mathf.Max(30f, tabRect.width - 63f), 30f);
                 HandleCategoryTabReorder(category, labelRect);
                 string label = category.Name + " (" + GetInstalledCount(category) + ")";
                 if (Widgets.ButtonText(labelRect, label))
@@ -269,6 +273,7 @@ namespace Lilly.IntegratedModManager
                     lastSelectedIndex = -1;
                     RefreshVisibleMods();
                 }
+                TooltipHandler.TipRegion(labelRect, label);
                 Rect editRect = new Rect(labelRect.xMax + 3f, tabRect.y + 3f, 24f, 24f);
                 if (Widgets.ButtonText(editRect, "E"))
                     OpenRenameCategoryDialog(category);
@@ -277,7 +282,8 @@ namespace Lilly.IntegratedModManager
                 float actionX = tabRect.x + 4f;
                 float actionY = tabRect.y + 32f;
                 float[] actionWidths = { 22f, 22f, 24f, 22f, 22f, 22f };
-                const float actionGap = 3f;
+                float actionGap = Mathf.Max(3f,
+                    (tabRect.width - 8f - actionWidths.Sum()) / (actionWidths.Length - 1));
                 if (Widgets.ButtonText(new Rect(actionX, actionY, actionWidths[0], 24f), "+"))
                     OpenCreateCategoryDialog(categoryIndex);
                 float buttonX = actionX + actionWidths[0] + actionGap;
@@ -301,8 +307,20 @@ namespace Lilly.IntegratedModManager
                 buttonX += actionWidths[4] + actionGap;
                 if (Widgets.ButtonText(new Rect(buttonX, actionY, actionWidths[5], 24f), "×"))
                     ConfirmDeleteCategory(category);
+                tabX += tabSlotWidth;
             }
             Widgets.EndScrollView();
+        }
+
+        private float GetCategoryTabSlotWidth(ManagerCategoryData category)
+        {
+            if (category == null)
+                return 163f;
+
+            string label = category.Name + " (" + GetInstalledCount(category) + ")";
+            float titleWidth = Text.CalcSize(label).x;
+            float requiredCardWidth = Mathf.Max(157f, titleWidth + 63f);
+            return requiredCardWidth + 6f;
         }
 
         private float GetTabScrollbarReserve(float availableWidth)
@@ -316,8 +334,13 @@ namespace Lilly.IntegratedModManager
                     : 0f;
             }
 
-            int visibleCategoryCount = categories.Count(MatchesCategorySearch);
-            return visibleCategoryCount * 300f > availableWidth
+            List<ManagerCategoryData> visibleCategories = categories
+                .Where(MatchesCategorySearch)
+                .ToList();
+            float contentWidth = visibleCategories.Sum(GetCategoryTabSlotWidth);
+            if (visibleCategories.Count > 0)
+                contentWidth -= 6f;
+            return contentWidth > availableWidth
                 ? ManagerUiMetrics.HorizontalScrollbarHeight
                 : 0f;
         }
