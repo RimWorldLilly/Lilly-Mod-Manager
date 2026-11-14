@@ -323,6 +323,7 @@ namespace Lilly.IntegratedModManager
                 if (enabled != category.Enabled)
                 {
                     category.Enabled = enabled;
+                    PersistCategoryData();
                     RefreshVisibleMods();
                 }
 
@@ -407,6 +408,7 @@ namespace Lilly.IntegratedModManager
             ManagerCategoryData category = categories[index];
             categories[index] = categories[targetIndex];
             categories[targetIndex] = category;
+            PersistCategoryData();
         }
 
         private void OpenMoveCategoryToPositionMenu(ManagerCategoryData category)
@@ -437,6 +439,7 @@ namespace Lilly.IntegratedModManager
 
             categories.RemoveAt(currentIndex);
             categories.Insert(targetIndex, category);
+            PersistCategoryData();
         }
 
         private void OpenCreateCategoryDialog(int insertIndex)
@@ -467,6 +470,7 @@ namespace Lilly.IntegratedModManager
                         categories.Add(category);
                     currentCategoryId = category.Id;
                     currentFolderId = category.Folders.FirstOrDefault()?.Id;
+                    PersistCategoryData();
                     RefreshVisibleMods();
                     return true;
                 }));
@@ -495,6 +499,7 @@ namespace Lilly.IntegratedModManager
                     }
 
                     category.Name = trimmed;
+                    PersistCategoryData();
                     return true;
                 }));
         }
@@ -516,6 +521,7 @@ namespace Lilly.IntegratedModManager
                 () =>
                 {
                     categories.Remove(category);
+                    PersistCategoryData();
                     if (string.Equals(currentCategoryId, category.Id, StringComparison.OrdinalIgnoreCase))
                     {
                         currentCategoryId = categories.FirstOrDefault()?.Id;
@@ -773,6 +779,7 @@ namespace Lilly.IntegratedModManager
                     ManagerCategoryData moving = categories[from];
                     categories.RemoveAt(from);
                     categories.Insert(to, moving);
+                    PersistCategoryData();
                 }
                 currentCategoryId = category.Id;
                 if (FindFolder(category, currentFolderId) == null)
@@ -838,6 +845,8 @@ namespace Lilly.IntegratedModManager
                     folderList.Insert(to, moving);
                     if (inTagMode)
                         PersistTagData();
+                    else
+                        PersistCategoryData();
                 }
                 currentFolderId = folder.Id;
                 dragFolderId = null;
@@ -918,6 +927,7 @@ namespace Lilly.IntegratedModManager
                 if (Widgets.ButtonText(new Rect(headerRect.x + 2f, y + 2f, 28f, 26f), foldLabel))
                 {
                     folder.Collapsed = !folder.Collapsed;
+                    PersistCategoryData();
                     RefreshVisibleMods();
                 }
 
@@ -2121,7 +2131,12 @@ namespace Lilly.IntegratedModManager
             options.Add(new FloatMenuOption(ManagerTranslation.Get("LMM_0093"),
                 () => SelectFolderMods(folder.ModIds)));
             options.Add(new FloatMenuOption(folder.Collapsed ? ManagerTranslation.Get("LMM_0092") : ManagerTranslation.Get("LMM_0071"),
-                () => folder.Collapsed = !folder.Collapsed));
+                () =>
+                {
+                    folder.Collapsed = !folder.Collapsed;
+                    PersistCategoryData();
+                    RefreshVisibleMods();
+                }));
             Find.WindowStack.Add(new FloatMenu(options));
         }
 
@@ -2894,24 +2909,50 @@ namespace Lilly.IntegratedModManager
             HashSet<string> targetSet = new HashSet<string>(targets ?? new List<string>(),
                 StringComparer.OrdinalIgnoreCase);
             targetSet.Remove(subject.PackageId);
-            List<ManagerCategoryData> targetCategories = new List<ManagerCategoryData>();
+            List<string> targetIds = (targets ?? new List<string>())
+                .Where(id => !string.Equals(id, subject.PackageId,
+                    StringComparison.OrdinalIgnoreCase) && targetSet.Contains(id))
+                .Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+            List<string> crossCategoryTargetIds = targetIds.Where(id =>
+                FindCategoryForPackage(id) != subjectCategory).ToList();
+            bool changed = false;
+
+            if (crossCategoryTargetIds.Count > 0)
+            {
+                if (moveTargets)
+                {
+                    MovePackagesToFolder(crossCategoryTargetIds, subjectCategory, subjectFolder);
+                    changed = true;
+                }
+                else
+                {
+                    string nearestTargetId = beforeSubject
+                        ? crossCategoryTargetIds[crossCategoryTargetIds.Count - 1]
+                        : crossCategoryTargetIds[0];
+                    ManagerCategoryData destinationCategory = FindCategoryForPackage(nearestTargetId);
+                    ManagerFolderData destinationFolder = FindFolderForPackage(
+                        destinationCategory, nearestTargetId);
+                    if (destinationCategory != null && destinationFolder != null)
+                    {
+                        MovePackagesToFolder(new[] { subject.PackageId },
+                            destinationCategory, destinationFolder);
+                        subjectCategory = destinationCategory;
+                        subjectFolder = destinationFolder;
+                        changed = true;
+                    }
+                }
+            }
+
             List<ManagerFolderData> targetFolders = new List<ManagerFolderData>();
             List<string> sameFolderTargets = new List<string>();
-            foreach (string targetId in targetSet)
+            foreach (string targetId in targetIds)
             {
-                ModMetaData targetMod = FindMod(targetId);
-                if (targetMod == null || IsProtected(targetMod))
+                if (FindCategoryForPackage(targetId) != subjectCategory)
                     continue;
-                ManagerCategoryData targetCategory = FindCategoryForPackage(targetId);
-                ManagerFolderData targetFolder = FindFolderForPackage(targetCategory, targetId);
-                if (targetCategory == null || targetFolder == null)
+                ManagerFolderData targetFolder = FindFolderForPackage(subjectCategory, targetId);
+                if (targetFolder == null)
                     continue;
-                if (targetCategory != subjectCategory)
-                {
-                    if (!targetCategories.Contains(targetCategory))
-                        targetCategories.Add(targetCategory);
-                }
-                else if (targetFolder != subjectFolder)
+                if (targetFolder != subjectFolder)
                 {
                     if (!targetFolders.Contains(targetFolder))
                         targetFolders.Add(targetFolder);
@@ -2919,11 +2960,6 @@ namespace Lilly.IntegratedModManager
                 else
                     sameFolderTargets.Add(targetId);
             }
-
-            bool changed = false;
-            if (targetCategories.Count > 0)
-                changed |= ReorderContainers(categories, subjectCategory, targetCategories,
-                    moveTargets, beforeSubject);
             if (targetFolders.Count > 0)
                 changed |= ReorderContainers(subjectCategory.Folders, subjectFolder,
                     targetFolders, moveTargets, beforeSubject);
@@ -2931,7 +2967,49 @@ namespace Lilly.IntegratedModManager
                 changed |= ReorderPackageIds(subjectFolder.ModIds, subject.PackageId,
                     sameFolderTargets, moveTargets, beforeSubject);
             if (changed)
+            {
+                PersistCategoryData();
                 RefreshVisibleMods();
+            }
+        }
+
+        private void MovePackagesToFolder(
+            IEnumerable<string> packageIds,
+            ManagerCategoryData destinationCategory,
+            ManagerFolderData destinationFolder)
+        {
+            if (packageIds == null || destinationCategory == null || destinationFolder == null)
+                return;
+
+            foreach (string packageId in packageIds)
+            {
+                if (packageId.NullOrEmpty())
+                    continue;
+                for (int categoryIndex = 0; categoryIndex < categories.Count; categoryIndex++)
+                {
+                    ManagerCategoryData category = categories[categoryIndex];
+                    if (category == null)
+                        continue;
+                    if (category.ModIds != null)
+                        category.ModIds.RemoveAll(id => string.Equals(id, packageId,
+                            StringComparison.OrdinalIgnoreCase));
+                    if (category.Folders == null)
+                        continue;
+                    for (int folderIndex = 0; folderIndex < category.Folders.Count; folderIndex++)
+                    {
+                        ManagerFolderData folder = category.Folders[folderIndex];
+                        if (folder != null && folder.ModIds != null)
+                            folder.ModIds.RemoveAll(id => string.Equals(id, packageId,
+                                StringComparison.OrdinalIgnoreCase));
+                    }
+                }
+                if (destinationCategory.ModIds != null &&
+                    !destinationCategory.ModIds.Contains(packageId, StringComparer.OrdinalIgnoreCase))
+                    destinationCategory.ModIds.Add(packageId);
+                if (destinationFolder.ModIds != null &&
+                    !destinationFolder.ModIds.Contains(packageId, StringComparer.OrdinalIgnoreCase))
+                    destinationFolder.ModIds.Add(packageId);
+            }
         }
 
         private static bool ReorderContainers<T>(
@@ -3438,6 +3516,7 @@ namespace Lilly.IntegratedModManager
 
             selectedPackageIds.Clear();
             primarySelectedPackageId = null;
+            PersistCategoryData();
             RefreshVisibleMods();
         }
 
@@ -3466,6 +3545,7 @@ namespace Lilly.IntegratedModManager
             currentFolderId = folder.Id;
             selectedPackageIds.Clear();
             primarySelectedPackageId = null;
+            PersistCategoryData();
             RefreshVisibleMods();
         }
 
@@ -3519,6 +3599,7 @@ namespace Lilly.IntegratedModManager
                     category.Folders.Insert(index < 0 ? category.Folders.Count : index + 1,
                         folder);
                     currentFolderId = folder.Id;
+                    PersistCategoryData();
                     return true;
                 }));
         }
@@ -3566,6 +3647,7 @@ namespace Lilly.IntegratedModManager
                     }
 
                     folder.Name = name.Trim();
+                    PersistCategoryData();
                     return true;
                 }));
         }
@@ -3616,6 +3698,7 @@ namespace Lilly.IntegratedModManager
                     }
                     category.Folders.Remove(folder);
                     currentFolderId = uncategorized.Id;
+                    PersistCategoryData();
                     RefreshVisibleMods();
                 },
                 destructive: true));
@@ -3704,7 +3787,10 @@ namespace Lilly.IntegratedModManager
                 return;
             ManagerFolderData folderCurrent = FindFolder(category, currentFolderId);
             if (folderCurrent != null)
+            {
                 SortFolderModIds(folderCurrent);
+                PersistCategoryData();
+            }
         }
 
         private void SortFolderModIds(ManagerFolderData folder)
@@ -3726,6 +3812,7 @@ namespace Lilly.IntegratedModManager
                 for (int folderIndex = 0; folderIndex < category.Folders.Count; folderIndex++)
                     SortFolderModIds(category.Folders[folderIndex]);
             }
+            PersistCategoryData();
             Messages.Message(ManagerTranslation.Get("LMM_0029"),
                 MessageTypeDefOf.TaskCompletion);
         }
@@ -4488,8 +4575,21 @@ namespace Lilly.IntegratedModManager
             if (preset == null)
                 return;
 
+            List<ManagerCategoryData> existingCategories = categories
+                .Where(category => category != null)
+                .Select(category => category.Copy()).ToList();
+            List<ManagerCategoryData> mergedCategories = (preset.Categories ??
+                new List<ManagerCategoryData>())
+                .Where(category => category != null)
+                .Select(category => category.Copy()).ToList();
+            foreach (ManagerCategoryData existingCategory in existingCategories)
+            {
+                if (!mergedCategories.Any(category => string.Equals(category.Id,
+                    existingCategory.Id, StringComparison.OrdinalIgnoreCase)))
+                    mergedCategories.Add(existingCategory);
+            }
             categories.Clear();
-            categories.AddRange(preset.Categories.Select(category => category.Copy()));
+            categories.AddRange(mergedCategories);
             tags.Clear();
             tags.AddRange(preset.Tags.Select(tag => tag.Copy()));
             modStates.Clear();
@@ -4504,6 +4604,7 @@ namespace Lilly.IntegratedModManager
             lastSelectedIndex = -1;
             modListScroll = Vector2.zero;
             RefreshVisibleMods();
+            PersistCategoryData();
             PersistTagData();
             Messages.Message(
                 ManagerTranslation.Get("LMM_0109") + preset.Name,
@@ -4624,6 +4725,14 @@ namespace Lilly.IntegratedModManager
                 savedState.DisplayName = workingState.DisplayName;
             }
 
+            IntegratedModManagerMod.Instance.WriteSettings();
+        }
+
+        private void PersistCategoryData()
+        {
+            settings.Categories = categories
+                .Where(category => category != null)
+                .Select(category => category.Copy()).ToList();
             IntegratedModManagerMod.Instance.WriteSettings();
         }
 
@@ -5136,6 +5245,10 @@ namespace Lilly.IntegratedModManager
                 reordered.AddRange(movingIds);
 
             SetCurrentFolderModIds(reordered);
+            if (tagMode)
+                PersistTagData();
+            else
+                PersistCategoryData();
             selectedPackageIds.Clear();
             for (int i = 0; i < movingIds.Count; i++)
                 selectedPackageIds.Add(movingIds[i]);
