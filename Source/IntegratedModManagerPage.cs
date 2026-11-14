@@ -78,7 +78,11 @@ namespace Lilly.IntegratedModManager
                 throw new InvalidOperationException("Integrated Mod Manager did not initialize.");
 
             settings = IntegratedModManagerMod.Instance.Settings;
+            bool persistGeneratedTagColors = settings.Tags == null || settings.Tags.Count == 0 ||
+                settings.Tags.Any(tag => tag != null && !ManagerTagColors.IsValidHex(tag.ColorHex));
             settings.EnsureInitialized();
+            if (persistGeneratedTagColors)
+                IntegratedModManagerMod.Instance.WriteSettings();
             categories = settings.Categories.Select(category => category.Copy()).ToList();
             tags = settings.Tags.Select(tag => tag.Copy()).ToList();
             modStates = settings.Mods.Select(mod => mod.Copy()).ToList();
@@ -106,12 +110,16 @@ namespace Lilly.IntegratedModManager
             Text.Font = GameFont.Small;
             if (Widgets.ButtonText(new Rect(inRect.width - 150f, 10f, 130f, 30f), "자동 정렬"))
                 SortAllCategories();
-            DrawCategoryTabs(new Rect(20f, 48f, inRect.width - 40f, 60f));
+            float tabScrollbarReserve = GetTabScrollbarReserve(inRect.width - 40f);
+            float tabContentHeight = 60f;
+            DrawCategoryTabs(new Rect(20f, 48f, inRect.width - 40f,
+                tabContentHeight + tabScrollbarReserve));
 
-            Rect searchRect = new Rect(20f, 112f, inRect.width * 0.66f - 30f, 30f);
+            float searchTop = 48f + tabContentHeight + tabScrollbarReserve + 4f;
+            Rect searchRect = new Rect(20f, searchTop, inRect.width * 0.66f - 30f, 30f);
             DrawSearchField(searchRect);
 
-            float contentTop = 150f;
+            float contentTop = searchTop + 38f;
             float contentBottom = inRect.height - BottomHeight - 20f;
             float contentHeight = Mathf.Max(100f, contentBottom - contentTop);
             float leftWidth = inRect.width * 0.66f;
@@ -217,6 +225,7 @@ namespace Lilly.IntegratedModManager
                 .Where(MatchesCategorySearch)
                 .ToList();
             float tabWidth = 300f;
+            float tabContentHeight = rect.height - GetTabScrollbarReserve(rect.width);
             float viewWidth = Mathf.Max(rect.width, visibleCategories.Count * tabWidth);
             Rect viewRect = new Rect(0f, 0f, viewWidth, rect.height);
             Widgets.BeginScrollView(rect, ref categoryTabScroll, viewRect);
@@ -224,7 +233,7 @@ namespace Lilly.IntegratedModManager
             {
                 ManagerCategoryData category = visibleCategories[i];
                 int categoryIndex = categories.IndexOf(category);
-                Rect tabRect = new Rect(i * tabWidth, 0f, tabWidth - 6f, rect.height);
+                Rect tabRect = new Rect(i * tabWidth, 0f, tabWidth - 6f, tabContentHeight);
                 if (isDraggingMod && Event.current.type == EventType.MouseUp &&
                     tabRect.Contains(Event.current.mousePosition))
                 {
@@ -257,24 +266,41 @@ namespace Lilly.IntegratedModManager
                     RefreshVisibleMods();
                 }
 
-                float actionX = tabRect.xMax - 138f;
-                if (Widgets.ButtonText(new Rect(actionX - 26f, tabRect.y + 32f, 24f, 24f), "+"))
+                float actionX = tabRect.x + 4f;
+                if (Widgets.ButtonText(new Rect(actionX, tabRect.y + 32f, 22f, 24f), "+"))
                     OpenCreateCategoryDialog(categoryIndex);
                 GUI.enabled = categoryIndex > 0;
-                if (Widgets.ButtonText(new Rect(actionX, tabRect.y + 32f, 24f, 24f), "‹"))
+                if (Widgets.ButtonText(new Rect(actionX + 24f, tabRect.y + 32f, 22f, 24f), "‹"))
                     MoveCategory(categoryIndex, -1);
                 GUI.enabled = categoryIndex < categories.Count - 1;
-                if (Widgets.ButtonText(new Rect(actionX + 26f, tabRect.y + 32f, 24f, 24f), "›"))
+                if (Widgets.ButtonText(new Rect(actionX + 48f, tabRect.y + 32f, 22f, 24f), "›"))
                     MoveCategory(categoryIndex, 1);
                 GUI.enabled = true;
-                if (Widgets.ButtonText(new Rect(actionX + 52f, tabRect.y + 32f, 24f, 24f), "+"))
+                if (Widgets.ButtonText(new Rect(actionX + 72f, tabRect.y + 32f, 22f, 24f), "+"))
                     OpenCreateCategoryDialog(categoryIndex + 1);
-                if (Widgets.ButtonText(new Rect(actionX + 78f, tabRect.y + 32f, 36f, 24f), "이름"))
+                if (Widgets.ButtonText(new Rect(actionX + 96f, tabRect.y + 32f, 36f, 24f), "이름"))
                     OpenRenameCategoryDialog(category);
-                if (Widgets.ButtonText(new Rect(actionX + 116f, tabRect.y + 32f, 22f, 24f), "×"))
+                if (Widgets.ButtonText(new Rect(actionX + 134f, tabRect.y + 32f, 22f, 24f), "×"))
                     ConfirmDeleteCategory(category);
             }
             Widgets.EndScrollView();
+        }
+
+        private float GetTabScrollbarReserve(float availableWidth)
+        {
+            if (tagMode)
+            {
+                int userTagCount = tags.Count(tag => tag != null && !tag.IsSystem);
+                float scrollWidth = Mathf.Max(0f, availableWidth - 190f - 105f);
+                return userTagCount * 260f > scrollWidth
+                    ? ManagerUiMetrics.HorizontalScrollbarHeight
+                    : 0f;
+            }
+
+            int visibleCategoryCount = categories.Count(MatchesCategorySearch);
+            return visibleCategoryCount * 300f > availableWidth
+                ? ManagerUiMetrics.HorizontalScrollbarHeight
+                : 0f;
         }
 
         private bool MatchesCategorySearch(ManagerCategoryData category)
@@ -393,9 +419,10 @@ namespace Lilly.IntegratedModManager
         {
             const float systemWidth = 190f;
             float addWidth = 105f;
+            float tabContentHeight = rect.height - GetTabScrollbarReserve(rect.width);
             ManagerTagData untagged = FindTag("untagged");
             if (untagged != null)
-                DrawTagTab(untagged, new Rect(rect.x, rect.y, systemWidth - 6f, rect.height));
+                DrawTagTab(untagged, new Rect(rect.x, rect.y, systemWidth - 6f, tabContentHeight));
 
             List<ManagerTagData> userTags = new List<ManagerTagData>();
             for (int i = 0; i < tags.Count; i++)
@@ -416,11 +443,11 @@ namespace Lilly.IntegratedModManager
             for (int i = 0; i < userTags.Count; i++)
             {
                 DrawTagTab(userTags[i],
-                    new Rect(i * tabWidth, 0f, tabWidth - 5f, rect.height));
+                    new Rect(i * tabWidth, 0f, tabWidth - 5f, tabContentHeight));
             }
             Widgets.EndScrollView();
 
-            Rect addRect = new Rect(addX, rect.y, addWidth, rect.height);
+            Rect addRect = new Rect(addX, rect.y, addWidth, tabContentHeight);
             if (Widgets.ButtonText(addRect, "+ 태그 추가"))
                 OpenCreateTagDialog();
         }
@@ -465,16 +492,18 @@ namespace Lilly.IntegratedModManager
 
             Rect deleteRect = new Rect(tabRect.xMax - 38f, tabRect.y + 32f, 34f, 24f);
             GUI.enabled = tags.IndexOf(tag) > 1;
-            if (Widgets.ButtonText(new Rect(tabRect.xMax - 170f, tabRect.y + 32f, 24f, 24f), "‹"))
+            if (Widgets.ButtonText(new Rect(tabRect.xMax - 212f, tabRect.y + 32f, 24f, 24f), "‹"))
                 MoveTag(tag, -1);
             GUI.enabled = tags.IndexOf(tag) >= 0 && tags.IndexOf(tag) < tags.Count - 1;
-            if (Widgets.ButtonText(new Rect(tabRect.xMax - 144f, tabRect.y + 32f, 24f, 24f), "›"))
+            if (Widgets.ButtonText(new Rect(tabRect.xMax - 186f, tabRect.y + 32f, 24f, 24f), "›"))
                 MoveTag(tag, 1);
             GUI.enabled = true;
-            Rect renameRect = new Rect(tabRect.xMax - 116f, tabRect.y + 32f, 42f, 24f);
+            Rect renameRect = new Rect(tabRect.xMax - 160f, tabRect.y + 32f, 42f, 24f);
             if (Widgets.ButtonText(renameRect, "이름"))
                 OpenRenameTagDialog(tag);
-            if (Widgets.ButtonText(new Rect(tabRect.xMax - 70f, tabRect.y + 32f, 26f, 24f), "+"))
+            if (Widgets.ButtonText(new Rect(tabRect.xMax - 114f, tabRect.y + 32f, 42f, 24f), "색상"))
+                OpenTagColorDialog(tag);
+            if (Widgets.ButtonText(new Rect(tabRect.xMax - 68f, tabRect.y + 32f, 26f, 24f), "+"))
                 OpenCreateTagDialog();
             if (Widgets.ButtonText(deleteRect, "×"))
                 ConfirmDeleteTag(tag);
@@ -613,7 +642,10 @@ namespace Lilly.IntegratedModManager
             Widgets.DrawBox(rect);
             Rect innerRect = rect.ContractedBy(8f);
             float viewHeight = Mathf.Max(innerRect.height, GetFolderListHeight(category));
-            Rect viewRect = new Rect(0f, 0f, innerRect.width - 16f, viewHeight);
+            float scrollbarWidth = viewHeight > innerRect.height
+                ? ManagerUiMetrics.VerticalScrollbarWidth
+                : 0f;
+            Rect viewRect = new Rect(0f, 0f, innerRect.width - scrollbarWidth, viewHeight);
             Widgets.BeginScrollView(innerRect, ref modListScroll, viewRect);
 
             float y = 0f;
@@ -703,7 +735,10 @@ namespace Lilly.IntegratedModManager
             Widgets.DrawBox(rect);
             Rect innerRect = rect.ContractedBy(8f);
             float viewHeight = Mathf.Max(innerRect.height, GetFolderListHeight(tag));
-            Rect viewRect = new Rect(0f, 0f, innerRect.width - 16f, viewHeight);
+            float scrollbarWidth = viewHeight > innerRect.height
+                ? ManagerUiMetrics.VerticalScrollbarWidth
+                : 0f;
+            Rect viewRect = new Rect(0f, 0f, innerRect.width - scrollbarWidth, viewHeight);
             Widgets.BeginScrollView(innerRect, ref modListScroll, viewRect);
 
             float y = 0f;
@@ -781,6 +816,9 @@ namespace Lilly.IntegratedModManager
         {
             Rect rowRect = new Rect(0f, y, width, RowHeight);
             Rect checkboxHitRect = new Rect(rowRect.x, rowRect.y, 32f, rowRect.height);
+            Widgets.DrawBoxSolid(rowRect, visibleIndex % 2 == 0
+                ? new Color(0.095f, 0.095f, 0.095f, 1f)
+                : new Color(0.055f, 0.055f, 0.055f, 1f));
             if (selectedPackageIds.Contains(mod.PackageId))
                 Widgets.DrawHighlight(rowRect);
             else
@@ -844,11 +882,92 @@ namespace Lilly.IntegratedModManager
 
             Rect nameRect = new Rect(checkRect.xMax + 5f, rowRect.y,
                 rowRect.width - checkRect.width - 12f, rowRect.height);
+            ManagerModData modData = FindModState(mod.PackageId);
+            List<ManagerTagData> assignedTags = modData == null || modData.TagIds == null
+                ? new List<ManagerTagData>()
+                : modData.TagIds.Select(FindTag).Where(tag => tag != null).ToList();
+            string tagTooltip = string.Join(", ", assignedTags.Select(tag => tag.Name));
+            float maximumTagArea = nameRect.width * 0.55f;
+            bool hasTagOverflow = assignedTags.Sum(tag => GetTagChipWidth(tag.Name) + 3f) > maximumTagArea;
+            float ellipsisWidth = hasTagOverflow ? Mathf.Min(22f, maximumTagArea) : 0f;
+            float chipsCapacity = Mathf.Max(0f, maximumTagArea - ellipsisWidth);
+            List<ManagerTagData> visibleTags = new List<ManagerTagData>();
+            float visibleTagWidth = 0f;
+            for (int i = 0; i < assignedTags.Count; i++)
+            {
+                float chipWidth = GetTagChipWidth(assignedTags[i].Name);
+                float nextWidth = visibleTagWidth + (visibleTags.Count > 0 ? 3f : 0f) + chipWidth;
+                if (nextWidth > chipsCapacity)
+                    break;
+                visibleTags.Add(assignedTags[i]);
+                visibleTagWidth = nextWidth;
+            }
+            float tagAreaWidth = visibleTagWidth + (visibleTags.Count > 0 && hasTagOverflow ? 3f : 0f) +
+                (hasTagOverflow ? ellipsisWidth : 0f);
+            if (tagAreaWidth > 0f)
+            {
+                float tagsX = nameRect.xMax - tagAreaWidth;
+                nameRect.width = Mathf.Max(0f, tagsX - nameRect.x - 4f);
+                float chipX = tagsX;
+                for (int i = 0; i < visibleTags.Count; i++)
+                {
+                    float chipWidth = GetTagChipWidth(visibleTags[i].Name);
+                    DrawTagChip(new Rect(chipX, rowRect.y + 3f, chipWidth, 21f), visibleTags[i]);
+                    chipX += chipWidth + 3f;
+                }
+                if (hasTagOverflow && ellipsisWidth > 0f)
+                {
+                    Rect moreRect = new Rect(tagsX + visibleTagWidth +
+                        (visibleTags.Count > 0 ? 3f : 0f), rowRect.y + 3f,
+                        ellipsisWidth, 21f);
+                    DrawTagOverflowChip(moreRect);
+                    TooltipHandler.TipRegion(moreRect, tagTooltip);
+                }
+            }
             if (Widgets.ButtonInvisible(nameRect))
                 SelectMod(visibleIndex, Event.current.control, Event.current.shift);
 
             string name = GetDisplayName(mod);
             Widgets.Label(nameRect, protectedMod ? name + " (필수)" : name);
+        }
+
+        private static float GetTagChipWidth(string name)
+        {
+            GameFont oldFont = Text.Font;
+            Text.Font = GameFont.Tiny;
+            float width = Mathf.Clamp(Text.CalcSize(name ?? string.Empty).x + 12f, 34f, 112f);
+            Text.Font = oldFont;
+            return width;
+        }
+
+        private static bool DrawTagChip(Rect rect, ManagerTagData tag)
+        {
+            if (tag == null)
+                return false;
+            Widgets.DrawBoxSolid(rect, ManagerTagColors.Background(tag.ColorHex));
+            Widgets.DrawBox(rect);
+            GameFont oldFont = Text.Font;
+            Color oldColor = GUI.color;
+            Text.Font = GameFont.Tiny;
+            GUI.color = ManagerTagColors.Foreground(tag.ColorHex);
+            Widgets.Label(new Rect(rect.x + 4f, rect.y, rect.width - 8f, rect.height), tag.Name);
+            GUI.color = oldColor;
+            Text.Font = oldFont;
+            TooltipHandler.TipRegion(rect, tag.Name);
+            return Widgets.ButtonInvisible(rect);
+        }
+
+        private static void DrawTagOverflowChip(Rect rect)
+        {
+            Widgets.DrawBoxSolid(rect, new Color(0.24f, 0.24f, 0.24f, 1f));
+            Widgets.DrawBox(rect);
+            GameFont oldFont = Text.Font;
+            Color oldColor = GUI.color;
+            Text.Font = GameFont.Tiny;
+            GUI.color = Color.white;
+            Widgets.Label(rect, "…");
+            GUI.color = oldColor;
+            Text.Font = oldFont;
         }
 
         private void DrawDetails(Rect rect)
@@ -901,6 +1020,8 @@ namespace Lilly.IntegratedModManager
             ManagerModData modData = FindModState(mod.PackageId);
             Widgets.Label(new Rect(inner.x, y, 48f, 26f), "태그:");
             float chipX = inner.x + 48f;
+            float chipRight = inner.xMax - 38f;
+            List<ManagerTagData> assignedTags = new List<ManagerTagData>();
             if (modData != null && modData.TagIds != null)
             {
                 for (int i = 0; i < modData.TagIds.Count; i++)
@@ -908,25 +1029,49 @@ namespace Lilly.IntegratedModManager
                     ManagerTagData tag = FindTag(modData.TagIds[i]);
                     if (tag == null)
                         continue;
-                    float chipWidth = Mathf.Clamp(tag.Name.Length * 9f + 20f, 62f, 140f);
-                    Rect chipRect = new Rect(chipX, y, chipWidth, 26f);
-                    if (Widgets.ButtonText(chipRect, tag.Name))
-                    {
-                        tagMode = true;
-                        SelectTag(tag);
-                    }
-                    if (Event.current.type == EventType.MouseDown && Event.current.button == 1 &&
-                        chipRect.Contains(Event.current.mousePosition))
-                    {
-                        SetTagForSelection(new List<string> { mod.PackageId }, tag, false);
-                        Event.current.Use();
-                    }
-                    chipX += chipWidth + 4f;
-                    if (chipX > inner.xMax - 42f)
-                        break;
+                    assignedTags.Add(tag);
                 }
             }
-            if (Widgets.ButtonText(new Rect(Mathf.Min(chipX, inner.xMax - 34f), y, 30f, 26f), "+"))
+
+            string allTagNames = string.Join(", ", assignedTags.Select(tag => tag.Name));
+            float tagWidthTotal = assignedTags.Sum(tag => GetTagChipWidth(tag.Name) + 3f);
+            bool tagsOmitted = tagWidthTotal > chipRight - chipX;
+            float chipLimit = chipRight - chipX - (tagsOmitted ? 25f : 0f);
+            for (int i = 0; i < assignedTags.Count; i++)
+            {
+                ManagerTagData tag = assignedTags[i];
+                float chipWidth = GetTagChipWidth(tag.Name);
+                float renderedWidth = chipX - (inner.x + 48f);
+                float requiredWidth = (i > 0 ? 3f : 0f) + chipWidth;
+                if (renderedWidth + requiredWidth > chipLimit)
+                {
+                    tagsOmitted = true;
+                    break;
+                }
+
+                Rect chipRect = new Rect(chipX, y + 1f, chipWidth, 23f);
+                if (DrawTagChip(chipRect, tag))
+                {
+                    tagMode = true;
+                    SelectTag(tag);
+                }
+                if (Event.current.type == EventType.MouseDown && Event.current.button == 1 &&
+                    chipRect.Contains(Event.current.mousePosition))
+                {
+                    SetTagForSelection(new List<string> { mod.PackageId }, tag, false);
+                    Event.current.Use();
+                }
+                chipX += chipWidth + 3f;
+            }
+
+            if (tagsOmitted)
+            {
+                Rect moreRect = new Rect(chipX, y + 1f,
+                    22f, 23f);
+                DrawTagOverflowChip(moreRect);
+                TooltipHandler.TipRegion(moreRect, allTagNames);
+            }
+            if (Widgets.ButtonText(new Rect(inner.xMax - 30f, y, 30f, 26f), "+"))
                 OpenCreateTagDialog(new[] { mod.PackageId });
             y += 32f;
 
@@ -950,7 +1095,17 @@ namespace Lilly.IntegratedModManager
             string description = mod.Description.NullOrEmpty()
                 ? "설명이 없습니다."
                 : mod.Description;
-            Widgets.LabelScrollable(descriptionRect, description, ref descriptionScroll);
+            float descriptionHeight = Text.CalcHeight(description, descriptionRect.width);
+            float descriptionScrollbarWidth = descriptionHeight > descriptionRect.height
+                ? ManagerUiMetrics.VerticalScrollbarWidth
+                : 0f;
+            float descriptionTextWidth = descriptionRect.width - descriptionScrollbarWidth;
+            descriptionHeight = Mathf.Max(descriptionRect.height,
+                Text.CalcHeight(description, descriptionTextWidth));
+            Rect descriptionView = new Rect(0f, 0f, descriptionTextWidth, descriptionHeight);
+            Widgets.BeginScrollView(descriptionRect, ref descriptionScroll, descriptionView);
+            Widgets.Label(new Rect(0f, 0f, descriptionView.width, descriptionView.height), description);
+            Widgets.EndScrollView();
         }
 
         private void DrawBottomButtons(Rect rect)
@@ -1507,8 +1662,6 @@ namespace Lilly.IntegratedModManager
                     {
                         if (selectedIds.Count > 0)
                             SetTagForSelection(selectedIds, existingTag, true);
-                        tagMode = true;
-                        SelectTag(existingTag);
                         return true;
                     }
 
@@ -1519,8 +1672,6 @@ namespace Lilly.IntegratedModManager
                         SetTagForSelection(selectedIds, tag, true);
 
                     PersistTagData();
-                    tagMode = true;
-                    SelectTag(tag);
                     return true;
                 }));
         }
@@ -1548,6 +1699,17 @@ namespace Lilly.IntegratedModManager
                     PersistTagData();
                     return true;
                 }));
+        }
+
+        private void OpenTagColorDialog(ManagerTagData tag)
+        {
+            if (tag == null || tag.IsSystem)
+                return;
+            Find.WindowStack.Add(new ManagerTagColorDialog(tag, colorHex =>
+            {
+                tag.ColorHex = colorHex;
+                PersistTagData();
+            }));
         }
 
         private void ConfirmDeleteTag(ManagerTagData tag)

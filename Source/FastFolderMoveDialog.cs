@@ -118,16 +118,21 @@ namespace Lilly.IntegratedModManager
                         })
                         .ToList();
                     float viewHeight = Mathf.Max(listRect.height, visibleTargets.Count * 32f);
+                    float scrollbarWidth = viewHeight > listRect.height
+                        ? ManagerUiMetrics.VerticalScrollbarWidth
+                        : 0f;
                     Widgets.BeginScrollView(listRect, ref columnScroll[visibleColumn],
-                        new Rect(0f, 0f, listRect.width - 16f, viewHeight));
+                        new Rect(0f, 0f, listRect.width - scrollbarWidth, viewHeight));
                     for (int i = 0; i < visibleTargets.Count; i++)
                     {
                         FolderMoveTarget target = visibleTargets[i];
-                        Rect buttonRect = new Rect(0f, i * 32f, listRect.width - 48f, 28f);
+                        Rect buttonRect = new Rect(0f, i * 32f,
+                            listRect.width - scrollbarWidth - 48f, 28f);
                         if (target.IsCurrent)
                             Widgets.DrawHighlight(buttonRect);
                         string favoriteLabel = settings.FavoriteFolderKeys.Contains(target.Key) ? "★" : "☆";
-                        if (Widgets.ButtonText(new Rect(listRect.width - 44f, i * 32f, 30f, 28f),
+                        if (Widgets.ButtonText(new Rect(listRect.width - scrollbarWidth - 44f,
+                            i * 32f, 30f, 28f),
                             favoriteLabel))
                         {
                             if (settings.FavoriteFolderKeys.Contains(target.Key))
