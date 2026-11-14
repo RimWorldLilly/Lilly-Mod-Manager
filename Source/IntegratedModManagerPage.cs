@@ -392,8 +392,7 @@ namespace Lilly.IntegratedModManager
                 int targetIndex = i;
                 if (targetIndex == currentIndex)
                     continue;
-                options.Add(new FloatMenuOption(string.Format(
-                    ManagerTranslation.Get("LMM_0128"), targetIndex + 1),
+                options.Add(new FloatMenuOption(categories[targetIndex].Name,
                     () => MoveCategoryToIndex(category, targetIndex)));
             }
             if (options.Count > 0)
@@ -641,8 +640,7 @@ namespace Lilly.IntegratedModManager
                 int targetIndex = i;
                 if (targetIndex == currentIndex)
                     continue;
-                options.Add(new FloatMenuOption(string.Format(
-                    ManagerTranslation.Get("LMM_0128"), targetIndex + 1),
+                options.Add(new FloatMenuOption(tags[targetIndex].Name,
                     () => MoveTagToIndex(tag, targetIndex)));
             }
             if (options.Count > 0)
