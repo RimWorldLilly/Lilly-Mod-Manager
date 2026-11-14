@@ -109,7 +109,7 @@ namespace Lilly.IntegratedModManager
             Widgets.Label(new Rect(20f, 10f, inRect.width - 470f, 36f),
                 "Lilly - Integrated Mod Manager");
             Text.Font = GameFont.Small;
-            if (Widgets.ButtonText(new Rect(inRect.width - 150f, 10f, 130f, 30f), "자동 정렬"))
+            if (Widgets.ButtonText(new Rect(inRect.width - 150f, 10f, 130f, 30f), ManagerTranslation.Get("LMM_0067")))
                 SortAllCategories();
             float tabScrollbarReserve = GetTabScrollbarReserve(inRect.width - 40f);
             float tabContentHeight = 60f;
@@ -148,7 +148,7 @@ namespace Lilly.IntegratedModManager
 
         private void DrawSearchField(Rect rect)
         {
-            Widgets.Label(new Rect(rect.x, rect.y, 52f, rect.height), "검색");
+            Widgets.Label(new Rect(rect.x, rect.y, 52f, rect.height), ManagerTranslation.Get("LMM_0021"));
             string newSearchText = Widgets.TextField(
                 new Rect(rect.x + 54f, rect.y, rect.width - 196f, rect.height),
                 searchText);
@@ -203,17 +203,17 @@ namespace Lilly.IntegratedModManager
             switch (currentModFilter)
             {
                 case ModFilter.Active:
-                    return "필터: 활성";
+                    return ManagerTranslation.Get("LMM_0115");
                 case ModFilter.Inactive:
-                    return "필터: 비활성";
+                    return ManagerTranslation.Get("LMM_0112");
                 case ModFilter.Subscribed:
-                    return "필터: 구독 중";
+                    return ManagerTranslation.Get("LMM_0110");
                 case ModFilter.Untagged:
-                    return "필터: 태그 없음";
+                    return ManagerTranslation.Get("LMM_0114");
                 case ModFilter.Uncategorized:
-                    return "필터: 미분류";
+                    return ManagerTranslation.Get("LMM_0111");
                 default:
-                    return "필터: 전체";
+                    return ManagerTranslation.Get("LMM_0113");
             }
         }
 
@@ -269,11 +269,15 @@ namespace Lilly.IntegratedModManager
                     lastSelectedIndex = -1;
                     RefreshVisibleMods();
                 }
+                Rect editRect = new Rect(labelRect.xMax + 3f, tabRect.y + 3f, 24f, 24f);
+                if (Widgets.ButtonText(editRect, "E"))
+                    OpenRenameCategoryDialog(category);
+                TooltipHandler.TipRegion(editRect, ManagerTranslation.Get("LMM_0125"));
 
                 float actionX = tabRect.x + 4f;
                 float actionY = tabRect.y + 32f;
                 float actionGap = 3f;
-                float actionWidth = (tabRect.width - 8f - actionGap * 6f) / 7f;
+                float actionWidth = (tabRect.width - 8f - actionGap * 5f) / 6f;
                 if (Widgets.ButtonText(new Rect(actionX, actionY, actionWidth, 24f), "+"))
                     OpenCreateCategoryDialog(categoryIndex);
                 float buttonX = actionX + actionWidth + actionGap;
@@ -282,8 +286,10 @@ namespace Lilly.IntegratedModManager
                     MoveCategory(categoryIndex, -1);
                 buttonX += actionWidth + actionGap;
                 GUI.enabled = true;
-                if (Widgets.ButtonText(new Rect(buttonX, actionY, actionWidth, 24f), "위치"))
+                Rect movePositionRect = new Rect(buttonX, actionY, actionWidth, 24f);
+                if (Widgets.ButtonText(movePositionRect, "M"))
                     OpenMoveCategoryToPositionMenu(category);
+                TooltipHandler.TipRegion(movePositionRect, ManagerTranslation.Get("LMM_0127"));
                 buttonX += actionWidth + actionGap;
                 GUI.enabled = categoryIndex < categories.Count - 1;
                 if (Widgets.ButtonText(new Rect(buttonX, actionY, actionWidth, 24f), "›"))
@@ -292,9 +298,6 @@ namespace Lilly.IntegratedModManager
                 buttonX += actionWidth + actionGap;
                 if (Widgets.ButtonText(new Rect(buttonX, actionY, actionWidth, 24f), "+"))
                     OpenCreateCategoryDialog(categoryIndex + 1);
-                buttonX += actionWidth + actionGap;
-                if (Widgets.ButtonText(new Rect(buttonX, actionY, actionWidth, 24f), "이름"))
-                    OpenRenameCategoryDialog(category);
                 buttonX += actionWidth + actionGap;
                 if (Widgets.ButtonText(new Rect(buttonX, actionY, actionWidth, 24f), "×"))
                     ConfirmDeleteCategory(category);
@@ -356,7 +359,8 @@ namespace Lilly.IntegratedModManager
                 int targetIndex = i;
                 if (targetIndex == currentIndex)
                     continue;
-                options.Add(new FloatMenuOption((targetIndex + 1) + "번째 위치",
+                options.Add(new FloatMenuOption(string.Format(
+                    ManagerTranslation.Get("LMM_0128"), targetIndex + 1),
                     () => MoveCategoryToIndex(category, targetIndex)));
             }
             if (options.Count > 0)
@@ -377,7 +381,7 @@ namespace Lilly.IntegratedModManager
         private void OpenCreateCategoryDialog(int insertIndex)
         {
             Find.WindowStack.Add(new ManagerFolderNameDialog(
-                "새 카테고리",
+                ManagerTranslation.Get("LMM_0046"),
                 "",
                 name =>
                 {
@@ -388,14 +392,14 @@ namespace Lilly.IntegratedModManager
                     if (categories.Any(category =>
                         string.Equals(category.Name, trimmed, StringComparison.OrdinalIgnoreCase)))
                     {
-                        Messages.Message("같은 이름의 카테고리가 이미 있습니다.",
+                        Messages.Message(ManagerTranslation.Get("LMM_0015"),
                             MessageTypeDefOf.RejectInput);
                         return false;
                     }
 
                     ManagerCategoryData category = new ManagerCategoryData(
                         Guid.NewGuid().ToString("N"), trimmed);
-                    category.Folders.Add(new ManagerFolderData("uncategorized", "미분류"));
+                    category.Folders.Add(new ManagerFolderData("uncategorized", ManagerTranslation.Get("LMM_0040")));
                     if (insertIndex >= 0 && insertIndex <= categories.Count)
                         categories.Insert(insertIndex, category);
                     else
@@ -413,7 +417,7 @@ namespace Lilly.IntegratedModManager
                 return;
 
             Find.WindowStack.Add(new ManagerFolderNameDialog(
-                "카테고리 이름 변경",
+                ManagerTranslation.Get("LMM_0078"),
                 category.Name,
                 name =>
                 {
@@ -424,7 +428,7 @@ namespace Lilly.IntegratedModManager
                     if (categories.Any(existing => existing != category &&
                         string.Equals(existing.Name, trimmed, StringComparison.OrdinalIgnoreCase)))
                     {
-                        Messages.Message("같은 이름의 카테고리가 이미 있습니다.",
+                        Messages.Message(ManagerTranslation.Get("LMM_0015"),
                             MessageTypeDefOf.RejectInput);
                         return false;
                     }
@@ -441,13 +445,13 @@ namespace Lilly.IntegratedModManager
 
             if (category.ModIds != null && category.ModIds.Count > 0)
             {
-                Messages.Message("모드가 들어 있는 카테고리는 삭제할 수 없습니다.",
+                Messages.Message(ManagerTranslation.Get("LMM_0036"),
                     MessageTypeDefOf.RejectInput);
                 return;
             }
 
             Find.WindowStack.Add(Dialog_MessageBox.CreateConfirmation(
-                "카테고리 '" + category.Name + "'을(를) 삭제할까요?",
+                ManagerTranslation.Get("LMM_0076") + category.Name + ManagerTranslation.Get("LMM_0006"),
                 () =>
                 {
                     categories.Remove(category);
@@ -494,7 +498,7 @@ namespace Lilly.IntegratedModManager
             Widgets.EndScrollView();
 
             Rect addRect = new Rect(addX, rect.y, addWidth, tabContentHeight);
-            if (Widgets.ButtonText(addRect, "+ 태그 추가"))
+            if (Widgets.ButtonText(addRect, ManagerTranslation.Get("LMM_0007")))
                 OpenCreateTagDialog();
         }
 
@@ -530,33 +534,37 @@ namespace Lilly.IntegratedModManager
             }
 
             Rect labelRectUser = new Rect(stateRect.xMax + 3f, tabRect.y,
-                Mathf.Max(20f, tabRect.width - stateRect.width - 8f), 30f);
+                Mathf.Max(20f, tabRect.width - stateRect.width - 36f), 30f);
             HandleTagTabReorder(tag, labelRectUser);
             if (Widgets.ButtonText(labelRectUser,
                 tag.Name + " (" + GetInstalledCount(tag) + ")"))
                 SelectTag(tag);
+            Rect editRect = new Rect(labelRectUser.xMax + 3f, tabRect.y + 3f, 24f, 24f);
+            if (Widgets.ButtonText(editRect, "E"))
+                OpenRenameTagDialog(tag);
+            TooltipHandler.TipRegion(editRect, ManagerTranslation.Get("LMM_0126"));
 
             float actionY = tabRect.y + 32f;
             float actionX = tabRect.x + 4f;
             float actionGap = 3f;
-            float actionWidth = (tabRect.width - 8f - actionGap * 6f) / 7f;
+            float actionWidth = (tabRect.width - 8f - actionGap * 5f) / 6f;
             GUI.enabled = tags.IndexOf(tag) > 1;
             if (Widgets.ButtonText(new Rect(actionX, actionY, actionWidth, 24f), "‹"))
                 MoveTag(tag, -1);
             actionX += actionWidth + actionGap;
             GUI.enabled = true;
-            if (Widgets.ButtonText(new Rect(actionX, actionY, actionWidth, 24f), "위치"))
+            Rect movePositionRect = new Rect(actionX, actionY, actionWidth, 24f);
+            if (Widgets.ButtonText(movePositionRect, "M"))
                 OpenMoveTagToPositionMenu(tag);
+            TooltipHandler.TipRegion(movePositionRect, ManagerTranslation.Get("LMM_0127"));
             actionX += actionWidth + actionGap;
             GUI.enabled = tags.IndexOf(tag) >= 1 && tags.IndexOf(tag) < tags.Count - 1;
             if (Widgets.ButtonText(new Rect(actionX, actionY, actionWidth, 24f), "›"))
                 MoveTag(tag, 1);
             GUI.enabled = true;
             actionX += actionWidth + actionGap;
-            if (Widgets.ButtonText(new Rect(actionX, actionY, actionWidth, 24f), "이름"))
-                OpenRenameTagDialog(tag);
-            actionX += actionWidth + actionGap;
-            if (Widgets.ButtonText(new Rect(actionX, actionY, actionWidth, 24f), "색상"))
+
+            if (Widgets.ButtonText(new Rect(actionX, actionY, actionWidth, 24f), ManagerTranslation.Get("LMM_0051")))
                 OpenTagColorDialog(tag);
             actionX += actionWidth + actionGap;
             if (Widgets.ButtonText(new Rect(actionX, actionY, actionWidth, 24f), "+"))
@@ -578,7 +586,8 @@ namespace Lilly.IntegratedModManager
                 int targetIndex = i;
                 if (targetIndex == currentIndex)
                     continue;
-                options.Add(new FloatMenuOption((targetIndex + 1) + "번째 위치",
+                options.Add(new FloatMenuOption(string.Format(
+                    ManagerTranslation.Get("LMM_0128"), targetIndex + 1),
                     () => MoveTagToIndex(tag, targetIndex)));
             }
             if (options.Count > 0)
@@ -778,11 +787,11 @@ namespace Lilly.IntegratedModManager
                 float actionX = headerRect.xMax - 186f;
                 if (Widgets.ButtonText(new Rect(actionX, y + 2f, 42f, 26f), "+"))
                     OpenCreateFolderDialog(category, folder);
-                if (Widgets.ButtonText(new Rect(actionX + 46f, y + 2f, 62f, 26f), "이름"))
+                if (Widgets.ButtonText(new Rect(actionX + 46f, y + 2f, 62f, 26f), ManagerTranslation.Get("LMM_0063")))
                     OpenRenameFolderDialog(category, folder);
                 bool isDefaultFolder = folder.Id == "uncategorized";
                 GUI.enabled = !isDefaultFolder;
-                if (Widgets.ButtonText(new Rect(actionX + 112f, y + 2f, 62f, 26f), "삭제"))
+                if (Widgets.ButtonText(new Rect(actionX + 112f, y + 2f, 62f, 26f), ManagerTranslation.Get("LMM_0045")))
                     ConfirmDeleteFolder(category, folder);
                 GUI.enabled = true;
                 y += RowHeight;
@@ -816,7 +825,7 @@ namespace Lilly.IntegratedModManager
             {
                 Widgets.DrawBox(rect);
                 Widgets.Label(rect.ContractedBy(12f),
-                    "태그가 없습니다. 상단의 '+ 태그 추가' 버튼으로 태그를 만드세요.");
+                    ManagerTranslation.Get("LMM_0090"));
                 return;
             }
 
@@ -873,10 +882,10 @@ namespace Lilly.IntegratedModManager
                 float actionX = headerRect.xMax - 186f;
                 if (Widgets.ButtonText(new Rect(actionX, y + 2f, 42f, 26f), "+"))
                     OpenCreateFolderDialog(tag, folder);
-                if (Widgets.ButtonText(new Rect(actionX + 46f, y + 2f, 62f, 26f), "이름"))
+                if (Widgets.ButtonText(new Rect(actionX + 46f, y + 2f, 62f, 26f), ManagerTranslation.Get("LMM_0063")))
                     OpenRenameFolderDialog(tag, folder);
                 GUI.enabled = folder.Id != "uncategorized";
-                if (Widgets.ButtonText(new Rect(actionX + 112f, y + 2f, 62f, 26f), "삭제"))
+                if (Widgets.ButtonText(new Rect(actionX + 112f, y + 2f, 62f, 26f), ManagerTranslation.Get("LMM_0045")))
                     ConfirmDeleteFolder(tag, folder);
                 GUI.enabled = true;
                 y += RowHeight;
@@ -1016,7 +1025,7 @@ namespace Lilly.IntegratedModManager
                 SelectMod(visibleIndex, Event.current.control, Event.current.shift);
 
             string name = GetDisplayName(mod);
-            Widgets.Label(nameRect, protectedMod ? name + " (필수)" : name);
+            Widgets.Label(nameRect, protectedMod ? name + ManagerTranslation.Get("LMM_0001") : name);
         }
 
         private static float GetTagChipWidth(string name)
@@ -1065,7 +1074,7 @@ namespace Lilly.IntegratedModManager
             ModMetaData mod = FindMod(primarySelectedPackageId);
             if (mod == null)
             {
-                Widgets.Label(inner, "모드를 선택하면 상세 정보가 표시됩니다.");
+                Widgets.Label(inner, ManagerTranslation.Get("LMM_0037"));
                 return;
             }
 
@@ -1079,14 +1088,14 @@ namespace Lilly.IntegratedModManager
             if (!string.Equals(GetDisplayName(mod), vanillaName, StringComparison.Ordinal))
             {
                 Widgets.Label(new Rect(inner.x, y, inner.width, 24f),
-                    "기본 이름: " + vanillaName);
+                    ManagerTranslation.Get("LMM_0024") + vanillaName);
                 y += 26f;
             }
 
             string versionText = GetModVersionText(mod);
             if (!versionText.NullOrEmpty())
             {
-                Widgets.Label(new Rect(inner.x, y, inner.width, 24f), "버전: " + versionText);
+                Widgets.Label(new Rect(inner.x, y, inner.width, 24f), ManagerTranslation.Get("LMM_0042") + versionText);
                 y += 26f;
             }
 
@@ -1094,7 +1103,7 @@ namespace Lilly.IntegratedModManager
             if (!supportedVersions.NullOrEmpty())
             {
                 Widgets.Label(new Rect(inner.x, y, inner.width, 24f),
-                    "지원 게임 버전: " + supportedVersions);
+                    ManagerTranslation.Get("LMM_0073") + supportedVersions);
                 y += 26f;
             }
 
@@ -1102,11 +1111,11 @@ namespace Lilly.IntegratedModManager
                 "PackageId: " + mod.PackageIdPlayerFacing);
             y += 28f;
             Widgets.Label(new Rect(inner.x, y, inner.width, 24f),
-                "제작자: " + mod.AuthorsString);
+                ManagerTranslation.Get("LMM_0072") + mod.AuthorsString);
             y += 32f;
 
             ManagerModData modData = FindModState(mod.PackageId);
-            Widgets.Label(new Rect(inner.x, y, 48f, 26f), "태그:");
+            Widgets.Label(new Rect(inner.x, y, 48f, 26f), ManagerTranslation.Get("LMM_0089"));
             float chipX = inner.x + 48f;
             float chipRight = inner.xMax - 38f;
             List<ManagerTagData> assignedTags = new List<ManagerTagData>();
@@ -1166,14 +1175,14 @@ namespace Lilly.IntegratedModManager
             string dependencyText = GetDependencyText(mod);
             if (!dependencyText.NullOrEmpty())
             {
-                Widgets.Label(new Rect(inner.x, y, inner.width, 24f), "선행 모드: " + dependencyText);
+                Widgets.Label(new Rect(inner.x, y, inner.width, 24f), ManagerTranslation.Get("LMM_0059") + dependencyText);
                 y += 28f;
             }
 
             string workshopUrl = GetWorkshopUrl(mod);
             if (!workshopUrl.NullOrEmpty())
             {
-                if (Widgets.ButtonText(new Rect(inner.x, y, 150f, 26f), "Workshop 열기"))
+                if (Widgets.ButtonText(new Rect(inner.x, y, 150f, 26f), ManagerTranslation.Get("LMM_0013")))
                     OpenUrl(workshopUrl);
                 y += 32f;
             }
@@ -1181,7 +1190,7 @@ namespace Lilly.IntegratedModManager
             Rect descriptionRect = new Rect(inner.x, y, inner.width,
                 Mathf.Max(80f, inner.height - (y - inner.y) - 4f));
             string description = mod.Description.NullOrEmpty()
-                ? "설명이 없습니다."
+                ? ManagerTranslation.Get("LMM_0061")
                 : mod.Description;
             float descriptionHeight = Text.CalcHeight(description, descriptionRect.width);
             float descriptionScrollbarWidth = descriptionHeight > descriptionRect.height
@@ -1201,13 +1210,13 @@ namespace Lilly.IntegratedModManager
             float gap = 5f;
             float buttonWidth = (rect.width - gap * 7f) / 8f;
             float x = rect.x;
-            string modeLabel = tagMode ? "카테고리" : "태그 모드";
+            string modeLabel = tagMode ? ManagerTranslation.Get("LMM_0075") : ManagerTranslation.Get("LMM_0080");
             if (Widgets.ButtonText(new Rect(x, rect.y, buttonWidth, rect.height), modeLabel))
                 ToggleManagementMode();
             x += buttonWidth + gap;
 
             if (Widgets.ButtonText(new Rect(x, rect.y, buttonWidth, rect.height),
-                tagMode ? "태그 추가" : "카테고리 추가"))
+                tagMode ? ManagerTranslation.Get("LMM_0086") : ManagerTranslation.Get("LMM_0079")))
             {
                 if (tagMode)
                     OpenCreateTagDialog();
@@ -1216,27 +1225,27 @@ namespace Lilly.IntegratedModManager
             }
             x += buttonWidth + gap;
 
-            if (Widgets.ButtonText(new Rect(x, rect.y, buttonWidth, rect.height), "구독 취소"))
+            if (Widgets.ButtonText(new Rect(x, rect.y, buttonWidth, rect.height), ManagerTranslation.Get("LMM_0023")))
                 ConfirmUnsubscribeSelected();
             x += buttonWidth + gap;
 
-            if (Widgets.ButtonText(new Rect(x, rect.y, buttonWidth, rect.height), "폴더 바로가기"))
+            if (Widgets.ButtonText(new Rect(x, rect.y, buttonWidth, rect.height), ManagerTranslation.Get("LMM_0094")))
                 OpenFastFolderMoveDialog();
             x += buttonWidth + gap;
 
-            if (Widgets.ButtonText(new Rect(x, rect.y, buttonWidth, rect.height), "목록 저장"))
+            if (Widgets.ButtonText(new Rect(x, rect.y, buttonWidth, rect.height), ManagerTranslation.Get("LMM_0039")))
                 OpenSavePresetDialog();
             x += buttonWidth + gap;
 
-            if (Widgets.ButtonText(new Rect(x, rect.y, buttonWidth, rect.height), "목록 불러오기"))
+            if (Widgets.ButtonText(new Rect(x, rect.y, buttonWidth, rect.height), ManagerTranslation.Get("LMM_0038")))
                 OpenPresetMenu();
             x += buttonWidth + gap;
 
-            if (Widgets.ButtonText(new Rect(x, rect.y, buttonWidth, rect.height), "변경 취소"))
+            if (Widgets.ButtonText(new Rect(x, rect.y, buttonWidth, rect.height), ManagerTranslation.Get("LMM_0044")))
                 CancelChanges();
             x += buttonWidth + gap;
 
-            if (Widgets.ButtonText(new Rect(x, rect.y, buttonWidth, rect.height), "적용"))
+            if (Widgets.ButtonText(new Rect(x, rect.y, buttonWidth, rect.height), ManagerTranslation.Get("LMM_0070")))
                 ApplyChanges();
         }
 
@@ -1432,20 +1441,20 @@ namespace Lilly.IntegratedModManager
             if (category == null || folder == null)
                 return;
             List<FloatMenuOption> options = new List<FloatMenuOption>();
-            options.Add(new FloatMenuOption("폴더 이름 변경",
+            options.Add(new FloatMenuOption(ManagerTranslation.Get("LMM_0099"),
                 () => OpenRenameFolderDialog(category, folder)));
-            options.Add(new FloatMenuOption("폴더 활성화",
+            options.Add(new FloatMenuOption(ManagerTranslation.Get("LMM_0101"),
                 () => SetFolderEnabled(folder.ModIds, true)));
-            options.Add(new FloatMenuOption("폴더 비활성화",
+            options.Add(new FloatMenuOption(ManagerTranslation.Get("LMM_0095"),
                 () => SetFolderEnabled(folder.ModIds, false)));
-            options.Add(new FloatMenuOption("폴더 추가",
+            options.Add(new FloatMenuOption(ManagerTranslation.Get("LMM_0100"),
                 () => OpenCreateFolderDialog(category, folder)));
             if (folder.Id != "uncategorized")
-                options.Add(new FloatMenuOption("폴더 삭제",
+                options.Add(new FloatMenuOption(ManagerTranslation.Get("LMM_0096"),
                     () => ConfirmDeleteFolder(category, folder)));
-            options.Add(new FloatMenuOption("폴더 모드 모두 선택",
+            options.Add(new FloatMenuOption(ManagerTranslation.Get("LMM_0093"),
                 () => SelectFolderMods(folder.ModIds)));
-            options.Add(new FloatMenuOption(folder.Collapsed ? "펼치기" : "접기",
+            options.Add(new FloatMenuOption(folder.Collapsed ? ManagerTranslation.Get("LMM_0092") : ManagerTranslation.Get("LMM_0071"),
                 () => folder.Collapsed = !folder.Collapsed));
             Find.WindowStack.Add(new FloatMenu(options));
         }
@@ -1456,20 +1465,20 @@ namespace Lilly.IntegratedModManager
                 return;
             List<string> packageIds = GetTagFolderModIds(tag, folder);
             List<FloatMenuOption> options = new List<FloatMenuOption>();
-            options.Add(new FloatMenuOption("폴더 이름 변경",
+            options.Add(new FloatMenuOption(ManagerTranslation.Get("LMM_0099"),
                 () => OpenRenameFolderDialog(tag, folder)));
-            options.Add(new FloatMenuOption("폴더 활성화",
+            options.Add(new FloatMenuOption(ManagerTranslation.Get("LMM_0101"),
                 () => SetFolderEnabled(packageIds, true)));
-            options.Add(new FloatMenuOption("폴더 비활성화",
+            options.Add(new FloatMenuOption(ManagerTranslation.Get("LMM_0095"),
                 () => SetFolderEnabled(packageIds, false)));
-            options.Add(new FloatMenuOption("폴더 추가",
+            options.Add(new FloatMenuOption(ManagerTranslation.Get("LMM_0100"),
                 () => OpenCreateFolderDialog(tag, folder)));
             if (folder.Id != "uncategorized")
-                options.Add(new FloatMenuOption("폴더 삭제",
+                options.Add(new FloatMenuOption(ManagerTranslation.Get("LMM_0096"),
                     () => ConfirmDeleteFolder(tag, folder)));
-            options.Add(new FloatMenuOption("폴더 모드 모두 선택",
+            options.Add(new FloatMenuOption(ManagerTranslation.Get("LMM_0093"),
                 () => SelectFolderMods(packageIds)));
-            options.Add(new FloatMenuOption(folder.Collapsed ? "펼치기" : "접기", () =>
+            options.Add(new FloatMenuOption(folder.Collapsed ? ManagerTranslation.Get("LMM_0092") : ManagerTranslation.Get("LMM_0071"), () =>
             {
                 folder.Collapsed = !folder.Collapsed;
                 PersistTagData();
@@ -1540,11 +1549,11 @@ namespace Lilly.IntegratedModManager
             {
                 ManagerCategoryData category = categories[i];
                 ManagerCategoryData target = category;
-                options.Add(new FloatMenuOption(target.Name + " / 새 폴더로 이동...",
+                options.Add(new FloatMenuOption(target.Name + ManagerTranslation.Get("LMM_0003"),
                     () => OpenMoveSelectionToNewFolder(target)));
                 if (target.Id != currentCategoryId)
                 {
-                    options.Add(new FloatMenuOption(target.Name + " / 미분류",
+                    options.Add(new FloatMenuOption(target.Name + ManagerTranslation.Get("LMM_0002"),
                         () => MoveSelectionTo(target)));
                     continue;
                 }
@@ -1585,14 +1594,14 @@ namespace Lilly.IntegratedModManager
             if (options.Count > 0)
                 Find.WindowStack.Add(new FloatMenu(options));
             else
-                Messages.Message("이동할 다른 카테고리가 없습니다.", MessageTypeDefOf.RejectInput);
+                Messages.Message(ManagerTranslation.Get("LMM_0062"), MessageTypeDefOf.RejectInput);
         }
 
         private void OpenMoveSelectionToNewFolder(ManagerCategoryData category)
         {
             List<string> movingIds = selectedPackageIds.ToList();
             Find.WindowStack.Add(new ManagerFolderNameDialog(
-                "폴더를 만들고 선택 모드 이동",
+                ManagerTranslation.Get("LMM_0102"),
                 "",
                 name =>
                 {
@@ -1661,7 +1670,7 @@ namespace Lilly.IntegratedModManager
                 return;
 
             List<FloatMenuOption> options = new List<FloatMenuOption>();
-            options.Add(new FloatMenuOption("새 폴더로 이동...",
+            options.Add(new FloatMenuOption(ManagerTranslation.Get("LMM_0050"),
                 () => OpenMoveSelectionToNewTagFolder(tag)));
             for (int i = 0; i < tag.Folders.Count; i++)
             {
@@ -1680,7 +1689,7 @@ namespace Lilly.IntegratedModManager
         private void OpenMoveSelectionToNewTagFolder(ManagerTagData tag)
         {
             Find.WindowStack.Add(new ManagerFolderNameDialog(
-                "태그 폴더를 만들고 선택 모드 이동",
+                ManagerTranslation.Get("LMM_0088"),
                 "",
                 name =>
                 {
@@ -1714,11 +1723,11 @@ namespace Lilly.IntegratedModManager
 
                 ManagerTagData target = tag;
                 bool allHaveTag = selectedIds.All(id => HasTag(id, target.Id));
-                string action = allHaveTag ? "태그 제거: " : "태그 추가: ";
+                string action = allHaveTag ? ManagerTranslation.Get("LMM_0085") : ManagerTranslation.Get("LMM_0087");
                 options.Add(new FloatMenuOption(action + target.Name,
                     () => SetTagForSelection(selectedIds, target, !allHaveTag)));
             }
-            options.Add(new FloatMenuOption("새 태그 만들기",
+            options.Add(new FloatMenuOption(ManagerTranslation.Get("LMM_0048"),
                 () => OpenCreateTagDialog(selectedIds)));
             Find.WindowStack.Add(new FloatMenu(options));
         }
@@ -1815,7 +1824,7 @@ namespace Lilly.IntegratedModManager
             ManagerFolderData unfiled = FindFolder(tag, "uncategorized");
             if (unfiled == null)
             {
-                unfiled = new ManagerFolderData("uncategorized", "미분류");
+                unfiled = new ManagerFolderData("uncategorized", ManagerTranslation.Get("LMM_0040"));
                 tag.Folders.Insert(0, unfiled);
             }
 
@@ -1856,7 +1865,7 @@ namespace Lilly.IntegratedModManager
                 ? new List<string>()
                 : packageIds.Distinct(StringComparer.OrdinalIgnoreCase).ToList();
             Find.WindowStack.Add(new ManagerFolderNameDialog(
-                "새 태그",
+                ManagerTranslation.Get("LMM_0047"),
                 "",
                 name =>
                 {
@@ -1887,7 +1896,7 @@ namespace Lilly.IntegratedModManager
                 return;
 
             Find.WindowStack.Add(new ManagerFolderNameDialog(
-                "태그 이름 변경",
+                ManagerTranslation.Get("LMM_0084"),
                 tag.Name,
                 name =>
                 {
@@ -1895,7 +1904,7 @@ namespace Lilly.IntegratedModManager
                         string.Equals(existing.Name, name.Trim(),
                             StringComparison.OrdinalIgnoreCase)))
                     {
-                        Messages.Message("같은 이름의 태그가 이미 있습니다.",
+                        Messages.Message(ManagerTranslation.Get("LMM_0016"),
                             MessageTypeDefOf.RejectInput);
                         return false;
                     }
@@ -1923,12 +1932,12 @@ namespace Lilly.IntegratedModManager
                 return;
             if (tag.IsSystem)
             {
-                Messages.Message("태그 없음은 삭제할 수 없습니다.", MessageTypeDefOf.RejectInput);
+                Messages.Message(ManagerTranslation.Get("LMM_0083"), MessageTypeDefOf.RejectInput);
                 return;
             }
 
             Find.WindowStack.Add(Dialog_MessageBox.CreateConfirmation(
-                "태그를 삭제하고 모든 모드에서 연결을 해제할까요?",
+                ManagerTranslation.Get("LMM_0091"),
                 () =>
                 {
                     for (int i = 0; i < modStates.Count; i++)
@@ -2037,16 +2046,16 @@ namespace Lilly.IntegratedModManager
 
             if (targets.Count > 0)
             {
-                options.Add(new FloatMenuOption("선택 모드 활성화",
+                options.Add(new FloatMenuOption(ManagerTranslation.Get("LMM_0054"),
                     () => SetSelectedEnabled(true)));
-                options.Add(new FloatMenuOption("선택 모드 비활성화",
+                options.Add(new FloatMenuOption(ManagerTranslation.Get("LMM_0052"),
                     () => SetSelectedEnabled(false)));
-                options.Add(new FloatMenuOption("선택 해제",
+                options.Add(new FloatMenuOption(ManagerTranslation.Get("LMM_0056"),
                     () => ClearSelection()));
                 if (!tagMode)
-                    options.Add(new FloatMenuOption("카테고리 이동...",
+                    options.Add(new FloatMenuOption(ManagerTranslation.Get("LMM_0077"),
                         () => OpenMoveCategoryMenu()));
-                options.Add(new FloatMenuOption("폴더 이동/추가...",
+                options.Add(new FloatMenuOption(ManagerTranslation.Get("LMM_0098"),
                     () =>
                     {
                         if (tagMode)
@@ -2054,34 +2063,34 @@ namespace Lilly.IntegratedModManager
                         else
                             OpenMoveMenu();
                     }));
-                options.Add(new FloatMenuOption("선택 태그 편집...",
+                options.Add(new FloatMenuOption(ManagerTranslation.Get("LMM_0055"),
                     () => OpenSelectedTagMenu(targets)));
-                options.Add(new FloatMenuOption("선택 모드 태그 모두 제거",
+                options.Add(new FloatMenuOption(ManagerTranslation.Get("LMM_0053"),
                     () => ClearTagsForSelection(targets)));
             }
 
-            options.Add(new FloatMenuOption("표시 이름 변경",
+            options.Add(new FloatMenuOption(ManagerTranslation.Get("LMM_0105"),
                 () => OpenRenameDisplayNameDialog(mod)));
-            options.Add(new FloatMenuOption("기본 이름으로 초기화",
+            options.Add(new FloatMenuOption(ManagerTranslation.Get("LMM_0025"),
                 () =>
                 {
                     ManagerModData state = FindModState(mod.PackageId);
                     if (state != null)
                         state.DisplayName = null;
                 }));
-            options.Add(new FloatMenuOption("PackageId 복사",
+            options.Add(new FloatMenuOption(ManagerTranslation.Get("LMM_0008"),
                 () =>
                 {
                     GUIUtility.systemCopyBuffer = mod.PackageId;
-                    Messages.Message("PackageId가 클립보드에 복사되었습니다: " + mod.PackageId,
+                    Messages.Message(ManagerTranslation.Get("LMM_0009") + mod.PackageId,
                         MessageTypeDefOf.TaskCompletion);
                 }));
             string workshopUrl = GetWorkshopUrl(mod);
             if (!workshopUrl.NullOrEmpty())
-                options.Add(new FloatMenuOption("Workshop 페이지 열기",
+                options.Add(new FloatMenuOption(ManagerTranslation.Get("LMM_0014"),
                     () => OpenUrl(workshopUrl)));
             if (mod.RootDir != null)
-                options.Add(new FloatMenuOption("모드 폴더 열기",
+                options.Add(new FloatMenuOption(ManagerTranslation.Get("LMM_0030"),
                     () =>
                     {
                         try
@@ -2093,17 +2102,17 @@ namespace Lilly.IntegratedModManager
                         }
                         catch (Exception)
                         {
-                            Messages.Message("모드 폴더를 열 수 없습니다.", MessageTypeDefOf.RejectInput);
+                            Messages.Message(ManagerTranslation.Get("LMM_0034"), MessageTypeDefOf.RejectInput);
                         }
                     }));
-            options.Add(new FloatMenuOption("구독 취소",
+            options.Add(new FloatMenuOption(ManagerTranslation.Get("LMM_0023"),
                 () => ConfirmUnsubscribe(new List<string> { mod.PackageId })));
-            options.Add(new FloatMenuOption("관리 목록에서 제거",
+            options.Add(new FloatMenuOption(ManagerTranslation.Get("LMM_0022"),
                 () => ConfirmRemoveFromManager(mod)));
-            options.Add(new FloatMenuOption("모드 폴더 삭제",
+            options.Add(new FloatMenuOption(ManagerTranslation.Get("LMM_0028"),
                 () => ConfirmDeleteModFolder(mod)));
             if (!string.IsNullOrEmpty(mod.Description))
-                options.Add(new FloatMenuOption("설명 보기",
+                options.Add(new FloatMenuOption(ManagerTranslation.Get("LMM_0060"),
                     () => Messages.Message(mod.Description, MessageTypeDefOf.NeutralEvent)));
 
             if (options.Count > 0)
@@ -2129,13 +2138,13 @@ namespace Lilly.IntegratedModManager
                 .ToList();
             if (workshopMods.Count == 0)
             {
-                Messages.Message("선택한 항목에서 Workshop 구독 정보를 찾지 못했습니다.",
+                Messages.Message(ManagerTranslation.Get("LMM_0057"),
                     MessageTypeDefOf.RejectInput);
                 return;
             }
 
             Find.WindowStack.Add(Dialog_MessageBox.CreateConfirmation(
-                workshopMods.Count + "개 모드의 Steam Workshop 구독을 취소할까요?",
+                string.Format(ManagerTranslation.Get("LMM_0019"), workshopMods.Count),
                 () =>
                 {
                     int succeeded = 0;
@@ -2158,9 +2167,9 @@ namespace Lilly.IntegratedModManager
                         }
                     }
 
-                    string message = "Steam 구독 취소 요청: " + succeeded + "개 완료.";
+                    string message = ManagerTranslation.Get("LMM_0010") + succeeded + ManagerTranslation.Get("LMM_0020");
                     if (failures.Count > 0)
-                        message += " 실패 또는 미지원: " + string.Join(", ", failures);
+                        message += ManagerTranslation.Get("LMM_0004") + string.Join(", ", failures);
                     Messages.Message(message,
                         failures.Count == 0 ? MessageTypeDefOf.TaskCompletion : MessageTypeDefOf.RejectInput);
                 }, destructive: true));
@@ -2322,14 +2331,14 @@ namespace Lilly.IntegratedModManager
                         StringComparison.OrdinalIgnoreCase));
             if (active)
             {
-                Messages.Message("활성 모드는 관리 목록에서 제거할 수 없습니다.",
+                Messages.Message(ManagerTranslation.Get("LMM_0119"),
                     MessageTypeDefOf.RejectInput);
                 return;
             }
 
             Find.WindowStack.Add(Dialog_MessageBox.CreateConfirmation(
-                "'" + mod.Name + "'을(를) 관리 목록에서 제거하고 연결된 분류 정보를 정리할까요? " +
-                "모드 폴더 파일은 삭제하지 않습니다.",
+                "'" + mod.Name + ManagerTranslation.Get("LMM_0005") +
+                ManagerTranslation.Get("LMM_0031"),
                 () =>
                 {
                     for (int i = 0; i < categories.Count; i++)
@@ -2370,7 +2379,7 @@ namespace Lilly.IntegratedModManager
                 activeMod != null && string.Equals(activeMod.PackageId, mod.PackageId,
                     StringComparison.OrdinalIgnoreCase)))
             {
-                Messages.Message("활성화된 모드와 Core/DLC 폴더는 삭제할 수 없습니다.",
+                Messages.Message(ManagerTranslation.Get("LMM_0120"),
                     MessageTypeDefOf.RejectInput);
                 return;
             }
@@ -2378,24 +2387,24 @@ namespace Lilly.IntegratedModManager
             string folderPath = Path.GetFullPath(mod.RootDir.FullName);
             bool workshopManaged = GetWorkshopItemId(mod) > 0UL;
             string warning = workshopManaged
-                ? "Workshop 구독이 유지되므로 Steam이 파일을 다시 다운로드할 수 있습니다.\n"
+                ? ManagerTranslation.Get("LMM_0012")
                 : string.Empty;
             Find.WindowStack.Add(Dialog_MessageBox.CreateConfirmation(
-                warning + "모드 폴더의 모든 파일을 삭제할까요?\n" + folderPath,
+                warning + ManagerTranslation.Get("LMM_0035") + folderPath,
                 () =>
                 {
                     try
                     {
                         if (Directory.Exists(folderPath))
                             Directory.Delete(folderPath, true);
-                        Messages.Message("모드 폴더를 삭제했습니다.",
+                        Messages.Message(ManagerTranslation.Get("LMM_0033"),
                             MessageTypeDefOf.TaskCompletion);
                     }
                     catch (Exception exception)
                     {
                         Log.Error("[Lilly Mod Manager] Could not delete mod folder " +
                             folderPath + ": " + exception);
-                        Messages.Message("모드 폴더를 삭제하지 못했습니다: " + exception.Message,
+                        Messages.Message(ManagerTranslation.Get("LMM_0032") + exception.Message,
                             MessageTypeDefOf.RejectInput);
                     }
                 }, destructive: true));
@@ -2411,7 +2420,7 @@ namespace Lilly.IntegratedModManager
                 return;
 
             Find.WindowStack.Add(new ManagerFolderNameDialog(
-                "표시 이름 변경",
+                ManagerTranslation.Get("LMM_0105"),
                 state.DisplayName ?? GetDisplayName(mod),
                 name =>
                 {
@@ -2430,7 +2439,7 @@ namespace Lilly.IntegratedModManager
             ManagerFolderData targetFolder = FindFolder(target, "uncategorized");
             if (targetFolder == null)
             {
-                targetFolder = new ManagerFolderData("uncategorized", "미분류");
+                targetFolder = new ManagerFolderData("uncategorized", ManagerTranslation.Get("LMM_0040"));
                 target.Folders.Insert(0, targetFolder);
             }
             for (int i = 0; i < movingIds.Count; i++)
@@ -2518,13 +2527,13 @@ namespace Lilly.IntegratedModManager
             ManagerFolderData insertAfter)
         {
             Find.WindowStack.Add(new ManagerFolderNameDialog(
-                "새 폴더",
+                ManagerTranslation.Get("LMM_0049"),
                 "",
                 name =>
                 {
                     if (HasFolderName(category, name, null))
                     {
-                        Messages.Message("같은 이름의 폴더가 이미 있습니다.",
+                        Messages.Message(ManagerTranslation.Get("LMM_0017"),
                             MessageTypeDefOf.RejectInput);
                         return false;
                     }
@@ -2544,13 +2553,13 @@ namespace Lilly.IntegratedModManager
             ManagerFolderData insertAfter)
         {
             Find.WindowStack.Add(new ManagerFolderNameDialog(
-                "새 폴더",
+                ManagerTranslation.Get("LMM_0049"),
                 "",
                 name =>
                 {
                     if (HasFolderName(tag, name, null))
                     {
-                        Messages.Message("같은 이름의 폴더가 이미 있습니다.",
+                        Messages.Message(ManagerTranslation.Get("LMM_0017"),
                             MessageTypeDefOf.RejectInput);
                         return false;
                     }
@@ -2570,13 +2579,13 @@ namespace Lilly.IntegratedModManager
             ManagerFolderData folder)
         {
             Find.WindowStack.Add(new ManagerFolderNameDialog(
-                "폴더 이름 변경",
+                ManagerTranslation.Get("LMM_0099"),
                 folder.Name,
                 name =>
                 {
                     if (HasFolderName(category, name, folder))
                     {
-                        Messages.Message("같은 이름의 폴더가 이미 있습니다.",
+                        Messages.Message(ManagerTranslation.Get("LMM_0017"),
                             MessageTypeDefOf.RejectInput);
                         return false;
                     }
@@ -2589,13 +2598,13 @@ namespace Lilly.IntegratedModManager
         private void OpenRenameFolderDialog(ManagerTagData tag, ManagerFolderData folder)
         {
             Find.WindowStack.Add(new ManagerFolderNameDialog(
-                "폴더 이름 변경",
+                ManagerTranslation.Get("LMM_0099"),
                 folder.Name,
                 name =>
                 {
                     if (HasFolderName(tag, name, folder))
                     {
-                        Messages.Message("같은 이름의 폴더가 이미 있습니다.",
+                        Messages.Message(ManagerTranslation.Get("LMM_0017"),
                             MessageTypeDefOf.RejectInput);
                         return false;
                     }
@@ -2614,13 +2623,13 @@ namespace Lilly.IntegratedModManager
                 return;
 
             Find.WindowStack.Add(Dialog_MessageBox.CreateConfirmation(
-                "폴더를 삭제할까요? 폴더 안의 모드는 미분류 폴더로 이동합니다.",
+                ManagerTranslation.Get("LMM_0103"),
                 () =>
                 {
                     ManagerFolderData uncategorized = FindFolder(category, "uncategorized");
                     if (uncategorized == null)
                     {
-                        uncategorized = new ManagerFolderData("uncategorized", "미분류");
+                        uncategorized = new ManagerFolderData("uncategorized", ManagerTranslation.Get("LMM_0040"));
                         category.Folders.Insert(0, uncategorized);
                     }
 
@@ -2643,13 +2652,13 @@ namespace Lilly.IntegratedModManager
                 return;
 
             Find.WindowStack.Add(Dialog_MessageBox.CreateConfirmation(
-                "폴더를 삭제할까요? 폴더 안의 모드는 이 태그의 미분류 폴더로 이동합니다.",
+                ManagerTranslation.Get("LMM_0104"),
                 () =>
                 {
                     ManagerFolderData unfiled = FindFolder(tag, "uncategorized");
                     if (unfiled == null)
                     {
-                        unfiled = new ManagerFolderData("uncategorized", "미분류");
+                        unfiled = new ManagerFolderData("uncategorized", ManagerTranslation.Get("LMM_0040"));
                         tag.Folders.Insert(0, unfiled);
                     }
                     for (int i = 0; i < folder.ModIds.Count; i++)
@@ -2742,7 +2751,7 @@ namespace Lilly.IntegratedModManager
                 for (int folderIndex = 0; folderIndex < category.Folders.Count; folderIndex++)
                     SortFolderModIds(category.Folders[folderIndex]);
             }
-            Messages.Message("모드 폴더 안에서 선행 모드 의존성을 반영해 정렬했습니다.",
+            Messages.Message(ManagerTranslation.Get("LMM_0029"),
                 MessageTypeDefOf.TaskCompletion);
         }
 
@@ -2907,7 +2916,7 @@ namespace Lilly.IntegratedModManager
             if (hasOrderingIssues)
             {
                 Find.WindowStack.Add(Dialog_MessageBox.CreateConfirmation(
-                    "모드 선행/후순위 의존성 문제가 있습니다. 현재 순서대로 적용할까요?",
+                    ManagerTranslation.Get("LMM_0027"),
                     () => CommitAppliedChanges(activePackageIds), destructive: false));
                 return;
             }
@@ -2926,23 +2935,23 @@ namespace Lilly.IntegratedModManager
             Close();
 
             Find.WindowStack.Add(new Dialog_MessageBox(
-                "모드 목록을 적용했습니다. 변경사항은 게임을 재시작한 뒤 적용됩니다.",
-                "확인", null,
-                "재시작", () => GenCommandLine.Restart(),
+                ManagerTranslation.Get("LMM_0026"),
+                ManagerTranslation.Get("LMM_0118"), null,
+                ManagerTranslation.Get("LMM_0068"), () => GenCommandLine.Restart(),
                 null, false, null, null, WindowLayer.Dialog));
         }
 
         private void OpenSavePresetDialog()
         {
             Find.WindowStack.Add(new ManagerFolderNameDialog(
-                "현재 구성 프리셋 저장",
+                ManagerTranslation.Get("LMM_0117"),
                 "",
                 name =>
                 {
                     if (presets.Any(preset => string.Equals(preset.Name, name.Trim(),
                         StringComparison.OrdinalIgnoreCase)))
                     {
-                        Messages.Message("같은 이름의 프리셋이 이미 있습니다.",
+                        Messages.Message(ManagerTranslation.Get("LMM_0018"),
                             MessageTypeDefOf.RejectInput);
                         return false;
                     }
@@ -2955,7 +2964,7 @@ namespace Lilly.IntegratedModManager
                         modStates);
                     presets.Add(preset);
                     SavePresetsToSettings();
-                    Messages.Message("프리셋을 저장했습니다: " + preset.Name,
+                    Messages.Message(ManagerTranslation.Get("LMM_0108") + preset.Name,
                         MessageTypeDefOf.PositiveEvent);
                     return true;
                 }));
@@ -2965,23 +2974,11 @@ namespace Lilly.IntegratedModManager
         {
             if (presets.Count == 0)
             {
-                Messages.Message("저장된 프리셋이 없습니다.", MessageTypeDefOf.RejectInput);
+                Messages.Message(ManagerTranslation.Get("LMM_0069"), MessageTypeDefOf.RejectInput);
                 return;
             }
-
-            List<FloatMenuOption> options = new List<FloatMenuOption>();
-            for (int i = 0; i < presets.Count; i++)
-            {
-                ManagerPresetData preset = presets[i];
-                ManagerPresetData target = preset;
-                options.Add(new FloatMenuOption(
-                    "불러오기: " + target.Name,
-                    () => LoadPreset(target)));
-                options.Add(new FloatMenuOption(
-                    "삭제: " + target.Name,
-                    () => ConfirmDeletePreset(target)));
-            }
-            Find.WindowStack.Add(new FloatMenu(options));
+            Find.WindowStack.Add(new ManagerPresetLoadDialog(
+                presets, LoadPreset, ConfirmDeletePreset));
         }
 
         private void LoadPreset(ManagerPresetData preset)
@@ -3007,7 +3004,7 @@ namespace Lilly.IntegratedModManager
             RefreshVisibleMods();
             PersistTagData();
             Messages.Message(
-                "프리셋을 편집 화면에 불러왔습니다. 적용을 눌러 설정을 저장하세요: " + preset.Name,
+                ManagerTranslation.Get("LMM_0109") + preset.Name,
                 MessageTypeDefOf.PositiveEvent);
         }
 
@@ -3037,14 +3034,14 @@ namespace Lilly.IntegratedModManager
                 string.Equals(category.Id, "normal", StringComparison.OrdinalIgnoreCase));
             if (normalCategory == null)
             {
-                normalCategory = new ManagerCategoryData("normal", "일반 모드");
+                normalCategory = new ManagerCategoryData("normal", ManagerTranslation.Get("LMM_0065"));
                 categories.Add(normalCategory);
             }
 
             ManagerFolderData unfiled = FindFolder(normalCategory, "uncategorized");
             if (unfiled == null)
             {
-                unfiled = new ManagerFolderData("uncategorized", "미분류");
+                unfiled = new ManagerFolderData("uncategorized", ManagerTranslation.Get("LMM_0040"));
                 normalCategory.Folders.Insert(0, unfiled);
             }
 
@@ -3070,7 +3067,7 @@ namespace Lilly.IntegratedModManager
                     FindFolder(destination, "uncategorized");
                 if (destinationFolder == null)
                 {
-                    destinationFolder = new ManagerFolderData("uncategorized", "미분류");
+                    destinationFolder = new ManagerFolderData("uncategorized", ManagerTranslation.Get("LMM_0040"));
                     destination.Folders.Insert(0, destinationFolder);
                 }
                 destination.ModIds.Add(mod.PackageId);
@@ -3081,12 +3078,12 @@ namespace Lilly.IntegratedModManager
         private void ConfirmDeletePreset(ManagerPresetData preset)
         {
             Find.WindowStack.Add(Dialog_MessageBox.CreateConfirmation(
-                "프리셋 '" + preset.Name + "'을(를) 삭제할까요?",
+                ManagerTranslation.Get("LMM_0106") + preset.Name + ManagerTranslation.Get("LMM_0006"),
                 () =>
                 {
                     presets.Remove(preset);
                     SavePresetsToSettings();
-                    Messages.Message("프리셋을 삭제했습니다: " + preset.Name,
+                    Messages.Message(ManagerTranslation.Get("LMM_0107") + preset.Name,
                         MessageTypeDefOf.PositiveEvent);
                 },
                 destructive: true));
@@ -3773,7 +3770,7 @@ namespace Lilly.IntegratedModManager
             }
             catch (Exception)
             {
-                Messages.Message("URL을 열 수 없습니다.", MessageTypeDefOf.RejectInput);
+                Messages.Message(ManagerTranslation.Get("LMM_0011"), MessageTypeDefOf.RejectInput);
             }
         }
     }

@@ -72,10 +72,10 @@ namespace Lilly.IntegratedModManager
 
             if (Categories.Count == 0)
             {
-                Categories.Add(new ManagerCategoryData("before", "선행 모드"));
-                Categories.Add(new ManagerCategoryData("core", "핵심 모드"));
-                Categories.Add(new ManagerCategoryData("normal", "일반 모드"));
-                Categories.Add(new ManagerCategoryData("after", "후순위 모드"));
+                Categories.Add(new ManagerCategoryData("before", ManagerTranslation.Get("LMM_0058")));
+                Categories.Add(new ManagerCategoryData("core", ManagerTranslation.Get("LMM_0116")));
+                Categories.Add(new ManagerCategoryData("normal", ManagerTranslation.Get("LMM_0065")));
+                Categories.Add(new ManagerCategoryData("after", ManagerTranslation.Get("LMM_0121")));
             }
 
             bool hasUntagged = false;
@@ -89,13 +89,13 @@ namespace Lilly.IntegratedModManager
                     hasUntagged = true;
                     tag.IsSystem = true;
                     if (tag.Name.NullOrEmpty())
-                        tag.Name = "태그 없음";
+                        tag.Name = ManagerTranslation.Get("LMM_0082");
                 }
                 if (!ManagerTagColors.IsValidHex(tag.ColorHex))
                     tag.ColorHex = ManagerTagColors.RandomHex();
             }
             if (!hasUntagged)
-                Tags.Insert(0, new ManagerTagData("untagged", "태그 없음"));
+                Tags.Insert(0, new ManagerTagData("untagged", ManagerTranslation.Get("LMM_0082")));
 
             ManagerCategoryData coreCategory = FindCategory("core") ?? Categories[0];
             ManagerCategoryData beforeCategory = FindCategory("before") ?? coreCategory;
@@ -136,7 +136,7 @@ namespace Lilly.IntegratedModManager
                     category.Folders = new List<ManagerFolderData>();
                 if (category.Folders.Count == 0)
                     category.Folders.Add(new ManagerFolderData(
-                        "uncategorized", "미분류"));
+                        "uncategorized", ManagerTranslation.Get("LMM_0040")));
 
                 HashSet<string> folderPackageIds =
                     new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -165,7 +165,7 @@ namespace Lilly.IntegratedModManager
                 ManagerFolderData uncategorized = FindFolder(category, "uncategorized");
                 if (uncategorized == null)
                 {
-                    uncategorized = new ManagerFolderData("uncategorized", "미분류");
+                    uncategorized = new ManagerFolderData("uncategorized", ManagerTranslation.Get("LMM_0040"));
                     category.Folders.Insert(0, uncategorized);
                 }
 
@@ -210,7 +210,7 @@ namespace Lilly.IntegratedModManager
                     ManagerFolderData uncategorized = FindFolder(category, "uncategorized");
                     if (uncategorized == null)
                     {
-                        uncategorized = new ManagerFolderData("uncategorized", "미분류");
+                        uncategorized = new ManagerFolderData("uncategorized", ManagerTranslation.Get("LMM_0040"));
                         category.Folders.Insert(0, uncategorized);
                     }
                     uncategorized.ModIds.Add(packageId);
@@ -232,7 +232,7 @@ namespace Lilly.IntegratedModManager
                 if (tag.Folders == null)
                     tag.Folders = new List<ManagerFolderData>();
                 if (tag.Folders.Count == 0)
-                    tag.Folders.Add(new ManagerFolderData("uncategorized", "미분류"));
+                    tag.Folders.Add(new ManagerFolderData("uncategorized", ManagerTranslation.Get("LMM_0040")));
 
                 HashSet<string> linkedIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
                 for (int folderIndex = tag.Folders.Count - 1; folderIndex >= 0; folderIndex--)
@@ -263,7 +263,7 @@ namespace Lilly.IntegratedModManager
                 ManagerFolderData unfiled = FindTagFolder(tag, "uncategorized");
                 if (unfiled == null)
                 {
-                    unfiled = new ManagerFolderData("uncategorized", "미분류");
+                    unfiled = new ManagerFolderData("uncategorized", ManagerTranslation.Get("LMM_0040"));
                     tag.Folders.Insert(0, unfiled);
                 }
 
@@ -455,7 +455,7 @@ namespace Lilly.IntegratedModManager
             Name = name;
             IsSystem = string.Equals(id, "untagged", StringComparison.OrdinalIgnoreCase);
             ColorHex = ManagerTagColors.RandomHex();
-            Folders.Add(new ManagerFolderData("uncategorized", "미분류"));
+            Folders.Add(new ManagerFolderData("uncategorized", ManagerTranslation.Get("LMM_0040")));
         }
 
         public void ExposeData()

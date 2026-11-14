@@ -67,14 +67,14 @@ namespace Lilly.IntegratedModManager
             float buttonY = rect.height - 42f;
             if (Widgets.ButtonText(
                 new Rect(rect.width / 2f - buttonWidth - 5f, buttonY, buttonWidth, 32f),
-                "취소"))
+                ManagerTranslation.Get("LMM_0074")))
             {
                 Close();
             }
 
             if (Widgets.ButtonText(
                 new Rect(rect.width / 2f + 5f, buttonY, buttonWidth, 32f),
-                "확인"))
+                ManagerTranslation.Get("LMM_0118")))
             {
                 TryAccept();
             }
@@ -85,7 +85,7 @@ namespace Lilly.IntegratedModManager
             string trimmedName = inputName.Trim();
             if (trimmedName.NullOrEmpty())
             {
-                Messages.Message("이름을 입력하세요.", MessageTypeDefOf.RejectInput);
+                Messages.Message(ManagerTranslation.Get("LMM_0064"), MessageTypeDefOf.RejectInput);
                 return;
             }
 

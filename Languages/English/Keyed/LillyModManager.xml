@@ -1,0 +1,133 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LanguageData>
+  <LMM_0001> (Required)</LMM_0001>
+  <LMM_0002> / Unsorted</LMM_0002>
+  <LMM_0003> / Move to new folder...</LMM_0003>
+  <LMM_0004> failed or is unsupported: </LMM_0004>
+  <LMM_0005>' from the manager and clear its category assignments? </LMM_0005>
+  <LMM_0006>'. Delete it?</LMM_0006>
+  <LMM_0007>+ Add tag</LMM_0007>
+  <LMM_0008>Copy PackageId</LMM_0008>
+  <LMM_0009>PackageId copied to clipboard: </LMM_0009>
+  <LMM_0010>Steam unsubscribe request: </LMM_0010>
+  <LMM_0011>Could not open the URL.</LMM_0011>
+  <LMM_0012>The Workshop subscription remains active, so Steam may download the files again.
+</LMM_0012>
+  <LMM_0013>Open Workshop</LMM_0013>
+  <LMM_0014>Open Workshop page</LMM_0014>
+  <LMM_0015>A category with that name already exists.</LMM_0015>
+  <LMM_0016>A tag with that name already exists.</LMM_0016>
+  <LMM_0017>A folder with that name already exists.</LMM_0017>
+  <LMM_0018>A preset with that name already exists.</LMM_0018>
+  <LMM_0019>Unsubscribe from {0} Steam Workshop mods?</LMM_0019>
+  <LMM_0020> completed.</LMM_0020>
+  <LMM_0021>Search</LMM_0021>
+  <LMM_0022>Remove from manager</LMM_0022>
+  <LMM_0023>Unsubscribe</LMM_0023>
+  <LMM_0024>Original name: </LMM_0024>
+  <LMM_0025>Reset to original name</LMM_0025>
+  <LMM_0026>The mod list was applied. Changes take effect after restarting the game.</LMM_0026>
+  <LMM_0027>The mod order has dependency issues. Apply the current order anyway?</LMM_0027>
+  <LMM_0028>Delete mod folder</LMM_0028>
+  <LMM_0029>Sorted the mods in the folder to respect dependencies.</LMM_0029>
+  <LMM_0030>Open mod folder</LMM_0030>
+  <LMM_0031>The files in the mod folder will not be deleted.</LMM_0031>
+  <LMM_0032>Could not delete mod folder: </LMM_0032>
+  <LMM_0033>Deleted the mod folder.</LMM_0033>
+  <LMM_0034>Could not open the mod folder.</LMM_0034>
+  <LMM_0035>Delete all files in this mod folder?
+</LMM_0035>
+  <LMM_0036>A category containing mods cannot be deleted.</LMM_0036>
+  <LMM_0037>Select a mod to view its details.</LMM_0037>
+  <LMM_0038>Load list</LMM_0038>
+  <LMM_0039>Save list</LMM_0039>
+  <LMM_0040>Unsorted</LMM_0040>
+  <LMM_0041>Choose a background color. Text color is selected automatically based on its brightness.</LMM_0041>
+  <LMM_0042>Version: </LMM_0042>
+  <LMM_0043> position</LMM_0043>
+  <LMM_0044>Discard changes</LMM_0044>
+  <LMM_0045>Delete</LMM_0045>
+  <LMM_0046>New category</LMM_0046>
+  <LMM_0047>New tag</LMM_0047>
+  <LMM_0048>Create new tag</LMM_0048>
+  <LMM_0049>New folder</LMM_0049>
+  <LMM_0050>Move to new folder...</LMM_0050>
+  <LMM_0051>Color</LMM_0051>
+  <LMM_0052>Disable selected mods</LMM_0052>
+  <LMM_0053>Remove all tags from selected mods</LMM_0053>
+  <LMM_0054>Enable selected mods</LMM_0054>
+  <LMM_0055>Edit tags for selected mods...</LMM_0055>
+  <LMM_0056>Clear selection</LMM_0056>
+  <LMM_0057>No Workshop subscription information was found for the selected items.</LMM_0057>
+  <LMM_0058>Required mods</LMM_0058>
+  <LMM_0059>Required mods: </LMM_0059>
+  <LMM_0060>View description</LMM_0060>
+  <LMM_0061>No description available.</LMM_0061>
+  <LMM_0062>There are no other categories to move to.</LMM_0062>
+  <LMM_0063>Name</LMM_0063>
+  <LMM_0064>Enter a name.</LMM_0064>
+  <LMM_0065>General</LMM_0065>
+  <LMM_0066>Random color</LMM_0066>
+  <LMM_0067>Auto sort</LMM_0067>
+  <LMM_0068>Restart</LMM_0068>
+  <LMM_0069>No saved presets.</LMM_0069>
+  <LMM_0070>Apply</LMM_0070>
+  <LMM_0071>Collapse</LMM_0071>
+  <LMM_0072>Author: </LMM_0072>
+  <LMM_0073>Supported game versions: </LMM_0073>
+  <LMM_0074>Cancel</LMM_0074>
+  <LMM_0075>Categories</LMM_0075>
+  <LMM_0076>Category '</LMM_0076>
+  <LMM_0077>Move to category...</LMM_0077>
+  <LMM_0078>Rename category</LMM_0078>
+  <LMM_0079>Add category</LMM_0079>
+  <LMM_0080>Tag mode</LMM_0080>
+  <LMM_0081>Tag color: </LMM_0081>
+  <LMM_0082>Untagged</LMM_0082>
+  <LMM_0083>The Untagged tag cannot be deleted.</LMM_0083>
+  <LMM_0084>Rename tag</LMM_0084>
+  <LMM_0085>Remove tag: </LMM_0085>
+  <LMM_0086>Add tag</LMM_0086>
+  <LMM_0087>Add tag: </LMM_0087>
+  <LMM_0088>Create a tag folder and move selected mods</LMM_0088>
+  <LMM_0089>Tags:</LMM_0089>
+  <LMM_0090>There are no tags. Use '+ Add tag' above to create one.</LMM_0090>
+  <LMM_0091>Delete this tag and remove it from all mods?</LMM_0091>
+  <LMM_0092>Expand</LMM_0092>
+  <LMM_0093>Select all mods in folder</LMM_0093>
+  <LMM_0094>Quick folder move</LMM_0094>
+  <LMM_0095>Disable folder</LMM_0095>
+  <LMM_0096>Delete folder</LMM_0096>
+  <LMM_0097>No folder</LMM_0097>
+  <LMM_0098>Move to/add folder...</LMM_0098>
+  <LMM_0099>Rename folder</LMM_0099>
+  <LMM_0100>Add folder</LMM_0100>
+  <LMM_0101>Enable folder</LMM_0101>
+  <LMM_0102>Create a folder and move selected mods</LMM_0102>
+  <LMM_0103>Delete this folder? Its mods will be moved to Unsorted.</LMM_0103>
+  <LMM_0104>Delete this folder? Its mods will be moved to this tag's Unsorted folder.</LMM_0104>
+  <LMM_0105>Rename display name</LMM_0105>
+  <LMM_0106>Preset '</LMM_0106>
+  <LMM_0107>Deleted preset: </LMM_0107>
+  <LMM_0108>Saved preset: </LMM_0108>
+  <LMM_0109>Loaded preset into the editor. Press Apply to save the configuration: </LMM_0109>
+  <LMM_0110>Filter: Subscribed</LMM_0110>
+  <LMM_0111>Filter: Unsorted</LMM_0111>
+  <LMM_0112>Filter: Inactive</LMM_0112>
+  <LMM_0113>Filter: All</LMM_0113>
+  <LMM_0114>Filter: Untagged</LMM_0114>
+  <LMM_0115>Filter: Active</LMM_0115>
+  <LMM_0116>Core</LMM_0116>
+  <LMM_0117>Save current configuration preset</LMM_0117>
+  <LMM_0118>OK</LMM_0118>
+  <LMM_0119>Active mods cannot be removed from the manager.</LMM_0119>
+  <LMM_0120>Enabled mods and Core/DLC folders cannot be deleted.</LMM_0120>
+  <LMM_0121>Load after</LMM_0121>
+  <LMM_0122>Load preset</LMM_0122>
+  <LMM_0123>Load</LMM_0123>
+  <LMM_0124>Close</LMM_0124>
+  <LMM_0125>Edit category name</LMM_0125>
+  <LMM_0126>Edit tag name</LMM_0126>
+  <LMM_0127>Move to position</LMM_0127>
+  <LMM_0128>Position {0}</LMM_0128>
+</LanguageData>

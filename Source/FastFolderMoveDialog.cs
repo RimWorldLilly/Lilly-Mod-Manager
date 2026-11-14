@@ -64,11 +64,11 @@ namespace Lilly.IntegratedModManager
         public override void DoWindowContents(Rect rect)
         {
             Text.Font = GameFont.Medium;
-            Widgets.Label(new Rect(0f, 0f, rect.width, 28f), "폴더 바로가기");
+            Widgets.Label(new Rect(0f, 0f, rect.width, 28f), ManagerTranslation.Get("LMM_0094"));
             Text.Font = GameFont.Small;
 
             Rect searchRect = new Rect(10f, 34f, Mathf.Min(280f, rect.width * 0.35f), 28f);
-            Widgets.Label(new Rect(searchRect.x, searchRect.y, 48f, searchRect.height), "검색");
+            Widgets.Label(new Rect(searchRect.x, searchRect.y, 48f, searchRect.height), ManagerTranslation.Get("LMM_0021"));
             searchText = Widgets.TextField(
                 new Rect(searchRect.x + 48f, searchRect.y, searchRect.width - 48f, searchRect.height),
                 searchText);
@@ -159,7 +159,7 @@ namespace Lilly.IntegratedModManager
                 else
                 {
                     Widgets.Label(new Rect(columnRect.x + 8f, columnRect.y + 8f,
-                        columnRect.width - 16f, 24f), "폴더 없음");
+                        columnRect.width - 16f, 24f), ManagerTranslation.Get("LMM_0097"));
                 }
             }
         }

@@ -30,10 +30,10 @@ namespace Lilly.IntegratedModManager
                 return;
 
             Text.Font = GameFont.Medium;
-            Widgets.Label(new Rect(0f, 0f, rect.width, 30f), "태그 색상: " + tag.Name);
+            Widgets.Label(new Rect(0f, 0f, rect.width, 30f), ManagerTranslation.Get("LMM_0081") + tag.Name);
             Text.Font = GameFont.Small;
             Widgets.Label(new Rect(0f, 32f, rect.width, 24f),
-                "배경색을 선택하세요. 글자색은 배경 밝기에 맞춰 자동으로 정해집니다.");
+                ManagerTranslation.Get("LMM_0041"));
 
             const int columns = 6;
             const float swatchWidth = 54f;
@@ -61,7 +61,7 @@ namespace Lilly.IntegratedModManager
                 }
             }
 
-            if (Widgets.ButtonText(new Rect(rect.width - 112f, rect.height - 32f, 112f, 28f), "임의 색상"))
+            if (Widgets.ButtonText(new Rect(rect.width - 112f, rect.height - 32f, 112f, 28f), ManagerTranslation.Get("LMM_0066")))
             {
                 if (onColorSelected != null)
                     onColorSelected(ManagerTagColors.RandomHex());
