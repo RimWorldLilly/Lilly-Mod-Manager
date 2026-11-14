@@ -1289,22 +1289,42 @@ namespace Lilly.IntegratedModManager
                 y += issueHeight + 6f;
             }
 
-            WidgetRow actions = new WidgetRow(inner.x, y, UIDirection.RightThenDown,
-                inner.width, 0f);
-            if (GetAvailableModActionCount(mod) > 0 &&
-                actions.ButtonText("MoreActions".Translate()))
-                OpenVanillaModActions(mod);
-
+            float actionX = inner.x;
+            float actionY = y;
+            bool hasActionButtons = false;
+            if (GetAvailableModActionCount(mod) > 0)
+            {
+                DrawDetailActionButton(inner, ref actionX, ref actionY, 140f,
+                    "MoreActions".Translate(), () => OpenVanillaModActions(mod));
+                hasActionButtons = true;
+            }
             ManagerModData selectedModState = FindModState(mod.PackageId);
-            if (!IsProtected(mod) && selectedModState != null &&
-                actions.ButtonText((selectedModState.Enabled ? "Disable" : "Enable").Translate()))
-                selectedModState.Enabled = !selectedModState.Enabled;
+            if (!IsProtected(mod) && selectedModState != null)
+            {
+                DrawDetailActionButton(inner, ref actionX, ref actionY, 120f,
+                    (selectedModState.Enabled ? "Disable" : "Enable").Translate(),
+                    () => selectedModState.Enabled = !selectedModState.Enabled);
+                hasActionButtons = true;
+            }
 
-            if (SteamManager.Initialized && mod.CanToUploadToWorkshop() &&
-                actions.ButtonText(GetWorkshopUploadLabel(mod)))
-                OpenWorkshopUploadDialog(mod);
+            Mod loadedMod = FindLoadedMod(mod);
+            if (loadedMod != null && !loadedMod.SettingsCategory().NullOrEmpty())
+            {
+                DrawDetailActionButton(inner, ref actionX, ref actionY, 150f,
+                    "ModOptions".Translate(),
+                    () => Find.WindowStack.Add(new Dialog_ModSettings(loadedMod)));
+                hasActionButtons = true;
+            }
 
-            y = actions.FinalY + 8f;
+            if (SteamManager.Initialized && mod.CanToUploadToWorkshop())
+            {
+                DrawDetailActionButton(inner, ref actionX, ref actionY, 220f,
+                    GetWorkshopUploadLabel(mod), () => OpenWorkshopUploadDialog(mod));
+                hasActionButtons = true;
+            }
+
+            if (hasActionButtons)
+                y = actionY + 34f;
             Rect descriptionRect = new Rect(inner.x, y, inner.width,
                 Mathf.Max(80f, inner.height - (y - inner.y) - 4f));
             string description = mod.Description.NullOrEmpty()
@@ -1321,6 +1341,27 @@ namespace Lilly.IntegratedModManager
             Widgets.BeginScrollView(descriptionRect, ref descriptionScroll, descriptionView);
             Widgets.Label(new Rect(0f, 0f, descriptionView.width, descriptionView.height), description);
             Widgets.EndScrollView();
+        }
+
+        private static void DrawDetailActionButton(
+            Rect bounds,
+            ref float x,
+            ref float y,
+            float preferredWidth,
+            string label,
+            Action action)
+        {
+            float width = Mathf.Min(preferredWidth, bounds.width);
+            if (x + width > bounds.xMax && x > bounds.x)
+            {
+                x = bounds.x;
+                y += 34f;
+            }
+
+            Rect buttonRect = new Rect(x, y, width, 28f);
+            if (Widgets.ButtonText(buttonRect, label) && action != null)
+                action();
+            x += width + 6f;
         }
 
         private static int GetAvailableModActionCount(ModMetaData mod)
