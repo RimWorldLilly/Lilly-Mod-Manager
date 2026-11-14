@@ -3818,37 +3818,58 @@ namespace Lilly.IntegratedModManager
         private bool MatchesFilter(ModMetaData mod)
         {
             ManagerModData state = FindModState(mod.PackageId);
-            bool active = state != null && state.Enabled;
-            bool untagged = state == null || state.TagIds == null || state.TagIds.Count == 0;
-            bool subscribed = IsSteamSubscribed(mod);
-            bool uncategorized = IsInUncategorizedFolder(mod.PackageId);
             int selectedCount = 0;
             int matchedCount = 0;
 
             if (filterActive)
             {
                 selectedCount++;
-                if (active) matchedCount++;
+                if (state != null && state.Enabled)
+                    matchedCount++;
+                else if (filterUseAnd)
+                    return false;
+                else if (matchedCount > 0)
+                    return true;
             }
             if (filterInactive)
             {
                 selectedCount++;
-                if (!active) matchedCount++;
+                if (state == null || !state.Enabled)
+                    matchedCount++;
+                else if (filterUseAnd)
+                    return false;
+                else if (matchedCount > 0)
+                    return true;
             }
             if (filterSubscribed)
             {
                 selectedCount++;
-                if (subscribed) matchedCount++;
+                if (IsSteamSubscribed(mod))
+                    matchedCount++;
+                else if (filterUseAnd)
+                    return false;
+                else if (matchedCount > 0)
+                    return true;
             }
             if (filterUntagged)
             {
                 selectedCount++;
-                if (untagged) matchedCount++;
+                if (state == null || state.TagIds == null || state.TagIds.Count == 0)
+                    matchedCount++;
+                else if (filterUseAnd)
+                    return false;
+                else if (matchedCount > 0)
+                    return true;
             }
             if (filterUncategorized)
             {
                 selectedCount++;
-                if (uncategorized) matchedCount++;
+                if (IsInUncategorizedFolder(mod.PackageId))
+                    matchedCount++;
+                else if (filterUseAnd)
+                    return false;
+                else if (matchedCount > 0)
+                    return true;
             }
 
             if (selectedCount == 0)
