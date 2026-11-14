@@ -6,9 +6,11 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Text.RegularExpressions;
+using System.Net;
 using RimWorld;
 using UnityEngine;
 using Verse;
+using Verse.Steam;
 
 namespace Lilly.IntegratedModManager
 {
@@ -46,6 +48,7 @@ namespace Lilly.IntegratedModManager
         private string searchText = "";
         private ModFilter currentModFilter = ModFilter.All;
         private bool tagMode;
+        private bool displayFulfilledRequirements;
         private bool modListHasKeyboardFocus;
         private Vector2 categoryTabScroll;
         private Vector2 tagTabScroll;
@@ -1131,6 +1134,16 @@ namespace Lilly.IntegratedModManager
             }
 
             float y = inner.y;
+            Texture2D previewImage = mod.PreviewImage;
+            if (previewImage != null)
+            {
+                float previewHeight = Mathf.Min(190f,
+                    inner.width * previewImage.height / Mathf.Max(1f, previewImage.width));
+                Rect previewRect = new Rect(inner.x, y, inner.width, previewHeight);
+                GUI.DrawTexture(previewRect, previewImage, ScaleMode.ScaleToFit);
+                y += previewHeight + 8f;
+            }
+
             Text.Font = GameFont.Medium;
             Widgets.Label(new Rect(inner.x, y, inner.width, 36f), GetDisplayName(mod));
             Text.Font = GameFont.Small;
@@ -1224,26 +1237,79 @@ namespace Lilly.IntegratedModManager
                 OpenCreateTagDialog(new[] { mod.PackageId });
             y += 32f;
 
-            string dependencyText = GetDependencyText(mod);
-            if (!dependencyText.NullOrEmpty())
+            List<ModRequirement> requirements = mod.GetRequirements().ToList();
+            if (requirements.Count > 0)
             {
-                Widgets.Label(new Rect(inner.x, y, inner.width, 24f), ManagerTranslation.Get("LMM_0059") + dependencyText);
+                Rect checkboxRect = new Rect(inner.x, y, inner.width, 26f);
+                bool priorDisplayFulfilled = displayFulfilledRequirements;
+                Widgets.CheckboxLabeled(checkboxRect,
+                    "ModDisplayFulfilledRequirements".Translate(),
+                    ref displayFulfilledRequirements);
                 y += 28f;
+
+                for (int i = 0; i < requirements.Count; i++)
+                {
+                    ModRequirement requirement = requirements[i];
+                    if (requirement == null ||
+                        (requirement.IsSatisfied && !displayFulfilledRequirements))
+                        continue;
+
+                    Rect requirementRect = new Rect(inner.x + 8f, y,
+                        inner.width - 8f, 24f);
+                    Rect statusIconRect = new Rect(requirementRect.x,
+                        requirementRect.y + 2f, 20f, 20f);
+                    if (requirement.StatusIcon != null)
+                        GUI.DrawTexture(statusIconRect, requirement.StatusIcon,
+                            ScaleMode.ScaleToFit);
+
+                    string requirementName = ReadMetadataValue(requirement, "displayName") as string;
+                    if (requirementName.NullOrEmpty())
+                        requirementName = ReadMetadataValue(requirement, "packageId") as string;
+                    if (requirementName.NullOrEmpty())
+                        requirementName = requirement.RequirementTypeLabel;
+                    Widgets.Label(new Rect(statusIconRect.xMax + 4f, requirementRect.y,
+                        requirementRect.width - 24f, requirementRect.height), requirementName);
+                    TooltipHandler.TipRegion(requirementRect, requirement.Tooltip);
+                    y += 24f;
+                }
+
+                if (priorDisplayFulfilled != displayFulfilledRequirements)
+                    descriptionScroll = Vector2.zero;
             }
 
-            string workshopUrl = GetWorkshopUrl(mod);
-            if (!workshopUrl.NullOrEmpty())
+            List<string> folderIssues = GetModLoadFolderIssues(mod);
+            if (folderIssues != null && folderIssues.Count > 0)
             {
-                if (Widgets.ButtonText(new Rect(inner.x, y, 150f, 26f), ManagerTranslation.Get("LMM_0013")))
-                    OpenUrl(workshopUrl);
-                y += 32f;
+                Widgets.Label(new Rect(inner.x, y, inner.width, 24f),
+                    "ModHadLoadFolderIssues".Translate());
+                y += 24f;
+                string issueText = GenText.ToLineList(folderIssues, "  - ");
+                float issueHeight = Text.CalcHeight(issueText, inner.width);
+                Widgets.Label(new Rect(inner.x + 8f, y, inner.width - 8f, issueHeight), issueText);
+                y += issueHeight + 6f;
             }
 
+            WidgetRow actions = new WidgetRow(inner.x, y, UIDirection.RightThenDown,
+                inner.width, 0f);
+            if (GetAvailableModActionCount(mod) > 0 &&
+                actions.ButtonText("MoreActions".Translate()))
+                OpenVanillaModActions(mod);
+
+            ManagerModData selectedModState = FindModState(mod.PackageId);
+            if (!IsProtected(mod) && selectedModState != null &&
+                actions.ButtonText((selectedModState.Enabled ? "Disable" : "Enable").Translate()))
+                selectedModState.Enabled = !selectedModState.Enabled;
+
+            if (SteamManager.Initialized && mod.CanToUploadToWorkshop() &&
+                actions.ButtonText(GetWorkshopUploadLabel(mod)))
+                OpenWorkshopUploadDialog(mod);
+
+            y = actions.FinalY + 8f;
             Rect descriptionRect = new Rect(inner.x, y, inner.width,
                 Mathf.Max(80f, inner.height - (y - inner.y) - 4f));
             string description = mod.Description.NullOrEmpty()
                 ? ManagerTranslation.Get("LMM_0061")
-                : mod.Description;
+                : WebUtility.HtmlDecode(mod.Description);
             float descriptionHeight = Text.CalcHeight(description, descriptionRect.width);
             float descriptionScrollbarWidth = descriptionHeight > descriptionRect.height
                 ? ManagerUiMetrics.VerticalScrollbarWidth
@@ -1255,6 +1321,138 @@ namespace Lilly.IntegratedModManager
             Widgets.BeginScrollView(descriptionRect, ref descriptionScroll, descriptionView);
             Widgets.Label(new Rect(0f, 0f, descriptionView.width, descriptionView.height), description);
             Widgets.EndScrollView();
+        }
+
+        private static int GetAvailableModActionCount(ModMetaData mod)
+        {
+            if (mod == null)
+                return 0;
+
+            int count = 0;
+            if (SteamManager.Initialized && mod.OnSteamWorkshop)
+                count++;
+            if (!GetWorkshopUrl(mod).NullOrEmpty())
+                count++;
+            if (mod.RootDir != null && !mod.Official)
+                count++;
+            Mod loadedMod = FindLoadedMod(mod);
+            if (loadedMod != null && !loadedMod.SettingsCategory().NullOrEmpty())
+                count++;
+            return count;
+        }
+
+        private void OpenVanillaModActions(ModMetaData mod)
+        {
+            if (mod == null)
+                return;
+
+            List<FloatMenuOption> options = new List<FloatMenuOption>();
+            string workshopUrl = GetWorkshopUrl(mod);
+            if (SteamManager.Initialized && mod.OnSteamWorkshop)
+                options.Add(new FloatMenuOption("Unsubscribe".Translate(),
+                    () => ConfirmUnsubscribe(new List<string> { mod.PackageId })));
+            if (!workshopUrl.NullOrEmpty())
+                options.Add(new FloatMenuOption("WorkshopPage".Translate(),
+                    () => OpenUrl(workshopUrl)));
+            if (mod.RootDir != null && !mod.Official)
+                options.Add(new FloatMenuOption("ModFolder".Translate(),
+                    () => OpenModFolder(mod)));
+            if (!mod.Url.NullOrEmpty())
+                options.Add(new FloatMenuOption("ModWebsite".Translate(),
+                    () => OpenUrl(mod.Url)));
+            Mod loadedMod = FindLoadedMod(mod);
+            if (loadedMod != null && !loadedMod.SettingsCategory().NullOrEmpty())
+                options.Add(new FloatMenuOption("ModOptions".Translate(),
+                    () => Find.WindowStack.Add(new Dialog_ModSettings(loadedMod))));
+
+            if (options.Count > 0)
+                Find.WindowStack.Add(new FloatMenu(options));
+        }
+
+        private static void OpenWorkshopUploadDialog(ModMetaData mod)
+        {
+            if (mod == null || !SteamManager.Initialized || !mod.CanToUploadToWorkshop())
+                return;
+
+            Find.WindowStack.Add(new Dialog_ConfirmModUpload(mod,
+                () => Find.WindowStack.Add(Dialog_MessageBox.CreateConfirmation(
+                    "ConfirmContentAuthor".Translate(),
+                    () => InvokeWorkshopUpload(mod)))));
+        }
+
+        private static Mod FindLoadedMod(ModMetaData mod)
+        {
+            if (mod == null)
+                return null;
+            return LoadedModManager.ModHandles.FirstOrDefault(loaded => loaded != null &&
+                loaded.Content != null && string.Equals(loaded.Content.PackageId, mod.PackageId,
+                    StringComparison.OrdinalIgnoreCase));
+        }
+
+        private static List<string> GetModLoadFolderIssues(ModMetaData mod)
+        {
+            object loadFolders = ReadMetadataValue(mod, "loadFolders");
+            if (loadFolders == null)
+                return new List<string>();
+            MethodInfo method = loadFolders.GetType().GetMethod("GetIssueList",
+                BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic,
+                null, new[] { typeof(ModMetaData) }, null);
+            return method == null
+                ? new List<string>()
+                : method.Invoke(loadFolders, new object[] { mod }) as List<string>
+                    ?? new List<string>();
+        }
+
+        private static string GetWorkshopUploadLabel(ModMetaData mod)
+        {
+            MethodInfo getPublishedFileId = typeof(ModMetaData).GetMethod("GetPublishedFileId",
+                BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+            object publishedFileId = getPublishedFileId == null
+                ? null
+                : getPublishedFileId.Invoke(mod, null);
+            Type workshopType = typeof(ModMetaData).Assembly.GetType("Verse.Steam.Workshop");
+            MethodInfo uploadButtonLabel = workshopType == null || publishedFileId == null
+                ? null
+                : workshopType.GetMethod("UploadButtonLabel",
+                    BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic,
+                    null, new[] { publishedFileId.GetType() }, null);
+            return uploadButtonLabel == null
+                ? ManagerTranslation.Get("LMM_0129")
+                : (string)uploadButtonLabel.Invoke(null, new[] { publishedFileId });
+        }
+
+        private static void InvokeWorkshopUpload(ModMetaData mod)
+        {
+            Type workshopType = typeof(ModMetaData).Assembly.GetType("Verse.Steam.Workshop");
+            MethodInfo bakeAndUpload = workshopType == null
+                ? null
+                : workshopType.GetMethod("BakeAndUpload",
+                    BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic,
+                    null, new[] { typeof(ModMetaData) }, null);
+            if (bakeAndUpload == null)
+            {
+                Log.Error("[Lilly Mod Manager] RimWorld Workshop upload API was not found.");
+                return;
+            }
+            bakeAndUpload.Invoke(null, new object[] { mod });
+        }
+
+        private static void OpenModFolder(ModMetaData mod)
+        {
+            if (mod == null || mod.RootDir == null)
+                return;
+            try
+            {
+                Process.Start(new ProcessStartInfo(mod.RootDir.FullName)
+                {
+                    UseShellExecute = true
+                });
+            }
+            catch (Exception exception)
+            {
+                Log.Error("[Lilly Mod Manager] Could not open mod folder: " + exception);
+                Messages.Message(ManagerTranslation.Get("LMM_0034"), MessageTypeDefOf.RejectInput);
+            }
         }
 
         private void DrawBottomButtons(Rect rect)
@@ -3794,7 +3992,7 @@ namespace Lilly.IntegratedModManager
             return string.Empty;
         }
 
-        private static object ReadMetadataValue(ModMetaData mod, string name)
+        private static object ReadMetadataValue(object mod, string name)
         {
             if (mod == null || name.NullOrEmpty())
                 return null;
