@@ -327,9 +327,16 @@ namespace Lilly.IntegratedModManager
         {
             if (tagMode)
             {
-                int userTagCount = tags.Count(tag => tag != null && !tag.IsSystem);
-                float scrollWidth = Mathf.Max(0f, availableWidth - 190f - 105f);
-                return userTagCount * 260f > scrollWidth
+                ManagerTagData untagged = FindTag("untagged");
+                float systemWidth = GetSystemTagTabSlotWidth(untagged);
+                List<ManagerTagData> userTags = tags
+                    .Where(tag => tag != null && !tag.IsSystem)
+                    .ToList();
+                float scrollWidth = Mathf.Max(0f, availableWidth - systemWidth);
+                float tagContentWidth = userTags.Sum(GetTagTabSlotWidth);
+                if (userTags.Count > 0)
+                    tagContentWidth -= 6f;
+                return tagContentWidth > scrollWidth
                     ? ManagerUiMetrics.HorizontalScrollbarHeight
                     : 0f;
             }
@@ -490,12 +497,12 @@ namespace Lilly.IntegratedModManager
 
         private void DrawTagTabs(Rect rect)
         {
-            const float systemWidth = 190f;
-            float addWidth = 105f;
             float tabContentHeight = rect.height - GetTabScrollbarReserve(rect.width);
             ManagerTagData untagged = FindTag("untagged");
+            float systemWidth = GetSystemTagTabSlotWidth(untagged);
             if (untagged != null)
-                DrawTagTab(untagged, new Rect(rect.x, rect.y, systemWidth - 6f, tabContentHeight));
+                DrawTagTab(untagged,
+                    new Rect(rect.x, rect.y, systemWidth - 6f, tabContentHeight));
 
             List<ManagerTagData> userTags = new List<ManagerTagData>();
             for (int i = 0; i < tags.Count; i++)
@@ -506,23 +513,39 @@ namespace Lilly.IntegratedModManager
                 userTags.Add(tag);
             }
 
-            float addX = rect.xMax - addWidth;
-            float scrollWidth = Mathf.Max(0f, rect.width - systemWidth - addWidth);
+            float scrollWidth = Mathf.Max(0f, rect.width - systemWidth);
             Rect scrollRect = new Rect(rect.x + systemWidth, rect.y, scrollWidth, rect.height);
-            float tabWidth = 260f;
-            float viewWidth = Mathf.Max(scrollWidth, userTags.Count * tabWidth);
+            float contentWidth = userTags.Sum(GetTagTabSlotWidth);
+            if (userTags.Count > 0)
+                contentWidth -= 6f;
+            float viewWidth = Mathf.Max(scrollWidth, contentWidth);
             Rect viewRect = new Rect(0f, 0f, viewWidth, rect.height);
             Widgets.BeginScrollView(scrollRect, ref tagTabScroll, viewRect);
+            float tabX = 0f;
             for (int i = 0; i < userTags.Count; i++)
             {
+                float tabSlotWidth = GetTagTabSlotWidth(userTags[i]);
                 DrawTagTab(userTags[i],
-                    new Rect(i * tabWidth, 0f, tabWidth - 5f, tabContentHeight));
+                    new Rect(tabX, 0f, tabSlotWidth - 6f, tabContentHeight));
+                tabX += tabSlotWidth;
             }
             Widgets.EndScrollView();
+        }
 
-            Rect addRect = new Rect(addX, rect.y, addWidth, tabContentHeight);
-            if (Widgets.ButtonText(addRect, ManagerTranslation.Get("LMM_0007")))
-                OpenCreateTagDialog();
+        private float GetSystemTagTabSlotWidth(ManagerTagData tag)
+        {
+            if (tag == null)
+                return 6f;
+            string label = tag.Name + " (" + GetInstalledCount(tag) + ")";
+            return Mathf.Max(130f, Text.CalcSize(label).x + 43f) + 6f;
+        }
+
+        private float GetTagTabSlotWidth(ManagerTagData tag)
+        {
+            if (tag == null)
+                return 163f;
+            string label = tag.Name + " (" + GetInstalledCount(tag) + ")";
+            return Mathf.Max(157f, Text.CalcSize(label).x + 63f) + 6f;
         }
 
         private void DrawTagTab(ManagerTagData tag, Rect tabRect)
@@ -542,26 +565,29 @@ namespace Lilly.IntegratedModManager
             if (tag.Id == currentTagId)
                 Widgets.DrawHighlight(tabRect);
 
-            Rect stateRect = new Rect(tabRect.x + 2f, tabRect.y + 15f, 30f, 30f);
+            Rect stateRect = new Rect(tabRect.x + 2f, tabRect.y + 3f, 30f, 24f);
             if (Widgets.ButtonText(stateRect, GetTagStateLabel(tag)))
                 ToggleTagEnabled(tag);
 
             if (tag.IsSystem)
             {
                 Rect labelRect = new Rect(stateRect.xMax + 3f, tabRect.y,
-                tabRect.width - stateRect.width - 8f, 30f);
+                    Mathf.Max(20f, tabRect.width - 43f), 30f);
                 if (Widgets.ButtonText(labelRect,
                     tag.Name + " (" + GetInstalledCount(tag) + ")"))
                     SelectTag(tag);
+                TooltipHandler.TipRegion(labelRect, tag.Name + " (" + GetInstalledCount(tag) + ")");
                 return;
             }
 
             Rect labelRectUser = new Rect(stateRect.xMax + 3f, tabRect.y,
-                Mathf.Max(20f, tabRect.width - stateRect.width - 36f), 30f);
+                Mathf.Max(20f, tabRect.width - 63f), 30f);
             HandleTagTabReorder(tag, labelRectUser);
             if (Widgets.ButtonText(labelRectUser,
                 tag.Name + " (" + GetInstalledCount(tag) + ")"))
                 SelectTag(tag);
+            TooltipHandler.TipRegion(labelRectUser,
+                tag.Name + " (" + GetInstalledCount(tag) + ")");
             Rect editRect = new Rect(labelRectUser.xMax + 3f, tabRect.y + 3f, 24f, 24f);
             if (Widgets.ButtonText(editRect, "E"))
                 OpenRenameTagDialog(tag);
@@ -569,31 +595,34 @@ namespace Lilly.IntegratedModManager
 
             float actionY = tabRect.y + 32f;
             float actionX = tabRect.x + 4f;
-            float actionGap = 3f;
-            float actionWidth = (tabRect.width - 8f - actionGap * 5f) / 6f;
+            float[] actionWidths = { 22f, 24f, 22f, 22f, 22f, 22f };
+            float actionGap = Mathf.Max(3f,
+                (tabRect.width - 8f - actionWidths.Sum()) / (actionWidths.Length - 1));
             GUI.enabled = tags.IndexOf(tag) > 1;
-            if (Widgets.ButtonText(new Rect(actionX, actionY, actionWidth, 24f), "‹"))
+            if (Widgets.ButtonText(new Rect(actionX, actionY, actionWidths[0], 24f), "‹"))
                 MoveTag(tag, -1);
-            actionX += actionWidth + actionGap;
+            actionX += actionWidths[0] + actionGap;
             GUI.enabled = true;
-            Rect movePositionRect = new Rect(actionX, actionY, actionWidth, 24f);
+            Rect movePositionRect = new Rect(actionX, actionY, actionWidths[1], 24f);
             if (Widgets.ButtonText(movePositionRect, "M"))
                 OpenMoveTagToPositionMenu(tag);
             TooltipHandler.TipRegion(movePositionRect, ManagerTranslation.Get("LMM_0127"));
-            actionX += actionWidth + actionGap;
+            actionX += actionWidths[1] + actionGap;
             GUI.enabled = tags.IndexOf(tag) >= 1 && tags.IndexOf(tag) < tags.Count - 1;
-            if (Widgets.ButtonText(new Rect(actionX, actionY, actionWidth, 24f), "›"))
+            if (Widgets.ButtonText(new Rect(actionX, actionY, actionWidths[2], 24f), "›"))
                 MoveTag(tag, 1);
             GUI.enabled = true;
-            actionX += actionWidth + actionGap;
+            actionX += actionWidths[2] + actionGap;
 
-            if (Widgets.ButtonText(new Rect(actionX, actionY, actionWidth, 24f), ManagerTranslation.Get("LMM_0051")))
+            Rect colorRect = new Rect(actionX, actionY, actionWidths[3], 24f);
+            if (Widgets.ButtonText(colorRect, "C"))
                 OpenTagColorDialog(tag);
-            actionX += actionWidth + actionGap;
-            if (Widgets.ButtonText(new Rect(actionX, actionY, actionWidth, 24f), "+"))
+            TooltipHandler.TipRegion(colorRect, ManagerTranslation.Get("LMM_0051"));
+            actionX += actionWidths[3] + actionGap;
+            if (Widgets.ButtonText(new Rect(actionX, actionY, actionWidths[4], 24f), "+"))
                 OpenCreateTagDialog();
-            actionX += actionWidth + actionGap;
-            if (Widgets.ButtonText(new Rect(actionX, actionY, actionWidth, 24f), "×"))
+            actionX += actionWidths[4] + actionGap;
+            if (Widgets.ButtonText(new Rect(actionX, actionY, actionWidths[5], 24f), "×"))
                 ConfirmDeleteTag(tag);
         }
 
