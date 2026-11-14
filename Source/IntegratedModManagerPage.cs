@@ -2774,7 +2774,11 @@ namespace Lilly.IntegratedModManager
                 {
                     ManagerModData state = FindModState(mod.PackageId);
                     if (state != null)
+                    {
                         state.DisplayName = null;
+                        PersistTagData();
+                        RefreshVisibleMods();
+                    }
                 }));
             options.Add(new FloatMenuOption(ManagerTranslation.Get("LMM_0008"),
                 () =>
@@ -3395,6 +3399,8 @@ namespace Lilly.IntegratedModManager
                 {
                     string trimmed = name == null ? string.Empty : name.Trim();
                     state.DisplayName = trimmed.Length == 0 ? null : trimmed;
+                    PersistTagData();
+                    RefreshVisibleMods();
                     return true;
                 }));
         }
@@ -4615,6 +4621,7 @@ namespace Lilly.IntegratedModManager
                 savedState.TagIds = workingState.TagIds == null
                     ? new List<string>()
                     : new List<string>(workingState.TagIds);
+                savedState.DisplayName = workingState.DisplayName;
             }
 
             IntegratedModManagerMod.Instance.WriteSettings();
