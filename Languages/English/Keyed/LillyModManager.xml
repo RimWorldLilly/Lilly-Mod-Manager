@@ -148,4 +148,7 @@
   <LMM_0144>This Workshop item is no longer available.</LMM_0144>
   <LMM_0145>A required mod is missing or not enabled.</LMM_0145>
   <LMM_0146>A required mod version does not match.</LMM_0146>
+  <LMM_0147>Satisfied: </LMM_0147>
+  <LMM_0148>Order or activation requirement not met: </LMM_0148>
+  <LMM_0149>Required mod is missing: </LMM_0149>
 </LanguageData>

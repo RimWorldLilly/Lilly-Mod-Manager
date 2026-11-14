@@ -39,6 +39,8 @@ namespace Lilly.IntegratedModManager
         private readonly List<ModMetaData> visibleMods = new List<ModMetaData>();
         private readonly HashSet<string> loadOrderIssuePackageIds =
             new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        private readonly Dictionary<string, int> activeLoadPositions =
+            new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
         private readonly Dictionary<string, List<string>> loadAfterCache =
             new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
         private readonly Dictionary<string, List<string>> loadBeforeCache =
@@ -1270,9 +1272,11 @@ namespace Lilly.IntegratedModManager
                 new[] { "Dependencies", "RequiredMods", "LoadAfter" });
             List<string> loadBeforeIds = GetDependencyIds(mod, new[] { "LoadBefore" });
             if (loadAfterIds.Count > 0)
-                DrawDependencyLinks(inner, ref y, ManagerTranslation.Get("LMM_0059"), loadAfterIds);
+                DrawDependencyLinks(inner, ref y, ManagerTranslation.Get("LMM_0059"),
+                    mod, loadAfterIds, true);
             if (loadBeforeIds.Count > 0)
-                DrawDependencyLinks(inner, ref y, ManagerTranslation.Get("LMM_0142"), loadBeforeIds);
+                DrawDependencyLinks(inner, ref y, ManagerTranslation.Get("LMM_0142"),
+                    mod, loadBeforeIds, false);
 
             ManagerModData modData = FindModState(mod.PackageId);
             Widgets.Label(new Rect(inner.x, y, 48f, 26f), ManagerTranslation.Get("LMM_0089"));
@@ -3343,7 +3347,9 @@ namespace Lilly.IntegratedModManager
             Rect bounds,
             ref float y,
             string label,
-            IList<string> packageIds)
+            ModMetaData subject,
+            IList<string> packageIds,
+            bool dependencyMustPrecedeSubject)
         {
             const float lineHeight = 22f;
             float x = bounds.x;
@@ -3365,18 +3371,66 @@ namespace Lilly.IntegratedModManager
 
                 Rect linkRect = new Rect(x, y, Mathf.Min(width, bounds.xMax - x), lineHeight);
                 Color oldColor = GUI.color;
-                GUI.color = new Color(0.7f, 0.82f, 1f, 1f);
+                bool missing = dependency == null;
+                bool satisfied = !missing && IsLoadConstraintSatisfied(
+                    subject, dependency, dependencyMustPrecedeSubject);
+                GUI.color = missing
+                    ? new Color(1f, 0.3f, 0.3f, 1f)
+                    : satisfied
+                        ? new Color(0.3f, 1f, 0.38f, 1f)
+                        : new Color(1f, 0.58f, 0.18f, 1f);
                 Widgets.Label(linkRect, segment);
                 Widgets.DrawLineHorizontal(linkRect.x, linkRect.yMax - 2f,
                     Mathf.Min(Text.CalcSize(name).x, linkRect.width));
                 GUI.color = oldColor;
-                TooltipHandler.TipRegion(linkRect, packageIds[i]);
+                TooltipHandler.TipRegion(linkRect, ManagerTranslation.Get(missing
+                    ? "LMM_0149"
+                    : satisfied ? "LMM_0147" : "LMM_0148") + packageIds[i]);
                 if (Widgets.ButtonInvisible(linkRect))
                     SelectDependency(packageIds[i]);
                 x += width;
             }
 
             y += lineHeight + 3f;
+        }
+
+        private bool IsLoadConstraintSatisfied(
+            ModMetaData subject,
+            ModMetaData dependency,
+            bool dependencyMustPrecedeSubject)
+        {
+            if (subject == null || dependency == null)
+                return false;
+
+            try
+            {
+                foreach (ModRequirement requirement in subject.GetRequirements())
+                {
+                    if (requirement == null)
+                        continue;
+                    string requirementId = ReadMetadataValue(requirement, "packageId") as string;
+                    if (requirementId.NullOrEmpty())
+                        requirementId = ReadMetadataValue(requirement, "PackageId") as string;
+                    if (requirementId.NullOrEmpty())
+                        requirementId = ReadDependencyPackageId(requirement);
+                    if (string.Equals(requirementId, dependency.PackageId,
+                        StringComparison.OrdinalIgnoreCase) && !requirement.IsSatisfied)
+                        return false;
+                }
+            }
+            catch (Exception)
+            {
+                return false;
+            }
+
+            int subjectPosition;
+            int dependencyPosition;
+            if (!activeLoadPositions.TryGetValue(subject.PackageId, out subjectPosition) ||
+                !activeLoadPositions.TryGetValue(dependency.PackageId, out dependencyPosition))
+                return false;
+            return dependencyMustPrecedeSubject
+                ? dependencyPosition < subjectPosition
+                : subjectPosition < dependencyPosition;
         }
 
         private void SelectDependency(string packageId)
@@ -3513,6 +3567,7 @@ namespace Lilly.IntegratedModManager
         private void RebuildLoadOrderIssueIds()
         {
             loadOrderIssuePackageIds.Clear();
+            activeLoadPositions.Clear();
             List<string> activeOrder = new List<string>();
             for (int categoryIndex = 0; categoryIndex < categories.Count; categoryIndex++)
             {
@@ -3537,10 +3592,8 @@ namespace Lilly.IntegratedModManager
                 }
             }
 
-            Dictionary<string, int> positions = new Dictionary<string, int>(
-                StringComparer.OrdinalIgnoreCase);
             for (int i = 0; i < activeOrder.Count; i++)
-                positions[activeOrder[i]] = i;
+                activeLoadPositions[activeOrder[i]] = i;
 
             for (int i = 0; i < activeOrder.Count; i++)
             {
@@ -3559,7 +3612,7 @@ namespace Lilly.IntegratedModManager
                 for (int dependencyIndex = 0; dependencyIndex < loadAfter.Count; dependencyIndex++)
                 {
                     int dependencyPosition;
-                    if (positions.TryGetValue(loadAfter[dependencyIndex], out dependencyPosition) &&
+                    if (activeLoadPositions.TryGetValue(loadAfter[dependencyIndex], out dependencyPosition) &&
                         dependencyPosition > i)
                     {
                         loadOrderIssuePackageIds.Add(packageId);
@@ -3576,7 +3629,7 @@ namespace Lilly.IntegratedModManager
                 for (int dependencyIndex = 0; dependencyIndex < loadBefore.Count; dependencyIndex++)
                 {
                     int dependencyPosition;
-                    if (positions.TryGetValue(loadBefore[dependencyIndex], out dependencyPosition) &&
+                    if (activeLoadPositions.TryGetValue(loadBefore[dependencyIndex], out dependencyPosition) &&
                         dependencyPosition < i)
                     {
                         loadOrderIssuePackageIds.Add(packageId);
