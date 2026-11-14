@@ -364,7 +364,7 @@ namespace Lilly.IntegratedModManager
 
         private bool HasCategoryLoadOrderIssue(ManagerCategoryData category)
         {
-            if (category == null || category.Folders == null)
+            if (category == null || !category.Enabled || category.Folders == null)
                 return false;
             for (int folderIndex = 0; folderIndex < category.Folders.Count; folderIndex++)
             {
@@ -3994,22 +3994,25 @@ namespace Lilly.IntegratedModManager
                 Rect linkRect = new Rect(x, y, Mathf.Min(width, bounds.xMax - x), lineHeight);
                 Color oldColor = GUI.color;
                 bool missing = dependency == null;
+                bool hasVerdict = false;
                 bool satisfied = !missing && IsLoadConstraintSatisfied(
-                    subject, dependency, dependencyMustPrecedeSubject);
+                    subject, dependency, dependencyMustPrecedeSubject, out hasVerdict);
                 GUI.color = missing
                     ? mandatory
                         ? new Color(1f, 0.3f, 0.3f, 1f)
                         : new Color(0.7f, 0.7f, 0.7f, 1f)
                     : satisfied
                         ? new Color(0.3f, 1f, 0.38f, 1f)
-                        : new Color(1f, 0.58f, 0.18f, 1f);
+                        : hasVerdict
+                            ? new Color(1f, 0.58f, 0.18f, 1f)
+                            : new Color(0.7f, 0.7f, 0.7f, 1f);
                 Widgets.Label(linkRect, segment);
                 Widgets.DrawLineHorizontal(linkRect.x, linkRect.yMax - 2f,
                     Mathf.Min(Text.CalcSize(name).x, linkRect.width));
                 GUI.color = oldColor;
                 string statusKey = missing
                     ? mandatory ? "LMM_0149" : "LMM_0153"
-                    : satisfied ? "LMM_0147" : "LMM_0148";
+                    : satisfied ? "LMM_0147" : hasVerdict ? "LMM_0148" : "LMM_0167";
                 TooltipHandler.TipRegion(linkRect, ManagerTranslation.Get(statusKey) + packageIds[i]);
                 if (Widgets.ButtonInvisible(linkRect))
                     SelectDependency(packageIds[i]);
@@ -4022,8 +4025,10 @@ namespace Lilly.IntegratedModManager
         private bool IsLoadConstraintSatisfied(
             ModMetaData subject,
             ModMetaData dependency,
-            bool dependencyMustPrecedeSubject)
+            bool dependencyMustPrecedeSubject,
+            out bool hasVerdict)
         {
+            hasVerdict = false;
             if (subject == null || dependency == null)
                 return false;
 
@@ -4040,19 +4045,26 @@ namespace Lilly.IntegratedModManager
                         requirementId = ReadDependencyPackageId(requirement);
                     if (string.Equals(requirementId, dependency.PackageId,
                         StringComparison.OrdinalIgnoreCase) && !requirement.IsSatisfied)
+                    {
+                        hasVerdict = true;
                         return false;
+                    }
                 }
             }
             catch (Exception)
             {
+                hasVerdict = true;
                 return false;
             }
 
+            // 선후행 순서 검사는 활성 모드만 대상으로 한다.
             int subjectPosition;
             int dependencyPosition;
             if (!activeLoadPositions.TryGetValue(subject.PackageId, out subjectPosition) ||
                 !activeLoadPositions.TryGetValue(dependency.PackageId, out dependencyPosition))
                 return false;
+
+            hasVerdict = true;
             return dependencyMustPrecedeSubject
                 ? dependencyPosition < subjectPosition
                 : subjectPosition < dependencyPosition;
@@ -4211,7 +4223,8 @@ namespace Lilly.IntegratedModManager
 
             ModRowIssue cached;
             if (modRowIssueCache.TryGetValue(mod.PackageId, out cached))
-                return cached == ModRowIssue.None && loadOrderIssuePackageIds.Contains(mod.PackageId)
+                return cached == ModRowIssue.None && IsLoadOrderCheckTarget(mod) &&
+                    loadOrderIssuePackageIds.Contains(mod.PackageId)
                     ? ModRowIssue.LoadOrder
                     : cached;
 
@@ -4241,9 +4254,16 @@ namespace Lilly.IntegratedModManager
             }
 
             modRowIssueCache[mod.PackageId] = issue;
-            return issue == ModRowIssue.None && loadOrderIssuePackageIds.Contains(mod.PackageId)
+            return issue == ModRowIssue.None && IsLoadOrderCheckTarget(mod) &&
+                loadOrderIssuePackageIds.Contains(mod.PackageId)
                 ? ModRowIssue.LoadOrder
                 : issue;
+        }
+
+        private bool IsLoadOrderCheckTarget(ModMetaData mod)
+        {
+            return mod != null && !mod.PackageId.NullOrEmpty() &&
+                activeLoadPositions.ContainsKey(mod.PackageId);
         }
 
         private void RebuildLoadOrderIssueIds()

@@ -167,4 +167,5 @@
   <LMM_0164>Delete this vanilla mod list? </LMM_0164>
   <LMM_0165>Vanilla mod list deleted: </LMM_0165>
   <LMM_0166>Failed to delete the vanilla mod list.</LMM_0166>
+  <LMM_0167>Load-order checks only apply to active mods: </LMM_0167>
 </LanguageData>

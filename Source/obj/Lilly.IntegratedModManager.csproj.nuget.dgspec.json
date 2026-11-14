@@ -10,7 +10,7 @@
         "projectUniqueName": "Y:\\SteamLibrary\\steamapps\\common\\RimWorld\\Mods\\Lilly Mod Manager\\Source\\Lilly.IntegratedModManager.csproj",
         "projectName": "Lilly.IntegratedModManager",
         "projectPath": "Y:\\SteamLibrary\\steamapps\\common\\RimWorld\\Mods\\Lilly Mod Manager\\Source\\Lilly.IntegratedModManager.csproj",
-        "packagesPath": "C:\\Users\\CodexSandboxOffline\\.nuget\\packages\\",
+        "packagesPath": "C:\\Users\\lilly\\.nuget\\packages\\",
         "outputPath": "Y:\\SteamLibrary\\steamapps\\common\\RimWorld\\Mods\\Lilly Mod Manager\\Source\\obj\\",
         "projectStyle": "PackageReference",
         "fallbackFolders": [
