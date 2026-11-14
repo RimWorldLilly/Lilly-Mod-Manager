@@ -1165,7 +1165,12 @@ namespace Lilly.IntegratedModManager
             DrawWorkshopGallery(inner, ref y, mod);
 
             Text.Font = GameFont.Medium;
-            Widgets.Label(new Rect(inner.x, y, inner.width, 36f), GetDisplayName(mod));
+            Rect detailNameRect = new Rect(inner.x, y, inner.width - 34f, 36f);
+            Widgets.Label(detailNameRect, GetDisplayName(mod));
+            Rect editNameRect = new Rect(inner.xMax - 28f, y + 2f, 26f, 26f);
+            if (Widgets.ButtonText(editNameRect, "E"))
+                OpenRenameDisplayNameDialog(mod);
+            TooltipHandler.TipRegion(editNameRect, ManagerTranslation.Get("LMM_0105"));
             Text.Font = GameFont.Small;
             y += 38f;
 
@@ -2525,11 +2530,22 @@ namespace Lilly.IntegratedModManager
                 }
             }
             string url = GetWorkshopUrl(mod);
-            if (url.NullOrEmpty())
-                return 0UL;
-            Match match = Regex.Match(url, @"(?:id=|/)(\d{6,})", RegexOptions.IgnoreCase);
-            ulong id;
-            return match.Success && ulong.TryParse(match.Groups[1].Value, out id) ? id : 0UL;
+            if (!url.NullOrEmpty())
+            {
+                Match match = Regex.Match(url, @"(?:id=|/)(\d{6,})", RegexOptions.IgnoreCase);
+                ulong id;
+                if (match.Success && ulong.TryParse(match.Groups[1].Value, out id))
+                    return id;
+            }
+
+            if (mod.OnSteamWorkshop && !mod.FolderName.NullOrEmpty())
+            {
+                Match folderIdMatch = Regex.Match(mod.FolderName, @"^(\d{6,})$");
+                ulong folderId;
+                if (folderIdMatch.Success && ulong.TryParse(folderIdMatch.Groups[1].Value, out folderId))
+                    return folderId;
+            }
+            return 0UL;
         }
 
         private static ulong ParseWorkshopId(object value)
