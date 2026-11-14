@@ -91,6 +91,8 @@ namespace Lilly.IntegratedModManager
                     if (tag.Name.NullOrEmpty())
                         tag.Name = "태그 없음";
                 }
+                if (!ManagerTagColors.IsValidHex(tag.ColorHex))
+                    tag.ColorHex = ManagerTagColors.RandomHex();
             }
             if (!hasUntagged)
                 Tags.Insert(0, new ManagerTagData("untagged", "태그 없음"));
@@ -440,6 +442,7 @@ namespace Lilly.IntegratedModManager
         public string Id;
         public string Name;
         public bool IsSystem;
+        public string ColorHex;
         public List<ManagerFolderData> Folders = new List<ManagerFolderData>();
 
         public ManagerTagData()
@@ -451,6 +454,7 @@ namespace Lilly.IntegratedModManager
             Id = id;
             Name = name;
             IsSystem = string.Equals(id, "untagged", StringComparison.OrdinalIgnoreCase);
+            ColorHex = ManagerTagColors.RandomHex();
             Folders.Add(new ManagerFolderData("uncategorized", "미분류"));
         }
 
@@ -459,6 +463,7 @@ namespace Lilly.IntegratedModManager
             Scribe_Values.Look(ref Id, "id");
             Scribe_Values.Look(ref Name, "name");
             Scribe_Values.Look(ref IsSystem, "isSystem", false);
+            Scribe_Values.Look(ref ColorHex, "colorHex", null);
             Scribe_Collections.Look(ref Folders, "folders", LookMode.Deep);
         }
 
@@ -466,6 +471,7 @@ namespace Lilly.IntegratedModManager
         {
             ManagerTagData copy = new ManagerTagData(Id, Name);
             copy.IsSystem = IsSystem;
+            copy.ColorHex = ColorHex;
             copy.Folders = Folders == null
                 ? new List<ManagerFolderData>()
                 : Folders.Select(folder => folder.Copy()).ToList();
