@@ -162,6 +162,7 @@ namespace Lilly.IntegratedModManager
             DrawModList(listRect);
             DrawDetails(detailsRect);
             DrawModDragPreview(inRect);
+            DrawSidebarDragPreview(inRect);
             HandleModListNavigation(listRect);
             DrawBottomButtons(new Rect(20f, inRect.height - BottomHeight - 8f,
                 inRect.width - 40f, BottomHeight));
@@ -298,6 +299,15 @@ namespace Lilly.IntegratedModManager
                     ? new Color(0.22f, 0.18f, 0.12f, 1f)
                     : i % 2 == 0 ? new Color(0.09f, 0.09f, 0.09f, 1f)
                     : new Color(0.055f, 0.055f, 0.055f, 1f));
+                bool isDragTarget = !dragCategoryId.NullOrEmpty() &&
+                    rowRect.Contains(Event.current.mousePosition);
+                if (dragCategoryId == category.Id)
+                    Widgets.DrawHighlight(rowRect);
+                if (isDragTarget)
+                {
+                    Widgets.DrawLightHighlight(rowRect);
+                    Widgets.DrawBox(rowRect);
+                }
                 if (isDraggingMod && rowRect.Contains(Event.current.mousePosition))
                     Widgets.DrawLightHighlight(rowRect);
                 if (isDraggingMod && Event.current.type == EventType.MouseUp &&
@@ -545,6 +555,15 @@ namespace Lilly.IntegratedModManager
                     ? new Color(0.22f, 0.18f, 0.12f, 1f)
                     : rowIndex % 2 == 0 ? new Color(0.09f, 0.09f, 0.09f, 1f)
                     : new Color(0.055f, 0.055f, 0.055f, 1f));
+                bool isDragTarget = !dragTagId.NullOrEmpty() && !tag.IsSystem &&
+                    rowRect.Contains(Event.current.mousePosition);
+                if (dragTagId == tag.Id)
+                    Widgets.DrawHighlight(rowRect);
+                if (isDragTarget)
+                {
+                    Widgets.DrawLightHighlight(rowRect);
+                    Widgets.DrawBox(rowRect);
+                }
                 if (isDraggingMod && rowRect.Contains(Event.current.mousePosition))
                     Widgets.DrawLightHighlight(rowRect);
                 if (isDraggingMod && Event.current.type == EventType.MouseUp &&
@@ -1205,6 +1224,48 @@ namespace Lilly.IntegratedModManager
             if (dragSelection.Count > 1)
                 label += " (" + dragSelection.Count + ")";
             float width = Mathf.Clamp(Text.CalcSize(label).x + 24f, 120f, 360f);
+            Vector2 mouse = Event.current.mousePosition;
+            Rect preview = new Rect(mouse.x + 14f, mouse.y + 14f, width, 28f);
+            preview.x = Mathf.Clamp(preview.x, windowRect.xMin + 4f,
+                windowRect.xMax - preview.width - 4f);
+            preview.y = Mathf.Clamp(preview.y, windowRect.yMin + 4f,
+                windowRect.yMax - preview.height - 4f);
+
+            Widgets.DrawBoxSolid(preview, new Color(0.22f, 0.18f, 0.12f, 0.96f));
+            Widgets.DrawBox(preview);
+            TextAnchor previousAnchor = Text.Anchor;
+            Text.Anchor = TextAnchor.MiddleLeft;
+            Widgets.Label(new Rect(preview.x + 8f, preview.y, preview.width - 16f,
+                preview.height), label);
+            Text.Anchor = previousAnchor;
+        }
+
+        private void DrawSidebarDragPreview(Rect windowRect)
+        {
+            if (Event.current.type != EventType.Repaint ||
+                (dragCategoryId.NullOrEmpty() && dragTagId.NullOrEmpty()))
+                return;
+
+            string itemName = null;
+            string itemType = ManagerTranslation.Get(dragCategoryId.NullOrEmpty()
+                ? "LMM_0159" : "LMM_0158");
+            if (!dragCategoryId.NullOrEmpty())
+            {
+                ManagerCategoryData category = categories.FirstOrDefault(item =>
+                    item != null && item.Id == dragCategoryId);
+                itemName = category?.Name;
+            }
+            else
+            {
+                ManagerTagData tag = tags.FirstOrDefault(item =>
+                    item != null && item.Id == dragTagId);
+                itemName = tag?.Name;
+            }
+            if (itemName.NullOrEmpty())
+                return;
+
+            string label = itemType + ": " + itemName;
+            float width = Mathf.Clamp(Text.CalcSize(label).x + 24f, 140f, 360f);
             Vector2 mouse = Event.current.mousePosition;
             Rect preview = new Rect(mouse.x + 14f, mouse.y + 14f, width, 28f);
             preview.x = Mathf.Clamp(preview.x, windowRect.xMin + 4f,
