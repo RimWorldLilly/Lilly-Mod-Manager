@@ -27,6 +27,8 @@ namespace Lilly.IntegratedModManager
             internal volatile byte[][] ImageBytes;
             internal volatile string Error;
             internal List<Texture2D> Textures;
+            internal int NextTextureIndex;
+            internal int LastTextureDecodeFrame = -1;
         }
 
         private static readonly HttpClient Client = new HttpClient
@@ -42,6 +44,8 @@ namespace Lilly.IntegratedModManager
             @"\""result\""\s*:\s*(\d+)", RegexOptions.Compiled | RegexOptions.IgnoreCase);
         private static readonly Regex UrlRegex = new Regex(
             @"https?:\\?/\\?/[^\""'\s<>]+", RegexOptions.Compiled | RegexOptions.IgnoreCase);
+        private const int MaxPreviewImages = 3;
+        private const int MaxPreviewImageBytes = 4 * 1024 * 1024;
 
         internal static GalleryEntry Request(ulong workshopId)
         {
@@ -118,22 +122,24 @@ namespace Lilly.IntegratedModManager
         {
             if (entry == null || entry.ImageBytes == null)
                 return Array.Empty<Texture2D>();
-            if (entry.Textures != null)
-                return entry.Textures;
-
-            List<Texture2D> textures = new List<Texture2D>();
+            if (entry.Textures == null)
+                entry.Textures = new List<Texture2D>();
             byte[][] images = entry.ImageBytes;
-            for (int i = 0; i < images.Length; i++)
+            if (entry.NextTextureIndex < images.Length &&
+                entry.LastTextureDecodeFrame != Time.frameCount)
             {
-                if (images[i] == null || images[i].Length == 0)
-                    continue;
+                int imageIndex = entry.NextTextureIndex++;
+                entry.LastTextureDecodeFrame = Time.frameCount;
+                byte[] imageBytes = images[imageIndex];
+                if (imageBytes == null || imageBytes.Length == 0)
+                    return entry.Textures;
                 try
                 {
                     Texture2D texture = new Texture2D(2, 2, TextureFormat.RGBA32, false);
-                    if (ImageConversion.LoadImage(texture, images[i]))
+                    if (ImageConversion.LoadImage(texture, imageBytes))
                     {
                         texture.filterMode = FilterMode.Bilinear;
-                        textures.Add(texture);
+                        entry.Textures.Add(texture);
                     }
                     else
                         UnityEngine.Object.Destroy(texture);
@@ -143,8 +149,7 @@ namespace Lilly.IntegratedModManager
                     // Ignore unsupported or malformed workshop images.
                 }
             }
-            entry.Textures = textures;
-            return textures;
+            return entry.Textures;
         }
 
         private static async Task LoadAsync(ulong workshopId, GalleryEntry entry)
@@ -160,10 +165,11 @@ namespace Lilly.IntegratedModManager
                         response.EnsureSuccessStatusCode();
                         string html = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
                         List<string> imageUrls = ExtractImageUrls(html);
-                        List<Task<byte[]>> downloads = imageUrls.Select(url => DownloadImageAsync(url)).ToList();
+                        List<Task<byte[]>> downloads = imageUrls.Take(MaxPreviewImages)
+                            .Select(url => DownloadImageAsync(url)).ToList();
                         byte[][] images = await Task.WhenAll(downloads).ConfigureAwait(false);
                         entry.ImageBytes = images.Where(bytes => bytes != null && bytes.Length > 0)
-                            .Take(6).ToArray();
+                            .Take(MaxPreviewImages).ToArray();
                     }
                 }
                 if (entry.ImageBytes.Length == 0)
@@ -199,7 +205,7 @@ namespace Lilly.IntegratedModManager
             try
             {
                 byte[] bytes = await Client.GetByteArrayAsync(url).ConfigureAwait(false);
-                return bytes.Length <= 8 * 1024 * 1024 ? bytes : null;
+                return bytes.Length <= MaxPreviewImageBytes ? bytes : null;
             }
             catch (Exception)
             {

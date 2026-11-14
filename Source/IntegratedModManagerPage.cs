@@ -49,6 +49,8 @@ namespace Lilly.IntegratedModManager
             new Dictionary<string, ulong>(StringComparer.OrdinalIgnoreCase);
         private readonly Dictionary<string, ModRowIssue> modRowIssueCache =
             new Dictionary<string, ModRowIssue>(StringComparer.OrdinalIgnoreCase);
+        private readonly Dictionary<string, List<string>> modLoadFolderIssuesCache =
+            new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
 
         private string currentCategoryId;
         private string currentTagId;
@@ -1382,13 +1384,6 @@ namespace Lilly.IntegratedModManager
             }
 
             string workshopPageUrl = GetSteamWorkshopPageUrl(mod);
-            if (!workshopPageUrl.NullOrEmpty())
-            {
-                if (Widgets.ButtonText(new Rect(inner.x, y, 180f, 28f),
-                    "WorkshopPage".Translate()))
-                    OpenUrl(workshopPageUrl);
-                y += 34f;
-            }
             DrawWorkshopGallery(inner, ref y, mod);
 
             Text.Font = GameFont.Medium;
@@ -1561,7 +1556,7 @@ namespace Lilly.IntegratedModManager
                     descriptionScroll = Vector2.zero;
             }
 
-            List<string> folderIssues = GetModLoadFolderIssues(mod);
+            List<string> folderIssues = GetCachedModLoadFolderIssues(mod);
             if (folderIssues != null && folderIssues.Count > 0)
             {
                 Widgets.Label(new Rect(inner.x, y, inner.width, 24f),
@@ -1588,6 +1583,12 @@ namespace Lilly.IntegratedModManager
                 DrawDetailActionButton(inner, ref actionX, ref actionY, 120f,
                     (selectedModState.Enabled ? "Disable" : "Enable").Translate(),
                     () => selectedModState.Enabled = !selectedModState.Enabled);
+                hasActionButtons = true;
+            }
+            if (!workshopPageUrl.NullOrEmpty())
+            {
+                DrawDetailActionButton(inner, ref actionX, ref actionY, 180f,
+                    "WorkshopPage".Translate(), () => OpenUrl(workshopPageUrl));
                 hasActionButtons = true;
             }
 
@@ -1624,9 +1625,6 @@ namespace Lilly.IntegratedModManager
             if (previewImage != null)
                 y += Mathf.Min(190f, width * previewImage.height /
                     Mathf.Max(1f, previewImage.width)) + 8f;
-            if (!GetSteamWorkshopPageUrl(mod).NullOrEmpty())
-                y += 34f;
-
             ulong workshopId = GetCachedWorkshopId(mod);
             if (workshopId > 0UL)
             {
@@ -1673,7 +1671,7 @@ namespace Lilly.IntegratedModManager
                     (!requirement.IsSatisfied || displayFulfilledRequirements)) * 24f;
             }
 
-            List<string> folderIssues = GetModLoadFolderIssues(mod);
+            List<string> folderIssues = GetCachedModLoadFolderIssues(mod);
             if (folderIssues != null && folderIssues.Count > 0)
             {
                 string issueText = GenText.ToLineList(folderIssues, "  - ");
@@ -1686,6 +1684,8 @@ namespace Lilly.IntegratedModManager
             ManagerModData selectedState = FindModState(mod.PackageId);
             if (!IsProtected(mod) && selectedState != null)
                 buttonWidths.Add(120f);
+            if (!GetSteamWorkshopPageUrl(mod).NullOrEmpty())
+                buttonWidths.Add(180f);
             Mod loadedMod = FindLoadedMod(mod);
             if (loadedMod != null && !loadedMod.SettingsCategory().NullOrEmpty())
                 buttonWidths.Add(150f);
@@ -1837,6 +1837,26 @@ namespace Lilly.IntegratedModManager
                 ? new List<string>()
                 : method.Invoke(loadFolders, new object[] { mod }) as List<string>
                     ?? new List<string>();
+        }
+
+        private List<string> GetCachedModLoadFolderIssues(ModMetaData mod)
+        {
+            if (mod == null || mod.PackageId.NullOrEmpty())
+                return new List<string>();
+            List<string> issues;
+            if (modLoadFolderIssuesCache.TryGetValue(mod.PackageId, out issues))
+                return issues;
+            try
+            {
+                issues = GetModLoadFolderIssues(mod) ?? new List<string>();
+            }
+            catch (Exception exception)
+            {
+                Log.Warning("Could not inspect load folders for " + mod.PackageId + ": " + exception);
+                issues = new List<string>();
+            }
+            modLoadFolderIssuesCache[mod.PackageId] = issues;
+            return issues;
         }
 
         private static string GetWorkshopUploadLabel(ModMetaData mod)
