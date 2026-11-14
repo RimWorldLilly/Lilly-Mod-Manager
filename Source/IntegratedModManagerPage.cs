@@ -132,20 +132,19 @@ namespace Lilly.IntegratedModManager
             Text.Font = GameFont.Small;
             if (Widgets.ButtonText(new Rect(inRect.width - 150f, 10f, 130f, 30f), ManagerTranslation.Get("LMM_0067")))
                 SortAllCategories();
-            float tabScrollbarReserve = GetTabScrollbarReserve(inRect.width - 40f);
-            float tabContentHeight = 60f;
-            DrawCategoryTabs(new Rect(20f, 48f, inRect.width - 40f,
-                tabContentHeight + tabScrollbarReserve));
-
-            float searchTop = 48f + tabContentHeight + tabScrollbarReserve + 4f;
-            Rect searchRect = new Rect(20f, searchTop, inRect.width * 0.66f - 30f, 30f);
-            float contentTop = searchTop + 38f;
             float contentBottom = inRect.height - BottomHeight - 20f;
+            float sidebarWidth = inRect.width * 0.25f;
+            float mainX = 20f + sidebarWidth + 12f;
+            float mainWidth = Mathf.Max(100f, inRect.width - mainX - 20f);
+            DrawCategoryTabs(new Rect(20f, 48f, sidebarWidth, contentBottom - 48f));
+
+            Rect searchRect = new Rect(mainX, 48f, mainWidth, 30f);
+            float contentTop = searchRect.yMax + 8f;
             float contentHeight = Mathf.Max(100f, contentBottom - contentTop);
-            float leftWidth = inRect.width * 0.66f;
-            Rect listRect = new Rect(20f, contentTop, leftWidth - 30f, contentHeight);
-            Rect detailsRect = new Rect(leftWidth, contentTop, inRect.width - leftWidth - 20f,
-                contentHeight);
+            float listWidth = mainWidth * 0.66f - 8f;
+            Rect listRect = new Rect(mainX, contentTop, listWidth, contentHeight);
+            Rect detailsRect = new Rect(mainX + listWidth + 10f, contentTop,
+                mainWidth - listWidth - 10f, contentHeight);
 
             if (Event.current.type == EventType.MouseDown)
                 modListHasKeyboardFocus = listRect.Contains(Event.current.mousePosition);
@@ -265,89 +264,60 @@ namespace Lilly.IntegratedModManager
                 return;
             }
 
-            List<ManagerCategoryData> visibleCategories = categories
-                .Where(MatchesCategorySearch)
-                .ToList();
-            float tabContentHeight = rect.height - GetTabScrollbarReserve(rect.width);
-            float contentWidth = visibleCategories.Sum(GetCategoryTabSlotWidth);
-            if (visibleCategories.Count > 0)
-                contentWidth -= 6f;
-            float viewWidth = Mathf.Max(rect.width, contentWidth);
-            Rect viewRect = new Rect(0f, 0f, viewWidth, rect.height);
-            Widgets.BeginScrollView(rect, ref categoryTabScroll, viewRect);
-            float tabX = 0f;
-            for (int i = 0; i < visibleCategories.Count; i++)
+            Widgets.DrawBox(rect);
+            Text.Font = GameFont.Medium;
+            Widgets.Label(new Rect(rect.x + 8f, rect.y + 2f, rect.width - 44f, 28f),
+                ManagerTranslation.Get("LMM_0158"));
+            Text.Font = GameFont.Small;
+            Rect addRect = new Rect(rect.xMax - 34f, rect.y + 2f, 28f, 26f);
+            if (Widgets.ButtonText(addRect, "+"))
+                OpenCreateCategoryDialog(GetSelectedCategoryInsertIndex());
+
+            Rect listRect = new Rect(rect.x + 4f, rect.y + 32f,
+                rect.width - 8f, rect.height - 36f);
+            float contentHeight = Mathf.Max(listRect.height, categories.Count * 34f);
+            float scrollbarWidth = contentHeight > listRect.height
+                ? ManagerUiMetrics.VerticalScrollbarWidth : 0f;
+            Rect viewRect = new Rect(0f, 0f, listRect.width - scrollbarWidth, contentHeight);
+            Widgets.BeginScrollView(listRect, ref categoryTabScroll, viewRect);
+            for (int i = 0; i < categories.Count; i++)
             {
-                ManagerCategoryData category = visibleCategories[i];
-                int categoryIndex = categories.IndexOf(category);
-                float tabSlotWidth = GetCategoryTabSlotWidth(category);
-                Rect tabRect = new Rect(tabX, 0f, tabSlotWidth - 6f, tabContentHeight);
+                ManagerCategoryData category = categories[i];
+                Rect rowRect = new Rect(0f, i * 34f, viewRect.width, 32f);
+                Widgets.DrawBoxSolid(rowRect, category.Id == currentCategoryId
+                    ? new Color(0.22f, 0.18f, 0.12f, 1f)
+                    : i % 2 == 0 ? new Color(0.09f, 0.09f, 0.09f, 1f)
+                    : new Color(0.055f, 0.055f, 0.055f, 1f));
                 if (isDraggingMod && Event.current.type == EventType.MouseUp &&
-                    tabRect.Contains(Event.current.mousePosition))
+                    rowRect.Contains(Event.current.mousePosition))
                 {
                     MoveSelectionTo(category);
                     EndModDrag();
                     Event.current.Use();
                 }
-                if (category.Id == currentCategoryId)
-                    Widgets.DrawHighlight(tabRect);
-
-                Rect enabledRect = new Rect(tabRect.x + 4f, tabRect.y + 8f, 24f, 24f);
+                Rect enabledRect = new Rect(rowRect.x + 3f, rowRect.y + 4f, 22f, 22f);
                 bool enabled = category.Enabled;
                 Widgets.Checkbox(enabledRect.position, ref enabled);
                 if (enabled != category.Enabled)
-                    category.Enabled = enabled;
-
-                Rect labelRect = new Rect(enabledRect.xMax + 4f, tabRect.y,
-                    Mathf.Max(30f, tabRect.width - 63f), 30f);
-                HandleCategoryTabReorder(category, labelRect);
-                string label = category.Name + " (" + GetInstalledCount(category) + ")";
-                if (Widgets.ButtonText(labelRect, label))
                 {
-                    currentCategoryId = category.Id;
-                    currentFolderId = category.Folders.Count > 0
-                        ? category.Folders[0].Id
-                        : null;
-                    selectedPackageIds.Clear();
-                    primarySelectedPackageId = null;
-                    lastSelectedIndex = -1;
+                    category.Enabled = enabled;
                     RefreshVisibleMods();
                 }
+
+                Rect editRect = new Rect(rowRect.xMax - 52f, rowRect.y + 3f, 22f, 24f);
+                Rect deleteRect = new Rect(rowRect.xMax - 27f, rowRect.y + 3f, 22f, 24f);
+                Rect labelRect = new Rect(enabledRect.xMax + 4f, rowRect.y,
+                    Mathf.Max(24f, editRect.x - enabledRect.xMax - 7f), 32f);
+                string label = category.Name + " (" + GetInstalledCount(category) + ")";
+                Widgets.Label(labelRect, label);
                 TooltipHandler.TipRegion(labelRect, label);
-                Rect editRect = new Rect(labelRect.xMax + 3f, tabRect.y + 3f, 24f, 24f);
+                HandleCategoryTabReorder(category, labelRect);
                 if (Widgets.ButtonText(editRect, "E"))
                     OpenRenameCategoryDialog(category);
                 TooltipHandler.TipRegion(editRect, ManagerTranslation.Get("LMM_0125"));
-
-                float actionX = tabRect.x + 4f;
-                float actionY = tabRect.y + 32f;
-                float[] actionWidths = { 22f, 22f, 24f, 22f, 22f, 22f };
-                float actionGap = Mathf.Max(3f,
-                    (tabRect.width - 8f - actionWidths.Sum()) / (actionWidths.Length - 1));
-                if (Widgets.ButtonText(new Rect(actionX, actionY, actionWidths[0], 24f), "+"))
-                    OpenCreateCategoryDialog(categoryIndex);
-                float buttonX = actionX + actionWidths[0] + actionGap;
-                GUI.enabled = categoryIndex > 0;
-                if (Widgets.ButtonText(new Rect(buttonX, actionY, actionWidths[1], 24f), "‹"))
-                    MoveCategory(categoryIndex, -1);
-                buttonX += actionWidths[1] + actionGap;
-                GUI.enabled = true;
-                Rect movePositionRect = new Rect(buttonX, actionY, actionWidths[2], 24f);
-                if (Widgets.ButtonText(movePositionRect, "M"))
-                    OpenMoveCategoryToPositionMenu(category);
-                TooltipHandler.TipRegion(movePositionRect, ManagerTranslation.Get("LMM_0127"));
-                buttonX += actionWidths[2] + actionGap;
-                GUI.enabled = categoryIndex < categories.Count - 1;
-                if (Widgets.ButtonText(new Rect(buttonX, actionY, actionWidths[3], 24f), "›"))
-                    MoveCategory(categoryIndex, 1);
-                GUI.enabled = true;
-                buttonX += actionWidths[3] + actionGap;
-                if (Widgets.ButtonText(new Rect(buttonX, actionY, actionWidths[4], 24f), "+"))
-                    OpenCreateCategoryDialog(categoryIndex + 1);
-                buttonX += actionWidths[4] + actionGap;
-                if (Widgets.ButtonText(new Rect(buttonX, actionY, actionWidths[5], 24f), "×"))
+                if (Widgets.ButtonText(deleteRect, "×"))
                     ConfirmDeleteCategory(category);
-                tabX += tabSlotWidth;
+                TooltipHandler.TipRegion(deleteRect, ManagerTranslation.Get("LMM_0045"));
             }
             Widgets.EndScrollView();
         }
@@ -536,39 +506,94 @@ namespace Lilly.IntegratedModManager
 
         private void DrawTagTabs(Rect rect)
         {
-            float tabContentHeight = rect.height - GetTabScrollbarReserve(rect.width);
-            ManagerTagData untagged = FindTag("untagged");
-            float systemWidth = GetSystemTagTabSlotWidth(untagged);
-            if (untagged != null)
-                DrawTagTab(untagged,
-                    new Rect(rect.x, rect.y, systemWidth - 6f, tabContentHeight));
+            Widgets.DrawBox(rect);
+            Text.Font = GameFont.Medium;
+            Widgets.Label(new Rect(rect.x + 8f, rect.y + 2f, rect.width - 44f, 28f),
+                ManagerTranslation.Get("LMM_0159"));
+            Text.Font = GameFont.Small;
+            Rect addRect = new Rect(rect.xMax - 34f, rect.y + 2f, 28f, 26f);
+            if (Widgets.ButtonText(addRect, "+"))
+                OpenCreateTagDialog(insertIndex: GetSelectedTagInsertIndex());
 
-            List<ManagerTagData> userTags = new List<ManagerTagData>();
+            Rect listRect = new Rect(rect.x + 4f, rect.y + 32f,
+                rect.width - 8f, rect.height - 36f);
+            float contentHeight = Mathf.Max(listRect.height, tags.Count * 34f);
+            float scrollbarWidth = contentHeight > listRect.height
+                ? ManagerUiMetrics.VerticalScrollbarWidth : 0f;
+            Rect viewRect = new Rect(0f, 0f, listRect.width - scrollbarWidth, contentHeight);
+            Widgets.BeginScrollView(listRect, ref tagTabScroll, viewRect);
+            int rowIndex = 0;
             for (int i = 0; i < tags.Count; i++)
             {
                 ManagerTagData tag = tags[i];
-                if (tag == null || string.Equals(tag.Id, "untagged", StringComparison.OrdinalIgnoreCase))
+                if (tag == null)
                     continue;
-                userTags.Add(tag);
-            }
+                Rect rowRect = new Rect(0f, rowIndex * 34f, viewRect.width, 32f);
+                Widgets.DrawBoxSolid(rowRect, tag.Id == currentTagId
+                    ? new Color(0.22f, 0.18f, 0.12f, 1f)
+                    : rowIndex % 2 == 0 ? new Color(0.09f, 0.09f, 0.09f, 1f)
+                    : new Color(0.055f, 0.055f, 0.055f, 1f));
+                if (isDraggingMod && Event.current.type == EventType.MouseUp &&
+                    rowRect.Contains(Event.current.mousePosition))
+                {
+                    if (tag.IsSystem)
+                        ClearTagsForSelection(dragSelection);
+                    else
+                        SetTagForSelection(dragSelection, tag, true);
+                    EndModDrag();
+                    Event.current.Use();
+                }
+                Rect stateRect = new Rect(rowRect.x + 3f, rowRect.y + 4f, 26f, 22f);
+                if (Widgets.ButtonText(stateRect, GetTagStateLabel(tag)))
+                    ToggleTagEnabled(tag);
 
-            float scrollWidth = Mathf.Max(0f, rect.width - systemWidth);
-            Rect scrollRect = new Rect(rect.x + systemWidth, rect.y, scrollWidth, rect.height);
-            float contentWidth = userTags.Sum(GetTagTabSlotWidth);
-            if (userTags.Count > 0)
-                contentWidth -= 6f;
-            float viewWidth = Mathf.Max(scrollWidth, contentWidth);
-            Rect viewRect = new Rect(0f, 0f, viewWidth, rect.height);
-            Widgets.BeginScrollView(scrollRect, ref tagTabScroll, viewRect);
-            float tabX = 0f;
-            for (int i = 0; i < userTags.Count; i++)
-            {
-                float tabSlotWidth = GetTagTabSlotWidth(userTags[i]);
-                DrawTagTab(userTags[i],
-                    new Rect(tabX, 0f, tabSlotWidth - 6f, tabContentHeight));
-                tabX += tabSlotWidth;
+                Rect editRect = new Rect(rowRect.xMax - 52f, rowRect.y + 3f, 22f, 24f);
+                Rect deleteRect = new Rect(rowRect.xMax - 27f, rowRect.y + 3f, 22f, 24f);
+                if (tag.IsSystem)
+                {
+                    editRect = new Rect(rowRect.xMax - 27f, rowRect.y + 3f, 22f, 24f);
+                    deleteRect = new Rect(rowRect.xMax + 2f, rowRect.y + 3f, 0f, 24f);
+                }
+                Rect labelRect = new Rect(stateRect.xMax + 4f, rowRect.y,
+                    Mathf.Max(24f, editRect.x - stateRect.xMax - 7f), 32f);
+                string label = tag.Name + " (" + GetInstalledCount(tag) + ")";
+                Color oldColor = GUI.color;
+                if (!tag.IsSystem)
+                    GUI.color = ManagerTagColors.Foreground(tag.ColorHex);
+                Widgets.Label(labelRect, label);
+                GUI.color = oldColor;
+                TooltipHandler.TipRegion(labelRect, label);
+
+                if (tag.IsSystem)
+                {
+                    if (Widgets.ButtonInvisible(labelRect))
+                        SelectTag(tag);
+                }
+                else
+                {
+                    HandleTagTabReorder(tag, labelRect);
+                    if (Widgets.ButtonText(editRect, "E"))
+                        OpenRenameTagDialog(tag);
+                    TooltipHandler.TipRegion(editRect, ManagerTranslation.Get("LMM_0126"));
+                    if (Widgets.ButtonText(deleteRect, "×"))
+                        ConfirmDeleteTag(tag);
+                    TooltipHandler.TipRegion(deleteRect, ManagerTranslation.Get("LMM_0045"));
+                }
+                rowIndex++;
             }
             Widgets.EndScrollView();
+        }
+
+        private int GetSelectedCategoryInsertIndex()
+        {
+            int index = categories.FindIndex(category => category.Id == currentCategoryId);
+            return index < 0 ? categories.Count : index + 1;
+        }
+
+        private int GetSelectedTagInsertIndex()
+        {
+            int index = tags.FindIndex(tag => tag.Id == currentTagId);
+            return index < 0 ? tags.Count : index + 1;
         }
 
         private float GetSystemTagTabSlotWidth(ManagerTagData tag)
@@ -1749,7 +1774,7 @@ namespace Lilly.IntegratedModManager
                 if (tagMode)
                     OpenCreateTagDialog();
                 else
-                    OpenCreateCategoryDialog(categories.Count);
+                    OpenCreateCategoryDialog(GetSelectedCategoryInsertIndex());
             }
             x += buttonWidth + gap;
 
@@ -2395,7 +2420,9 @@ namespace Lilly.IntegratedModManager
             PersistTagData();
         }
 
-        private void OpenCreateTagDialog(IEnumerable<string> packageIds = null)
+        private void OpenCreateTagDialog(
+            IEnumerable<string> packageIds = null,
+            int? insertIndex = null)
         {
             List<string> selectedIds = packageIds == null
                 ? new List<string>()
@@ -2426,7 +2453,11 @@ namespace Lilly.IntegratedModManager
 
                     ManagerTagData tag = new ManagerTagData(
                         Guid.NewGuid().ToString("N"), name.Trim());
-                    tags.Add(tag);
+                    int targetIndex = insertIndex ?? GetSelectedTagInsertIndex();
+                    if (targetIndex >= 0 && targetIndex <= tags.Count)
+                        tags.Insert(targetIndex, tag);
+                    else
+                        tags.Add(tag);
                     if (selectedIds.Count > 0)
                         SetTagForSelection(selectedIds, tag, true);
 
