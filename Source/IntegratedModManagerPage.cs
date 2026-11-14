@@ -267,20 +267,32 @@ namespace Lilly.IntegratedModManager
                 }
 
                 float actionX = tabRect.x + 4f;
-                if (Widgets.ButtonText(new Rect(actionX, tabRect.y + 32f, 22f, 24f), "+"))
+                float actionY = tabRect.y + 32f;
+                float actionGap = 3f;
+                float actionWidth = (tabRect.width - 8f - actionGap * 6f) / 7f;
+                if (Widgets.ButtonText(new Rect(actionX, actionY, actionWidth, 24f), "+"))
                     OpenCreateCategoryDialog(categoryIndex);
+                float buttonX = actionX + actionWidth + actionGap;
                 GUI.enabled = categoryIndex > 0;
-                if (Widgets.ButtonText(new Rect(actionX + 24f, tabRect.y + 32f, 22f, 24f), "‹"))
+                if (Widgets.ButtonText(new Rect(buttonX, actionY, actionWidth, 24f), "‹"))
                     MoveCategory(categoryIndex, -1);
+                buttonX += actionWidth + actionGap;
+                GUI.enabled = true;
+                if (Widgets.ButtonText(new Rect(buttonX, actionY, actionWidth, 24f), "위치"))
+                    OpenMoveCategoryToPositionMenu(category);
+                buttonX += actionWidth + actionGap;
                 GUI.enabled = categoryIndex < categories.Count - 1;
-                if (Widgets.ButtonText(new Rect(actionX + 48f, tabRect.y + 32f, 22f, 24f), "›"))
+                if (Widgets.ButtonText(new Rect(buttonX, actionY, actionWidth, 24f), "›"))
                     MoveCategory(categoryIndex, 1);
                 GUI.enabled = true;
-                if (Widgets.ButtonText(new Rect(actionX + 72f, tabRect.y + 32f, 22f, 24f), "+"))
+                buttonX += actionWidth + actionGap;
+                if (Widgets.ButtonText(new Rect(buttonX, actionY, actionWidth, 24f), "+"))
                     OpenCreateCategoryDialog(categoryIndex + 1);
-                if (Widgets.ButtonText(new Rect(actionX + 96f, tabRect.y + 32f, 36f, 24f), "이름"))
+                buttonX += actionWidth + actionGap;
+                if (Widgets.ButtonText(new Rect(buttonX, actionY, actionWidth, 24f), "이름"))
                     OpenRenameCategoryDialog(category);
-                if (Widgets.ButtonText(new Rect(actionX + 134f, tabRect.y + 32f, 22f, 24f), "×"))
+                buttonX += actionWidth + actionGap;
+                if (Widgets.ButtonText(new Rect(buttonX, actionY, actionWidth, 24f), "×"))
                     ConfirmDeleteCategory(category);
             }
             Widgets.EndScrollView();
@@ -326,6 +338,36 @@ namespace Lilly.IntegratedModManager
             ManagerCategoryData category = categories[index];
             categories[index] = categories[targetIndex];
             categories[targetIndex] = category;
+        }
+
+        private void OpenMoveCategoryToPositionMenu(ManagerCategoryData category)
+        {
+            int currentIndex = categories.IndexOf(category);
+            if (currentIndex < 0)
+                return;
+
+            List<FloatMenuOption> options = new List<FloatMenuOption>();
+            for (int i = 0; i < categories.Count; i++)
+            {
+                int targetIndex = i;
+                if (targetIndex == currentIndex)
+                    continue;
+                options.Add(new FloatMenuOption((targetIndex + 1) + "번째 위치",
+                    () => MoveCategoryToIndex(category, targetIndex)));
+            }
+            if (options.Count > 0)
+                Find.WindowStack.Add(new FloatMenu(options));
+        }
+
+        private void MoveCategoryToIndex(ManagerCategoryData category, int targetIndex)
+        {
+            int currentIndex = categories.IndexOf(category);
+            if (currentIndex < 0 || targetIndex < 0 || targetIndex >= categories.Count ||
+                currentIndex == targetIndex)
+                return;
+
+            categories.RemoveAt(currentIndex);
+            categories.Insert(targetIndex, category);
         }
 
         private void OpenCreateCategoryDialog(int insertIndex)
@@ -490,23 +532,65 @@ namespace Lilly.IntegratedModManager
                 tag.Name + " (" + GetInstalledCount(tag) + ")"))
                 SelectTag(tag);
 
-            Rect deleteRect = new Rect(tabRect.xMax - 38f, tabRect.y + 32f, 34f, 24f);
+            float actionY = tabRect.y + 32f;
+            float actionX = tabRect.x + 4f;
+            float actionGap = 3f;
+            float actionWidth = (tabRect.width - 8f - actionGap * 6f) / 7f;
             GUI.enabled = tags.IndexOf(tag) > 1;
-            if (Widgets.ButtonText(new Rect(tabRect.xMax - 212f, tabRect.y + 32f, 24f, 24f), "‹"))
+            if (Widgets.ButtonText(new Rect(actionX, actionY, actionWidth, 24f), "‹"))
                 MoveTag(tag, -1);
-            GUI.enabled = tags.IndexOf(tag) >= 0 && tags.IndexOf(tag) < tags.Count - 1;
-            if (Widgets.ButtonText(new Rect(tabRect.xMax - 186f, tabRect.y + 32f, 24f, 24f), "›"))
+            actionX += actionWidth + actionGap;
+            GUI.enabled = true;
+            if (Widgets.ButtonText(new Rect(actionX, actionY, actionWidth, 24f), "위치"))
+                OpenMoveTagToPositionMenu(tag);
+            actionX += actionWidth + actionGap;
+            GUI.enabled = tags.IndexOf(tag) >= 1 && tags.IndexOf(tag) < tags.Count - 1;
+            if (Widgets.ButtonText(new Rect(actionX, actionY, actionWidth, 24f), "›"))
                 MoveTag(tag, 1);
             GUI.enabled = true;
-            Rect renameRect = new Rect(tabRect.xMax - 160f, tabRect.y + 32f, 42f, 24f);
-            if (Widgets.ButtonText(renameRect, "이름"))
+            actionX += actionWidth + actionGap;
+            if (Widgets.ButtonText(new Rect(actionX, actionY, actionWidth, 24f), "이름"))
                 OpenRenameTagDialog(tag);
-            if (Widgets.ButtonText(new Rect(tabRect.xMax - 114f, tabRect.y + 32f, 42f, 24f), "색상"))
+            actionX += actionWidth + actionGap;
+            if (Widgets.ButtonText(new Rect(actionX, actionY, actionWidth, 24f), "색상"))
                 OpenTagColorDialog(tag);
-            if (Widgets.ButtonText(new Rect(tabRect.xMax - 68f, tabRect.y + 32f, 26f, 24f), "+"))
+            actionX += actionWidth + actionGap;
+            if (Widgets.ButtonText(new Rect(actionX, actionY, actionWidth, 24f), "+"))
                 OpenCreateTagDialog();
-            if (Widgets.ButtonText(deleteRect, "×"))
+            actionX += actionWidth + actionGap;
+            if (Widgets.ButtonText(new Rect(actionX, actionY, actionWidth, 24f), "×"))
                 ConfirmDeleteTag(tag);
+        }
+
+        private void OpenMoveTagToPositionMenu(ManagerTagData tag)
+        {
+            int currentIndex = tags.IndexOf(tag);
+            if (currentIndex <= 0)
+                return;
+
+            List<FloatMenuOption> options = new List<FloatMenuOption>();
+            for (int i = 1; i < tags.Count; i++)
+            {
+                int targetIndex = i;
+                if (targetIndex == currentIndex)
+                    continue;
+                options.Add(new FloatMenuOption((targetIndex + 1) + "번째 위치",
+                    () => MoveTagToIndex(tag, targetIndex)));
+            }
+            if (options.Count > 0)
+                Find.WindowStack.Add(new FloatMenu(options));
+        }
+
+        private void MoveTagToIndex(ManagerTagData tag, int targetIndex)
+        {
+            int currentIndex = tags.IndexOf(tag);
+            if (currentIndex <= 0 || targetIndex <= 0 || targetIndex >= tags.Count ||
+                currentIndex == targetIndex)
+                return;
+
+            tags.RemoveAt(currentIndex);
+            tags.Insert(targetIndex, tag);
+            PersistTagData();
         }
 
         private void HandleCategoryTabReorder(ManagerCategoryData category, Rect dragRect)
