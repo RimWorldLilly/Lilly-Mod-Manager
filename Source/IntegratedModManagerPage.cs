@@ -1268,15 +1268,19 @@ namespace Lilly.IntegratedModManager
                 ManagerTranslation.Get("LMM_0072") + mod.AuthorsString);
             y += 32f;
 
-            List<string> loadAfterIds = GetDependencyIds(mod,
-                new[] { "Dependencies", "RequiredMods", "LoadAfter" });
+            List<string> requiredModIds = GetDependencyIds(mod,
+                new[] { "modDependencies", "ModDependencies", "Dependencies", "RequiredMods" });
+            List<string> loadAfterIds = GetDependencyIds(mod, new[] { "LoadAfter" });
             List<string> loadBeforeIds = GetDependencyIds(mod, new[] { "LoadBefore" });
+            if (requiredModIds.Count > 0)
+                DrawDependencyLinks(inner, ref y, ManagerTranslation.Get("LMM_0151"),
+                    mod, requiredModIds, true, true);
             if (loadAfterIds.Count > 0)
                 DrawDependencyLinks(inner, ref y, ManagerTranslation.Get("LMM_0059"),
-                    mod, loadAfterIds, true);
+                    mod, loadAfterIds, true, false);
             if (loadBeforeIds.Count > 0)
                 DrawDependencyLinks(inner, ref y, ManagerTranslation.Get("LMM_0142"),
-                    mod, loadBeforeIds, false);
+                    mod, loadBeforeIds, false, false);
 
             ManagerModData modData = FindModState(mod.PackageId);
             Widgets.Label(new Rect(inner.x, y, 48f, 26f), ManagerTranslation.Get("LMM_0089"));
@@ -1364,21 +1368,29 @@ namespace Lilly.IntegratedModManager
                     string requirementName = ReadMetadataValue(requirement, "displayName") as string;
                     if (requirementName.NullOrEmpty())
                         requirementName = ReadMetadataValue(requirement, "packageId") as string;
+                    string requirementPackageId = GetRequirementPackageId(requirement);
+                    if (requirementName.NullOrEmpty())
+                        requirementName = requirementPackageId;
                     if (requirementName.NullOrEmpty())
                         requirementName = requirement.RequirementTypeLabel;
-                    Widgets.Label(new Rect(statusIconRect.xMax + 4f, requirementRect.y,
-                        requirementRect.width - 24f, requirementRect.height), requirementName);
+                    string workshopUrl = !requirement.IsSatisfied &&
+                        FindMod(requirementPackageId) == null
+                            ? GetMissingDependencyWorkshopUrl(mod, requirement, requirementPackageId)
+                            : string.Empty;
+                    float workshopButtonWidth = workshopUrl.NullOrEmpty() ? 0f : 112f;
+                    Rect requirementNameRect = new Rect(statusIconRect.xMax + 4f,
+                        requirementRect.y,
+                        requirementRect.width - 24f - workshopButtonWidth, requirementRect.height);
+                    Widgets.Label(requirementNameRect, requirementName);
                     TooltipHandler.TipRegion(requirementRect, requirement.Tooltip);
-                    string requirementPackageId = ReadMetadataValue(requirement, "packageId") as string;
-                    if (requirementPackageId.NullOrEmpty())
-                        requirementPackageId = ReadMetadataValue(requirement, "PackageId") as string;
-                    if (requirementPackageId.NullOrEmpty())
-                        requirementPackageId = ReadMetadataValue(requirement, "packageIdPlayerFacing") as string;
-                    if (requirementPackageId.NullOrEmpty())
-                        requirementPackageId = ReadMetadataValue(requirement, "PackageIdPlayerFacing") as string;
                     if (!requirementPackageId.NullOrEmpty() &&
-                        Widgets.ButtonInvisible(requirementRect))
+                        Widgets.ButtonInvisible(requirementNameRect))
                         SelectDependency(requirementPackageId);
+                    if (!workshopUrl.NullOrEmpty() && Widgets.ButtonText(
+                        new Rect(requirementRect.xMax - workshopButtonWidth, requirementRect.y,
+                            workshopButtonWidth, requirementRect.height),
+                        ManagerTranslation.Get("LMM_0152")))
+                        OpenUrl(workshopUrl);
                     y += 24f;
                 }
 
@@ -3253,7 +3265,8 @@ namespace Lilly.IntegratedModManager
                 ModMetaData mod = FindMod(packageId);
                 if (mod == null)
                     continue;
-                AddDependencyIds(mod, new[] { "Dependencies", "RequiredMods", "LoadAfter" },
+                AddDependencyIds(mod, new[]
+                    { "modDependencies", "ModDependencies", "Dependencies", "RequiredMods", "LoadAfter" },
                     id => { if (requirements.ContainsKey(id)) requirements[packageId].Add(id); });
                 AddDependencyIds(mod, new[] { "LoadBefore" }, id =>
                 {
@@ -3349,7 +3362,8 @@ namespace Lilly.IntegratedModManager
             string label,
             ModMetaData subject,
             IList<string> packageIds,
-            bool dependencyMustPrecedeSubject)
+            bool dependencyMustPrecedeSubject,
+            bool mandatory)
         {
             const float lineHeight = 22f;
             float x = bounds.x;
@@ -3375,7 +3389,9 @@ namespace Lilly.IntegratedModManager
                 bool satisfied = !missing && IsLoadConstraintSatisfied(
                     subject, dependency, dependencyMustPrecedeSubject);
                 GUI.color = missing
-                    ? new Color(1f, 0.3f, 0.3f, 1f)
+                    ? mandatory
+                        ? new Color(1f, 0.3f, 0.3f, 1f)
+                        : new Color(0.7f, 0.7f, 0.7f, 1f)
                     : satisfied
                         ? new Color(0.3f, 1f, 0.38f, 1f)
                         : new Color(1f, 0.58f, 0.18f, 1f);
@@ -3383,9 +3399,10 @@ namespace Lilly.IntegratedModManager
                 Widgets.DrawLineHorizontal(linkRect.x, linkRect.yMax - 2f,
                     Mathf.Min(Text.CalcSize(name).x, linkRect.width));
                 GUI.color = oldColor;
-                TooltipHandler.TipRegion(linkRect, ManagerTranslation.Get(missing
-                    ? "LMM_0149"
-                    : satisfied ? "LMM_0147" : "LMM_0148") + packageIds[i]);
+                string statusKey = missing
+                    ? mandatory ? "LMM_0149" : "LMM_0153"
+                    : satisfied ? "LMM_0147" : "LMM_0148";
+                TooltipHandler.TipRegion(linkRect, ManagerTranslation.Get(statusKey) + packageIds[i]);
                 if (Widgets.ButtonInvisible(linkRect))
                     SelectDependency(packageIds[i]);
                 x += width;
@@ -3431,6 +3448,63 @@ namespace Lilly.IntegratedModManager
             return dependencyMustPrecedeSubject
                 ? dependencyPosition < subjectPosition
                 : subjectPosition < dependencyPosition;
+        }
+
+        private static string GetRequirementPackageId(ModRequirement requirement)
+        {
+            if (requirement == null)
+                return null;
+            foreach (string propertyName in new[]
+                { "packageId", "PackageId", "packageIdPlayerFacing", "PackageIdPlayerFacing" })
+            {
+                string value = ReadMetadataValue(requirement, propertyName) as string;
+                if (!value.NullOrEmpty())
+                    return value;
+            }
+            return ReadDependencyPackageId(requirement);
+        }
+
+        private string GetMissingDependencyWorkshopUrl(
+            ModMetaData sourceMod,
+            ModRequirement requirement,
+            string packageId)
+        {
+            string url = GetWorkshopUrlFromObject(requirement);
+            if (!url.NullOrEmpty())
+                return url;
+
+            foreach (string propertyName in new[] { "modDependencies", "ModDependencies" })
+            {
+                object value = ReadMetadataValue(sourceMod, propertyName);
+                if (!(value is IEnumerable dependencies) || value is string)
+                    continue;
+                foreach (object dependency in dependencies)
+                {
+                    if (dependency == null || !string.Equals(
+                        ReadDependencyPackageId(dependency), packageId,
+                        StringComparison.OrdinalIgnoreCase))
+                        continue;
+                    url = GetWorkshopUrlFromObject(dependency);
+                    if (!url.NullOrEmpty())
+                        return url;
+                }
+            }
+            return string.Empty;
+        }
+
+        private static string GetWorkshopUrlFromObject(object value)
+        {
+            if (value == null)
+                return string.Empty;
+            foreach (string propertyName in new[]
+                { "steamWorkshopUrl", "SteamWorkshopUrl", "workshopUrl", "WorkshopUrl", "WorkshopUri" })
+            {
+                object url = ReadMetadataValue(value, propertyName);
+                string text = url == null ? null : url.ToString();
+                if (!text.NullOrEmpty())
+                    return text;
+            }
+            return string.Empty;
         }
 
         private void SelectDependency(string packageId)
@@ -3606,7 +3680,7 @@ namespace Lilly.IntegratedModManager
                 if (!loadAfterCache.TryGetValue(packageId, out loadAfter))
                 {
                     loadAfter = GetDependencyIds(mod,
-                        new[] { "Dependencies", "RequiredMods", "LoadAfter" });
+                        new[] { "modDependencies", "ModDependencies", "Dependencies", "RequiredMods", "LoadAfter" });
                     loadAfterCache[packageId] = loadAfter;
                 }
                 for (int dependencyIndex = 0; dependencyIndex < loadAfter.Count; dependencyIndex++)
