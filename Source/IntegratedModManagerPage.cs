@@ -276,30 +276,32 @@ namespace Lilly.IntegratedModManager
 
                 float actionX = tabRect.x + 4f;
                 float actionY = tabRect.y + 32f;
-                float actionGap = 3f;
-                float actionWidth = (tabRect.width - 8f - actionGap * 5f) / 6f;
-                if (Widgets.ButtonText(new Rect(actionX, actionY, actionWidth, 24f), "+"))
+                float[] actionWidths = { 22f, 22f, 24f, 22f, 22f, 22f };
+                float actionWidthTotal = actionWidths.Sum();
+                float actionGap = Mathf.Max(3f,
+                    (tabRect.width - 8f - actionWidthTotal) / (actionWidths.Length - 1));
+                if (Widgets.ButtonText(new Rect(actionX, actionY, actionWidths[0], 24f), "+"))
                     OpenCreateCategoryDialog(categoryIndex);
-                float buttonX = actionX + actionWidth + actionGap;
+                float buttonX = actionX + actionWidths[0] + actionGap;
                 GUI.enabled = categoryIndex > 0;
-                if (Widgets.ButtonText(new Rect(buttonX, actionY, actionWidth, 24f), "‹"))
+                if (Widgets.ButtonText(new Rect(buttonX, actionY, actionWidths[1], 24f), "‹"))
                     MoveCategory(categoryIndex, -1);
-                buttonX += actionWidth + actionGap;
+                buttonX += actionWidths[1] + actionGap;
                 GUI.enabled = true;
-                Rect movePositionRect = new Rect(buttonX, actionY, actionWidth, 24f);
+                Rect movePositionRect = new Rect(buttonX, actionY, actionWidths[2], 24f);
                 if (Widgets.ButtonText(movePositionRect, "M"))
                     OpenMoveCategoryToPositionMenu(category);
                 TooltipHandler.TipRegion(movePositionRect, ManagerTranslation.Get("LMM_0127"));
-                buttonX += actionWidth + actionGap;
+                buttonX += actionWidths[2] + actionGap;
                 GUI.enabled = categoryIndex < categories.Count - 1;
-                if (Widgets.ButtonText(new Rect(buttonX, actionY, actionWidth, 24f), "›"))
+                if (Widgets.ButtonText(new Rect(buttonX, actionY, actionWidths[3], 24f), "›"))
                     MoveCategory(categoryIndex, 1);
                 GUI.enabled = true;
-                buttonX += actionWidth + actionGap;
-                if (Widgets.ButtonText(new Rect(buttonX, actionY, actionWidth, 24f), "+"))
+                buttonX += actionWidths[3] + actionGap;
+                if (Widgets.ButtonText(new Rect(buttonX, actionY, actionWidths[4], 24f), "+"))
                     OpenCreateCategoryDialog(categoryIndex + 1);
-                buttonX += actionWidth + actionGap;
-                if (Widgets.ButtonText(new Rect(buttonX, actionY, actionWidth, 24f), "×"))
+                buttonX += actionWidths[4] + actionGap;
+                if (Widgets.ButtonText(new Rect(buttonX, actionY, actionWidths[5], 24f), "×"))
                     ConfirmDeleteCategory(category);
             }
             Widgets.EndScrollView();
