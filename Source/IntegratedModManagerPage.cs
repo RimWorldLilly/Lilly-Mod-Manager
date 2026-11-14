@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -152,6 +152,7 @@ namespace Lilly.IntegratedModManager
 
             DrawModList(listRect);
             DrawDetails(detailsRect);
+            DrawModDragPreview(inRect);
             HandleModListNavigation(listRect);
             DrawBottomButtons(new Rect(20f, inRect.height - BottomHeight - 8f,
                 inRect.width - 40f, BottomHeight));
@@ -288,6 +289,8 @@ namespace Lilly.IntegratedModManager
                     ? new Color(0.22f, 0.18f, 0.12f, 1f)
                     : i % 2 == 0 ? new Color(0.09f, 0.09f, 0.09f, 1f)
                     : new Color(0.055f, 0.055f, 0.055f, 1f));
+                if (isDraggingMod && rowRect.Contains(Event.current.mousePosition))
+                    Widgets.DrawLightHighlight(rowRect);
                 if (isDraggingMod && Event.current.type == EventType.MouseUp &&
                     rowRect.Contains(Event.current.mousePosition))
                 {
@@ -533,6 +536,8 @@ namespace Lilly.IntegratedModManager
                     ? new Color(0.22f, 0.18f, 0.12f, 1f)
                     : rowIndex % 2 == 0 ? new Color(0.09f, 0.09f, 0.09f, 1f)
                     : new Color(0.055f, 0.055f, 0.055f, 1f));
+                if (isDraggingMod && rowRect.Contains(Event.current.mousePosition))
+                    Widgets.DrawLightHighlight(rowRect);
                 if (isDraggingMod && Event.current.type == EventType.MouseUp &&
                     rowRect.Contains(Event.current.mousePosition))
                 {
@@ -1175,6 +1180,36 @@ namespace Lilly.IntegratedModManager
                 TooltipHandler.TipRegion(nameRect, ManagerTranslation.Get("LMM_0144"));
             }
             GUI.color = previousTextColor;
+        }
+
+        private void DrawModDragPreview(Rect windowRect)
+        {
+            if (!isDraggingMod || Event.current.type != EventType.Repaint ||
+                dragPackageId.NullOrEmpty())
+                return;
+
+            ModMetaData draggedMod = FindMod(dragPackageId);
+            if (draggedMod == null)
+                return;
+
+            string label = draggedMod.Name;
+            if (dragSelection.Count > 1)
+                label += " (" + dragSelection.Count + ")";
+            float width = Mathf.Clamp(Text.CalcSize(label).x + 24f, 120f, 360f);
+            Vector2 mouse = Event.current.mousePosition;
+            Rect preview = new Rect(mouse.x + 14f, mouse.y + 14f, width, 28f);
+            preview.x = Mathf.Clamp(preview.x, windowRect.xMin + 4f,
+                windowRect.xMax - preview.width - 4f);
+            preview.y = Mathf.Clamp(preview.y, windowRect.yMin + 4f,
+                windowRect.yMax - preview.height - 4f);
+
+            Widgets.DrawBoxSolid(preview, new Color(0.22f, 0.18f, 0.12f, 0.96f));
+            Widgets.DrawBox(preview);
+            TextAnchor previousAnchor = Text.Anchor;
+            Text.Anchor = TextAnchor.MiddleLeft;
+            Widgets.Label(new Rect(preview.x + 8f, preview.y, preview.width - 16f,
+                preview.height), label);
+            Text.Anchor = previousAnchor;
         }
 
         private static float GetTagChipWidth(string name)
@@ -2645,9 +2680,8 @@ namespace Lilly.IntegratedModManager
                     () => ClearTagsForSelection(targets)));
             }
 
-            List<string> currentFolderIds = GetCurrentFolderModIds() ?? new List<string>();
-            List<string> precedingIds = GetPrecedingIdsInFolder(mod, currentFolderIds);
-            List<string> followingIds = GetFollowingIdsInFolder(mod, currentFolderIds);
+            List<string> precedingIds = GetPrecedingIds(mod);
+            List<string> followingIds = GetFollowingIds(mod);
             if (precedingIds.Count > 0)
             {
                 options.Add(new FloatMenuOption(ManagerTranslation.Get("LMM_0154"),
@@ -2713,23 +2747,24 @@ namespace Lilly.IntegratedModManager
                 Find.WindowStack.Add(new FloatMenu(options));
         }
 
-        private List<string> GetPrecedingIdsInFolder(ModMetaData mod, IList<string> folderIds)
+        private List<string> GetPrecedingIds(ModMetaData mod)
         {
             List<string> constraints = GetDependencyIds(mod, new[]
                 { "modDependencies", "ModDependencies", "Dependencies", "RequiredMods", "LoadAfter" });
             HashSet<string> constraintSet = new HashSet<string>(constraints,
                 StringComparer.OrdinalIgnoreCase);
-            return folderIds.Where(id => !string.Equals(id, mod.PackageId,
+            return GetAllManagedPackageIds().Where(id => !string.Equals(id, mod.PackageId,
                     StringComparison.OrdinalIgnoreCase) && constraintSet.Contains(id) &&
                 FindMod(id) != null && !IsProtected(FindMod(id))).ToList();
         }
 
-        private List<string> GetFollowingIdsInFolder(ModMetaData mod, IList<string> folderIds)
+        private List<string> GetFollowingIds(ModMetaData mod)
         {
             HashSet<string> following = new HashSet<string>(
                 GetDependencyIds(mod, new[] { "LoadBefore" }),
                 StringComparer.OrdinalIgnoreCase);
-            foreach (string packageId in folderIds)
+            List<string> allPackageIds = GetAllManagedPackageIds();
+            foreach (string packageId in allPackageIds)
             {
                 if (string.Equals(packageId, mod.PackageId, StringComparison.OrdinalIgnoreCase))
                     continue;
@@ -2741,8 +2776,32 @@ namespace Lilly.IntegratedModManager
                 if (predecessors.Contains(mod.PackageId, StringComparer.OrdinalIgnoreCase))
                     following.Add(packageId);
             }
-            return folderIds.Where(id => following.Contains(id) &&
+            return allPackageIds.Where(id => following.Contains(id) &&
                 !string.Equals(id, mod.PackageId, StringComparison.OrdinalIgnoreCase)).ToList();
+        }
+
+        private List<string> GetAllManagedPackageIds()
+        {
+            List<string> packageIds = new List<string>();
+            for (int categoryIndex = 0; categoryIndex < categories.Count; categoryIndex++)
+            {
+                ManagerCategoryData category = categories[categoryIndex];
+                if (category == null || category.Folders == null)
+                    continue;
+                for (int folderIndex = 0; folderIndex < category.Folders.Count; folderIndex++)
+                {
+                    ManagerFolderData folder = category.Folders[folderIndex];
+                    if (folder == null || folder.ModIds == null)
+                        continue;
+                    for (int modIndex = 0; modIndex < folder.ModIds.Count; modIndex++)
+                    {
+                        string packageId = folder.ModIds[modIndex];
+                        if (!packageIds.Contains(packageId, StringComparer.OrdinalIgnoreCase))
+                            packageIds.Add(packageId);
+                    }
+                }
+            }
+            return packageIds;
         }
 
         private void MoveDependencyMods(
@@ -2753,49 +2812,147 @@ namespace Lilly.IntegratedModManager
         {
             if (subject == null || IsProtected(subject))
                 return;
-            List<string> folderIds = GetCurrentFolderModIds();
-            if (folderIds == null || folderIds.Count < 2)
+            ManagerCategoryData subjectCategory = FindCategoryForPackage(subject.PackageId);
+            ManagerFolderData subjectFolder = FindFolderForPackage(subjectCategory, subject.PackageId);
+            if (subjectCategory == null || subjectFolder == null)
                 return;
 
             HashSet<string> targetSet = new HashSet<string>(targets ?? new List<string>(),
                 StringComparer.OrdinalIgnoreCase);
             targetSet.Remove(subject.PackageId);
-            List<string> movingTargets = folderIds.Where(id => targetSet.Contains(id) &&
-                FindMod(id) != null && !IsProtected(FindMod(id))).ToList();
-            if (movingTargets.Count == 0 || !folderIds.Contains(subject.PackageId,
-                StringComparer.OrdinalIgnoreCase))
-                return;
+            List<ManagerCategoryData> targetCategories = new List<ManagerCategoryData>();
+            List<ManagerFolderData> targetFolders = new List<ManagerFolderData>();
+            List<string> sameFolderTargets = new List<string>();
+            foreach (string targetId in targetSet)
+            {
+                ModMetaData targetMod = FindMod(targetId);
+                if (targetMod == null || IsProtected(targetMod))
+                    continue;
+                ManagerCategoryData targetCategory = FindCategoryForPackage(targetId);
+                ManagerFolderData targetFolder = FindFolderForPackage(targetCategory, targetId);
+                if (targetCategory == null || targetFolder == null)
+                    continue;
+                if (targetCategory != subjectCategory)
+                {
+                    if (!targetCategories.Contains(targetCategory))
+                        targetCategories.Add(targetCategory);
+                }
+                else if (targetFolder != subjectFolder)
+                {
+                    if (!targetFolders.Contains(targetFolder))
+                        targetFolders.Add(targetFolder);
+                }
+                else
+                    sameFolderTargets.Add(targetId);
+            }
 
-            List<string> reordered = new List<string>(folderIds);
+            bool changed = false;
+            if (targetCategories.Count > 0)
+                changed |= ReorderContainers(categories, subjectCategory, targetCategories,
+                    moveTargets, beforeSubject);
+            if (targetFolders.Count > 0)
+                changed |= ReorderContainers(subjectCategory.Folders, subjectFolder,
+                    targetFolders, moveTargets, beforeSubject);
+            if (sameFolderTargets.Count > 0)
+                changed |= ReorderPackageIds(subjectFolder.ModIds, subject.PackageId,
+                    sameFolderTargets, moveTargets, beforeSubject);
+            if (changed)
+                RefreshVisibleMods();
+        }
+
+        private static bool ReorderContainers<T>(
+            List<T> items,
+            T subject,
+            IEnumerable<T> targets,
+            bool moveTargets,
+            bool beforeSubject) where T : class
+        {
+            HashSet<T> targetSet = new HashSet<T>(targets.Where(item => item != null && item != subject));
+            List<T> movingTargets = items.Where(targetSet.Contains).ToList();
+            if (movingTargets.Count == 0 || !items.Contains(subject))
+                return false;
+
             if (moveTargets)
             {
-                reordered.RemoveAll(id => targetSet.Contains(id));
-                int subjectIndex = reordered.FindIndex(id => string.Equals(id,
-                    subject.PackageId, StringComparison.OrdinalIgnoreCase));
+                items.RemoveAll(targetSet.Contains);
+                int subjectIndex = items.IndexOf(subject);
                 int insertIndex = beforeSubject ? subjectIndex : subjectIndex + 1;
-                reordered.InsertRange(Mathf.Clamp(insertIndex, 0, reordered.Count), movingTargets);
+                items.InsertRange(Mathf.Clamp(insertIndex, 0, items.Count), movingTargets);
             }
             else
             {
-                reordered.RemoveAll(id => string.Equals(id, subject.PackageId,
-                    StringComparison.OrdinalIgnoreCase));
-                int insertIndex;
-                if (beforeSubject)
-                {
-                    int lastTargetIndex = movingTargets.Max(id => reordered.FindIndex(item =>
-                        string.Equals(item, id, StringComparison.OrdinalIgnoreCase)));
-                    insertIndex = lastTargetIndex + 1;
-                }
-                else
-                {
-                    insertIndex = movingTargets.Min(id => reordered.FindIndex(item =>
-                        string.Equals(item, id, StringComparison.OrdinalIgnoreCase)));
-                }
-                reordered.Insert(Mathf.Clamp(insertIndex, 0, reordered.Count), subject.PackageId);
+                items.Remove(subject);
+                List<int> targetIndexes = movingTargets.Select(item => items.IndexOf(item))
+                    .Where(index => index >= 0).ToList();
+                if (targetIndexes.Count == 0)
+                    return false;
+                int insertIndex = beforeSubject ? targetIndexes.Max() + 1 : targetIndexes.Min();
+                items.Insert(Mathf.Clamp(insertIndex, 0, items.Count), subject);
             }
+            return true;
+        }
 
-            SetCurrentFolderModIds(reordered);
-            RefreshVisibleMods();
+        private static bool ReorderPackageIds(
+            List<string> items,
+            string subject,
+            IEnumerable<string> targets,
+            bool moveTargets,
+            bool beforeSubject)
+        {
+            HashSet<string> targetSet = new HashSet<string>(targets,
+                StringComparer.OrdinalIgnoreCase);
+            List<string> movingTargets = items.Where(targetSet.Contains).ToList();
+            if (movingTargets.Count == 0 || !items.Contains(subject,
+                StringComparer.OrdinalIgnoreCase))
+                return false;
+
+            if (moveTargets)
+            {
+                items.RemoveAll(targetSet.Contains);
+                int subjectIndex = items.FindIndex(id => string.Equals(id, subject,
+                    StringComparison.OrdinalIgnoreCase));
+                int insertIndex = beforeSubject ? subjectIndex : subjectIndex + 1;
+                items.InsertRange(Mathf.Clamp(insertIndex, 0, items.Count), movingTargets);
+            }
+            else
+            {
+                items.RemoveAll(id => string.Equals(id, subject, StringComparison.OrdinalIgnoreCase));
+                List<int> targetIndexes = movingTargets.Select(id => items.FindIndex(item =>
+                    string.Equals(item, id, StringComparison.OrdinalIgnoreCase)))
+                    .Where(index => index >= 0).ToList();
+                if (targetIndexes.Count == 0)
+                    return false;
+                int insertIndex = beforeSubject ? targetIndexes.Max() + 1 : targetIndexes.Min();
+                items.Insert(Mathf.Clamp(insertIndex, 0, items.Count), subject);
+            }
+            return true;
+        }
+
+        private ManagerCategoryData FindCategoryForPackage(string packageId)
+        {
+            for (int categoryIndex = 0; categoryIndex < categories.Count; categoryIndex++)
+            {
+                ManagerCategoryData category = categories[categoryIndex];
+                if (FindFolderForPackage(category, packageId) != null)
+                    return category;
+            }
+            return null;
+        }
+
+        private static ManagerFolderData FindFolderForPackage(
+            ManagerCategoryData category,
+            string packageId)
+        {
+            if (category == null || category.Folders == null)
+                return null;
+            for (int folderIndex = 0; folderIndex < category.Folders.Count; folderIndex++)
+            {
+                ManagerFolderData folder = category.Folders[folderIndex];
+                if (folder != null && folder.ModIds != null && folder.ModIds.Any(id =>
+                    string.Equals(id, packageId, StringComparison.OrdinalIgnoreCase)))
+                    return folder;
+            }
+            return null;
         }
 
         private void ConfirmUnsubscribeSelected()
@@ -3868,9 +4025,9 @@ namespace Lilly.IntegratedModManager
                     string tooltip = requirement.Tooltip ?? string.Empty;
                     bool isVersionIssue = requirementType.IndexOf("version",
                         StringComparison.OrdinalIgnoreCase) >= 0 ||
-                        requirementType.IndexOf("버전", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                        requirementType.IndexOf("踰꾩쟾", StringComparison.OrdinalIgnoreCase) >= 0 ||
                         tooltip.IndexOf("version", StringComparison.OrdinalIgnoreCase) >= 0 ||
-                        tooltip.IndexOf("버전", StringComparison.OrdinalIgnoreCase) >= 0;
+                        tooltip.IndexOf("踰꾩쟾", StringComparison.OrdinalIgnoreCase) >= 0;
                     if (isVersionIssue)
                         issue = ModRowIssue.Version;
                     else if (issue != ModRowIssue.Version)
