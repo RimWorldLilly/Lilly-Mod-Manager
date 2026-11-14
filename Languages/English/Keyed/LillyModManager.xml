@@ -154,4 +154,8 @@
   <LMM_0151>Required mods: </LMM_0151>
   <LMM_0152>Workshop</LMM_0152>
   <LMM_0153>Optional load-order target is not installed: </LMM_0153>
+  <LMM_0154>Move preceding mods up</LMM_0154>
+  <LMM_0155>Move this mod after preceding mods</LMM_0155>
+  <LMM_0156>Move following mods down</LMM_0156>
+  <LMM_0157>Move this mod before following mods</LMM_0157>
 </LanguageData>

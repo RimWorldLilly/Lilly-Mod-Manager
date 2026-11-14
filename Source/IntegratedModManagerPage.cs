@@ -70,6 +70,7 @@ namespace Lilly.IntegratedModManager
         private Vector2 modListScroll;
         private Vector2 descriptionScroll;
         private Vector2 workshopGalleryScroll;
+        private Vector2 detailsScroll;
         private float modListViewportHeight;
         private string dragPackageId;
         private bool isDraggingMod;
@@ -1056,12 +1057,6 @@ namespace Lilly.IntegratedModManager
                 OpenModContextMenu(mod);
                 Event.current.Use();
             }
-            else if (Event.current.type == EventType.MouseUp && isDraggingMod)
-            {
-                EndModDrag();
-                Event.current.Use();
-            }
-
             Rect checkRect = new Rect(rowRect.x + 3f, rowRect.y + 3f, 24f, 24f);
             ManagerModData state = FindModState(mod.PackageId);
             bool checkedValue = state != null && state.Enabled;
@@ -1199,13 +1194,23 @@ namespace Lilly.IntegratedModManager
         private void DrawDetails(Rect rect)
         {
             Widgets.DrawBox(rect);
-            Rect inner = rect.ContractedBy(12f);
+            Rect viewport = rect.ContractedBy(12f);
             ModMetaData mod = FindMod(primarySelectedPackageId);
             if (mod == null)
             {
-                Widgets.Label(inner, ManagerTranslation.Get("LMM_0037"));
+                Widgets.Label(viewport, ManagerTranslation.Get("LMM_0037"));
                 return;
             }
+
+            float contentHeight = GetDetailsContentHeight(mod, viewport.width);
+            float scrollbarWidth = contentHeight > viewport.height
+                ? ManagerUiMetrics.VerticalScrollbarWidth
+                : 0f;
+            if (scrollbarWidth > 0f)
+                contentHeight = GetDetailsContentHeight(mod, viewport.width - scrollbarWidth);
+            Rect viewRect = new Rect(0f, 0f, viewport.width - scrollbarWidth, contentHeight);
+            Widgets.BeginScrollView(viewport, ref detailsScroll, viewRect);
+            Rect inner = new Rect(0f, 0f, viewRect.width, viewRect.height);
 
             float y = inner.y;
             Texture2D previewImage = mod.PreviewImage;
@@ -1446,22 +1451,133 @@ namespace Lilly.IntegratedModManager
 
             if (hasActionButtons)
                 y = actionY + 34f;
-            Rect descriptionRect = new Rect(inner.x, y, inner.width,
-                Mathf.Max(80f, inner.height - (y - inner.y) - 4f));
             string description = mod.Description.NullOrEmpty()
                 ? ManagerTranslation.Get("LMM_0061")
                 : WebUtility.HtmlDecode(mod.Description);
-            float descriptionHeight = Text.CalcHeight(description, descriptionRect.width);
-            float descriptionScrollbarWidth = descriptionHeight > descriptionRect.height
-                ? ManagerUiMetrics.VerticalScrollbarWidth
-                : 0f;
-            float descriptionTextWidth = descriptionRect.width - descriptionScrollbarWidth;
-            descriptionHeight = Mathf.Max(descriptionRect.height,
-                Text.CalcHeight(description, descriptionTextWidth));
-            Rect descriptionView = new Rect(0f, 0f, descriptionTextWidth, descriptionHeight);
-            Widgets.BeginScrollView(descriptionRect, ref descriptionScroll, descriptionView);
-            Widgets.Label(new Rect(0f, 0f, descriptionView.width, descriptionView.height), description);
+            float descriptionHeight = Mathf.Max(80f, Text.CalcHeight(description, inner.width));
+            Widgets.Label(new Rect(inner.x, y, inner.width, descriptionHeight), description);
             Widgets.EndScrollView();
+        }
+
+        private float GetDetailsContentHeight(ModMetaData mod, float width)
+        {
+            float y = 0f;
+            Texture2D previewImage = mod.PreviewImage;
+            if (previewImage != null)
+                y += Mathf.Min(190f, width * previewImage.height /
+                    Mathf.Max(1f, previewImage.width)) + 8f;
+            if (!GetSteamWorkshopPageUrl(mod).NullOrEmpty())
+                y += 34f;
+
+            ulong workshopId = GetCachedWorkshopId(mod);
+            if (workshopId > 0UL)
+            {
+                IReadOnlyList<Texture2D> gallery = WorkshopPreviewGallery.GetTextures(
+                    WorkshopPreviewGallery.Request(workshopId));
+                if (gallery.Count > 0)
+                {
+                    float galleryWidth = Mathf.Max(width, gallery.Count * 106f);
+                    y += 76f + (galleryWidth > width
+                        ? ManagerUiMetrics.HorizontalScrollbarHeight : 0f) + 6f;
+                }
+            }
+
+            y += 38f;
+            string vanillaName = mod.Name.NullOrEmpty() ? mod.FolderName : mod.Name;
+            if (!string.Equals(GetDisplayName(mod), vanillaName, StringComparison.Ordinal))
+                y += 26f;
+            if (!GetModVersionText(mod).NullOrEmpty())
+                y += 26f;
+            if (!GetSupportedGameVersionText(mod).NullOrEmpty())
+                y += 26f;
+            y += 28f + 32f;
+
+            List<string> requiredIds = GetDependencyIds(mod,
+                new[] { "modDependencies", "ModDependencies", "Dependencies", "RequiredMods" });
+            List<string> loadAfterIds = GetDependencyIds(mod, new[] { "LoadAfter" });
+            List<string> loadBeforeIds = GetDependencyIds(mod, new[] { "LoadBefore" });
+            if (requiredIds.Count > 0)
+                y += EstimateDependencyLinksHeight(width,
+                    ManagerTranslation.Get("LMM_0151"), requiredIds);
+            if (loadAfterIds.Count > 0)
+                y += EstimateDependencyLinksHeight(width,
+                    ManagerTranslation.Get("LMM_0059"), loadAfterIds);
+            if (loadBeforeIds.Count > 0)
+                y += EstimateDependencyLinksHeight(width,
+                    ManagerTranslation.Get("LMM_0142"), loadBeforeIds);
+            y += 32f;
+
+            List<ModRequirement> requirements = mod.GetRequirements().ToList();
+            if (requirements.Count > 0)
+            {
+                y += 28f;
+                y += requirements.Count(requirement => requirement != null &&
+                    (!requirement.IsSatisfied || displayFulfilledRequirements)) * 24f;
+            }
+
+            List<string> folderIssues = GetModLoadFolderIssues(mod);
+            if (folderIssues != null && folderIssues.Count > 0)
+            {
+                string issueText = GenText.ToLineList(folderIssues, "  - ");
+                y += 24f + Text.CalcHeight(issueText, Mathf.Max(1f, width - 8f)) + 6f;
+            }
+
+            List<float> buttonWidths = new List<float>();
+            if (GetAvailableModActionCount(mod) > 0)
+                buttonWidths.Add(140f);
+            ManagerModData selectedState = FindModState(mod.PackageId);
+            if (!IsProtected(mod) && selectedState != null)
+                buttonWidths.Add(120f);
+            Mod loadedMod = FindLoadedMod(mod);
+            if (loadedMod != null && !loadedMod.SettingsCategory().NullOrEmpty())
+                buttonWidths.Add(150f);
+            if (SteamManager.Initialized && mod.CanToUploadToWorkshop())
+                buttonWidths.Add(220f);
+            if (buttonWidths.Count > 0)
+            {
+                int rows = 1;
+                float x = 0f;
+                for (int i = 0; i < buttonWidths.Count; i++)
+                {
+                    float buttonWidth = Mathf.Min(buttonWidths[i], width);
+                    if (x + buttonWidth > width && x > 0f)
+                    {
+                        rows++;
+                        x = 0f;
+                    }
+                    x += buttonWidth + 6f;
+                }
+                y += rows * 34f;
+            }
+
+            string description = mod.Description.NullOrEmpty()
+                ? ManagerTranslation.Get("LMM_0061")
+                : WebUtility.HtmlDecode(mod.Description);
+            y += Mathf.Max(80f, Text.CalcHeight(description, width)) + 4f;
+            return Mathf.Max(y, 100f);
+        }
+
+        private float EstimateDependencyLinksHeight(
+            float width,
+            string label,
+            IList<string> packageIds)
+        {
+            const float lineHeight = 22f;
+            float x = Text.CalcSize(label).x + 2f;
+            int lines = 1;
+            for (int i = 0; i < packageIds.Count; i++)
+            {
+                ModMetaData dependency = FindMod(packageIds[i]);
+                string name = dependency == null ? packageIds[i] : GetDisplayName(dependency);
+                float itemWidth = Text.CalcSize(name + (i + 1 < packageIds.Count ? ", " : "")).x;
+                if (x + itemWidth > width && x > 0f)
+                {
+                    lines++;
+                    x = 0f;
+                }
+                x += itemWidth;
+            }
+            return lines * lineHeight + 3f;
         }
 
         private static void DrawDetailActionButton(
@@ -2498,6 +2614,24 @@ namespace Lilly.IntegratedModManager
                     () => ClearTagsForSelection(targets)));
             }
 
+            List<string> currentFolderIds = GetCurrentFolderModIds() ?? new List<string>();
+            List<string> precedingIds = GetPrecedingIdsInFolder(mod, currentFolderIds);
+            List<string> followingIds = GetFollowingIdsInFolder(mod, currentFolderIds);
+            if (precedingIds.Count > 0)
+            {
+                options.Add(new FloatMenuOption(ManagerTranslation.Get("LMM_0154"),
+                    () => MoveDependencyMods(mod, precedingIds, moveTargets: true, beforeSubject: true)));
+                options.Add(new FloatMenuOption(ManagerTranslation.Get("LMM_0155"),
+                    () => MoveDependencyMods(mod, precedingIds, moveTargets: false, beforeSubject: true)));
+            }
+            if (followingIds.Count > 0)
+            {
+                options.Add(new FloatMenuOption(ManagerTranslation.Get("LMM_0156"),
+                    () => MoveDependencyMods(mod, followingIds, moveTargets: true, beforeSubject: false)));
+                options.Add(new FloatMenuOption(ManagerTranslation.Get("LMM_0157"),
+                    () => MoveDependencyMods(mod, followingIds, moveTargets: false, beforeSubject: false)));
+            }
+
             options.Add(new FloatMenuOption(ManagerTranslation.Get("LMM_0105"),
                 () => OpenRenameDisplayNameDialog(mod)));
             options.Add(new FloatMenuOption(ManagerTranslation.Get("LMM_0025"),
@@ -2546,6 +2680,91 @@ namespace Lilly.IntegratedModManager
 
             if (options.Count > 0)
                 Find.WindowStack.Add(new FloatMenu(options));
+        }
+
+        private List<string> GetPrecedingIdsInFolder(ModMetaData mod, IList<string> folderIds)
+        {
+            List<string> constraints = GetDependencyIds(mod, new[]
+                { "modDependencies", "ModDependencies", "Dependencies", "RequiredMods", "LoadAfter" });
+            HashSet<string> constraintSet = new HashSet<string>(constraints,
+                StringComparer.OrdinalIgnoreCase);
+            return folderIds.Where(id => !string.Equals(id, mod.PackageId,
+                    StringComparison.OrdinalIgnoreCase) && constraintSet.Contains(id) &&
+                FindMod(id) != null && !IsProtected(FindMod(id))).ToList();
+        }
+
+        private List<string> GetFollowingIdsInFolder(ModMetaData mod, IList<string> folderIds)
+        {
+            HashSet<string> following = new HashSet<string>(
+                GetDependencyIds(mod, new[] { "LoadBefore" }),
+                StringComparer.OrdinalIgnoreCase);
+            foreach (string packageId in folderIds)
+            {
+                if (string.Equals(packageId, mod.PackageId, StringComparison.OrdinalIgnoreCase))
+                    continue;
+                ModMetaData candidate = FindMod(packageId);
+                if (candidate == null || IsProtected(candidate))
+                    continue;
+                List<string> predecessors = GetDependencyIds(candidate, new[]
+                    { "modDependencies", "ModDependencies", "Dependencies", "RequiredMods", "LoadAfter" });
+                if (predecessors.Contains(mod.PackageId, StringComparer.OrdinalIgnoreCase))
+                    following.Add(packageId);
+            }
+            return folderIds.Where(id => following.Contains(id) &&
+                !string.Equals(id, mod.PackageId, StringComparison.OrdinalIgnoreCase)).ToList();
+        }
+
+        private void MoveDependencyMods(
+            ModMetaData subject,
+            IList<string> targets,
+            bool moveTargets,
+            bool beforeSubject)
+        {
+            if (subject == null || IsProtected(subject))
+                return;
+            List<string> folderIds = GetCurrentFolderModIds();
+            if (folderIds == null || folderIds.Count < 2)
+                return;
+
+            HashSet<string> targetSet = new HashSet<string>(targets ?? new List<string>(),
+                StringComparer.OrdinalIgnoreCase);
+            targetSet.Remove(subject.PackageId);
+            List<string> movingTargets = folderIds.Where(id => targetSet.Contains(id) &&
+                FindMod(id) != null && !IsProtected(FindMod(id))).ToList();
+            if (movingTargets.Count == 0 || !folderIds.Contains(subject.PackageId,
+                StringComparer.OrdinalIgnoreCase))
+                return;
+
+            List<string> reordered = new List<string>(folderIds);
+            if (moveTargets)
+            {
+                reordered.RemoveAll(id => targetSet.Contains(id));
+                int subjectIndex = reordered.FindIndex(id => string.Equals(id,
+                    subject.PackageId, StringComparison.OrdinalIgnoreCase));
+                int insertIndex = beforeSubject ? subjectIndex : subjectIndex + 1;
+                reordered.InsertRange(Mathf.Clamp(insertIndex, 0, reordered.Count), movingTargets);
+            }
+            else
+            {
+                reordered.RemoveAll(id => string.Equals(id, subject.PackageId,
+                    StringComparison.OrdinalIgnoreCase));
+                int insertIndex;
+                if (beforeSubject)
+                {
+                    int lastTargetIndex = movingTargets.Max(id => reordered.FindIndex(item =>
+                        string.Equals(item, id, StringComparison.OrdinalIgnoreCase)));
+                    insertIndex = lastTargetIndex + 1;
+                }
+                else
+                {
+                    insertIndex = movingTargets.Min(id => reordered.FindIndex(item =>
+                        string.Equals(item, id, StringComparison.OrdinalIgnoreCase)));
+                }
+                reordered.Insert(Mathf.Clamp(insertIndex, 0, reordered.Count), subject.PackageId);
+            }
+
+            SetCurrentFolderModIds(reordered);
+            RefreshVisibleMods();
         }
 
         private void ConfirmUnsubscribeSelected()
