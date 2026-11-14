@@ -164,4 +164,7 @@
   <LMM_0161>Vanilla mod list saved: </LMM_0161>
   <LMM_0162>Overwrite the vanilla mod list with the same name? </LMM_0162>
   <LMM_0163>Failed to save the vanilla mod list.</LMM_0163>
+  <LMM_0164>Delete this vanilla mod list? </LMM_0164>
+  <LMM_0165>Vanilla mod list deleted: </LMM_0165>
+  <LMM_0166>Failed to delete the vanilla mod list.</LMM_0166>
 </LanguageData>

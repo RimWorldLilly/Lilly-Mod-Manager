@@ -107,12 +107,41 @@ namespace Lilly.IntegratedModManager
                 DrawAlternatingRow(rowRect, i);
                 string name = Path.GetFileNameWithoutExtension(file.Name);
                 Widgets.Label(new Rect(8f, rowRect.y + 4f,
-                    Mathf.Max(40f, rowRect.width - 104f), 28f), name);
-                if (Widgets.ButtonText(new Rect(rowRect.xMax - 92f, rowRect.y + 4f,
+                    Mathf.Max(40f, rowRect.width - 164f), 28f), name);
+                if (Widgets.ButtonText(new Rect(rowRect.xMax - 152f, rowRect.y + 4f,
                     84f, 28f), ManagerTranslation.Get("LMM_0134")))
                     SaveVanillaList(name);
+                if (Widgets.ButtonText(new Rect(rowRect.xMax - 62f, rowRect.y + 4f,
+                    54f, 28f), ManagerTranslation.Get("LMM_0045")))
+                    ConfirmDeleteVanillaList(file);
             }
             Widgets.EndScrollView();
+        }
+
+        private void ConfirmDeleteVanillaList(FileInfo file)
+        {
+            if (file == null)
+                return;
+            string name = Path.GetFileNameWithoutExtension(file.Name);
+            Find.WindowStack.Add(Dialog_MessageBox.CreateConfirmation(
+                ManagerTranslation.Get("LMM_0164") + name,
+                () =>
+                {
+                    try
+                    {
+                        if (file.Exists)
+                            file.Delete();
+                        vanillaLists.Remove(file);
+                        Messages.Message(ManagerTranslation.Get("LMM_0165") + name,
+                            RimWorld.MessageTypeDefOf.PositiveEvent);
+                    }
+                    catch (Exception exception)
+                    {
+                        Log.Warning("Failed to delete vanilla mod list '" + name + "': " + exception);
+                        Messages.Message(ManagerTranslation.Get("LMM_0166"),
+                            RimWorld.MessageTypeDefOf.RejectInput);
+                    }
+                }, destructive: true));
         }
 
         private void DrawPresets(Rect listRect)
