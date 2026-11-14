@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using UnityEngine;
 using Verse;
@@ -10,15 +11,17 @@ namespace Lilly.IntegratedModManager
     {
         private const float RowHeight = 38f;
         private readonly IList<ManagerPresetData> presets;
+        private readonly List<FileInfo> vanillaLists;
         private readonly Action<string, ManagerPresetData> onSave;
         private readonly Action<string> onSaveVanillaList;
-        private Vector2 scrollPosition;
+        private Vector2 presetScrollPosition;
+        private Vector2 vanillaScrollPosition;
         private string inputName = "";
         private bool focusNameOnNextDraw = true;
 
         public override Vector2 InitialSize => new Vector2(
-            Mathf.Min(UI.screenWidth - 80f, 600f),
-            Mathf.Min(UI.screenHeight - 100f, 520f));
+            Mathf.Min(UI.screenWidth - 80f, 1000f),
+            Mathf.Min(UI.screenHeight - 100f, 620f));
 
         internal ManagerPresetSaveDialog(
             IList<ManagerPresetData> presets,
@@ -26,6 +29,8 @@ namespace Lilly.IntegratedModManager
             Action<string> onSaveVanillaList)
         {
             this.presets = presets ?? new List<ManagerPresetData>();
+            vanillaLists = GenFilePaths.AllModListFiles
+                .OrderBy(file => file.Name, StringComparer.OrdinalIgnoreCase).ToList();
             this.onSave = onSave;
             this.onSaveVanillaList = onSaveVanillaList;
             doCloseX = true;
@@ -63,33 +68,18 @@ namespace Lilly.IntegratedModManager
             }
 
             float headingY = 80f;
-            Widgets.Label(new Rect(0f, headingY, rect.width, 26f),
-                ManagerTranslation.Get("LMM_0131"));
+            const float columnGap = 14f;
+            float columnWidth = (rect.width - columnGap) * 0.5f;
+            Rect vanillaHeading = new Rect(0f, headingY, columnWidth, 26f);
+            Rect presetHeading = new Rect(columnWidth + columnGap, headingY, columnWidth, 26f);
+            Widgets.Label(vanillaHeading, ManagerTranslation.Get("LMM_0130"));
+            Widgets.DrawBox(vanillaHeading);
+            Widgets.Label(presetHeading, ManagerTranslation.Get("LMM_0131"));
+            Widgets.DrawBox(presetHeading);
             float listY = headingY + 28f;
             float listHeight = rect.height - listY - 44f;
-            Rect listRect = new Rect(0f, listY, rect.width, listHeight);
-            float contentHeight = Mathf.Max(listRect.height, presets.Count * RowHeight);
-            float scrollbarWidth = contentHeight > listRect.height
-                ? ManagerUiMetrics.VerticalScrollbarWidth : 0f;
-            Rect viewRect = new Rect(0f, 0f, listRect.width - scrollbarWidth, contentHeight);
-            Widgets.BeginScrollView(listRect, ref scrollPosition, viewRect);
-            for (int i = 0; i < presets.Count; i++)
-            {
-                ManagerPresetData preset = presets[i];
-                if (preset == null)
-                    continue;
-
-                Rect rowRect = new Rect(0f, i * RowHeight, viewRect.width, RowHeight);
-                Widgets.DrawBoxSolid(rowRect, i % 2 == 0
-                    ? new Color(0.075f, 0.075f, 0.075f, 1f)
-                    : new Color(0.12f, 0.12f, 0.12f, 1f));
-                Widgets.Label(new Rect(8f, rowRect.y + 4f,
-                    Mathf.Max(40f, rowRect.width - 120f), 28f), preset.Name);
-                if (Widgets.ButtonText(new Rect(rowRect.xMax - 104f, rowRect.y + 4f,
-                    96f, 28f), ManagerTranslation.Get("LMM_0134")))
-                    ConfirmOverwrite(preset);
-            }
-            Widgets.EndScrollView();
+            DrawVanillaLists(new Rect(0f, listY, columnWidth, listHeight));
+            DrawPresets(new Rect(columnWidth + columnGap, listY, columnWidth, listHeight));
 
             float buttonY = rect.height - 34f;
             if (Widgets.ButtonText(new Rect(0f, buttonY, 190f, 30f),
@@ -103,9 +93,67 @@ namespace Lilly.IntegratedModManager
                 SaveNewPreset();
         }
 
+        private void DrawVanillaLists(Rect listRect)
+        {
+            float contentHeight = Mathf.Max(listRect.height, vanillaLists.Count * RowHeight);
+            float scrollbarWidth = contentHeight > listRect.height
+                ? ManagerUiMetrics.VerticalScrollbarWidth : 0f;
+            Rect viewRect = new Rect(0f, 0f, listRect.width - scrollbarWidth, contentHeight);
+            Widgets.BeginScrollView(listRect, ref vanillaScrollPosition, viewRect);
+            for (int i = 0; i < vanillaLists.Count; i++)
+            {
+                FileInfo file = vanillaLists[i];
+                Rect rowRect = new Rect(0f, i * RowHeight, viewRect.width, RowHeight);
+                DrawAlternatingRow(rowRect, i);
+                string name = Path.GetFileNameWithoutExtension(file.Name);
+                Widgets.Label(new Rect(8f, rowRect.y + 4f,
+                    Mathf.Max(40f, rowRect.width - 104f), 28f), name);
+                if (Widgets.ButtonText(new Rect(rowRect.xMax - 92f, rowRect.y + 4f,
+                    84f, 28f), ManagerTranslation.Get("LMM_0134")))
+                    SaveVanillaList(name);
+            }
+            Widgets.EndScrollView();
+        }
+
+        private void DrawPresets(Rect listRect)
+        {
+            float contentHeight = Mathf.Max(listRect.height, presets.Count * RowHeight);
+            float scrollbarWidth = contentHeight > listRect.height
+                ? ManagerUiMetrics.VerticalScrollbarWidth : 0f;
+            Rect viewRect = new Rect(0f, 0f, listRect.width - scrollbarWidth, contentHeight);
+            Widgets.BeginScrollView(listRect, ref presetScrollPosition, viewRect);
+            for (int i = 0; i < presets.Count; i++)
+            {
+                ManagerPresetData preset = presets[i];
+                if (preset == null)
+                    continue;
+
+                Rect rowRect = new Rect(0f, i * RowHeight, viewRect.width, RowHeight);
+                DrawAlternatingRow(rowRect, i);
+                Widgets.Label(new Rect(8f, rowRect.y + 4f,
+                    Mathf.Max(40f, rowRect.width - 104f), 28f), preset.Name);
+                if (Widgets.ButtonText(new Rect(rowRect.xMax - 92f, rowRect.y + 4f,
+                    84f, 28f), ManagerTranslation.Get("LMM_0134")))
+                    ConfirmOverwrite(preset);
+            }
+            Widgets.EndScrollView();
+        }
+
+        private static void DrawAlternatingRow(Rect rect, int index)
+        {
+            Widgets.DrawBoxSolid(rect, index % 2 == 0
+                ? new Color(0.075f, 0.075f, 0.075f, 1f)
+                : new Color(0.12f, 0.12f, 0.12f, 1f));
+        }
+
         private void SaveVanillaList()
         {
             string name = inputName == null ? "" : inputName.Trim();
+            SaveVanillaList(name);
+        }
+
+        private void SaveVanillaList(string name)
+        {
             if (name.NullOrEmpty())
             {
                 Messages.Message(ManagerTranslation.Get("LMM_0064"),
