@@ -135,4 +135,7 @@
   <LMM_0131>Manager presets</LMM_0131>
   <LMM_0132>Could not load mod list: </LMM_0132>
   <LMM_0133>Vanilla activation states imported.</LMM_0133>
+  <LMM_0134>Overwrite</LMM_0134>
+  <LMM_0135>Save as new</LMM_0135>
+  <LMM_0136>Overwrite this preset with the current configuration? </LMM_0136>
 </LanguageData>

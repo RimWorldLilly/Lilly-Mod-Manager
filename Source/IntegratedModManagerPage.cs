@@ -3232,31 +3232,30 @@ namespace Lilly.IntegratedModManager
 
         private void OpenSavePresetDialog()
         {
-            Find.WindowStack.Add(new ManagerFolderNameDialog(
-                ManagerTranslation.Get("LMM_0117"),
-                "",
-                name =>
-                {
-                    if (presets.Any(preset => string.Equals(preset.Name, name.Trim(),
-                        StringComparison.OrdinalIgnoreCase)))
-                    {
-                        Messages.Message(ManagerTranslation.Get("LMM_0018"),
-                            MessageTypeDefOf.RejectInput);
-                        return false;
-                    }
+            Find.WindowStack.Add(new ManagerPresetSaveDialog(presets, SavePreset));
+        }
 
-                    ManagerPresetData preset = new ManagerPresetData(
-                        Guid.NewGuid().ToString("N"),
-                        name.Trim(),
-                        categories,
-                        tags,
-                        modStates);
-                    presets.Add(preset);
-                    SavePresetsToSettings();
-                    Messages.Message(ManagerTranslation.Get("LMM_0108") + preset.Name,
-                        MessageTypeDefOf.PositiveEvent);
-                    return true;
-                }));
+        private void SavePreset(string name, ManagerPresetData existingPreset)
+        {
+            ManagerPresetData snapshot = new ManagerPresetData(
+                existingPreset == null ? Guid.NewGuid().ToString("N") : existingPreset.Id,
+                name,
+                categories,
+                tags,
+                modStates);
+            if (existingPreset == null)
+                presets.Add(snapshot);
+            else
+            {
+                int index = presets.IndexOf(existingPreset);
+                if (index < 0)
+                    return;
+                presets[index] = snapshot;
+            }
+
+            SavePresetsToSettings();
+            Messages.Message(ManagerTranslation.Get("LMM_0108") + snapshot.Name,
+                MessageTypeDefOf.PositiveEvent);
         }
 
         private void OpenPresetMenu()
