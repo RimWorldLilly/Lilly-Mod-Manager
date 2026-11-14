@@ -141,7 +141,7 @@ namespace Lilly.IntegratedModManager
             Rect searchRect = new Rect(mainX, 48f, mainWidth, 30f);
             float contentTop = searchRect.yMax + 8f;
             float contentHeight = Mathf.Max(100f, contentBottom - contentTop);
-            float listWidth = mainWidth * 0.66f - 8f;
+            float listWidth = Mathf.Min(mainWidth - 120f, inRect.width * 0.25f);
             Rect listRect = new Rect(mainX, contentTop, listWidth, contentHeight);
             Rect detailsRect = new Rect(mainX + listWidth + 10f, contentTop,
                 mainWidth - listWidth - 10f, contentHeight);
