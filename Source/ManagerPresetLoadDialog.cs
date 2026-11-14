@@ -34,7 +34,8 @@ namespace Lilly.IntegratedModManager
             this.onDelete = onDelete;
             this.onImportVanillaList = onImportVanillaList;
             vanillaLists = GenFilePaths.AllModListFiles
-                .OrderBy(file => file.Name, StringComparer.OrdinalIgnoreCase).ToList();
+                .OrderByDescending(file => file.LastWriteTimeUtc)
+                .ThenByDescending(file => file.Name, StringComparer.OrdinalIgnoreCase).ToList();
             doCloseX = true;
             absorbInputAroundWindow = true;
             closeOnCancel = true;

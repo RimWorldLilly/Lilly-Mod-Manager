@@ -13,7 +13,7 @@ namespace Lilly.IntegratedModManager
         private readonly IList<ManagerPresetData> presets;
         private readonly List<FileInfo> vanillaLists;
         private readonly Action<string, ManagerPresetData> onSave;
-        private readonly Action<string> onSaveVanillaList;
+        private readonly Action<string, Action> onSaveVanillaList;
         private Vector2 presetScrollPosition;
         private Vector2 vanillaScrollPosition;
         private string inputName = "";
@@ -26,11 +26,11 @@ namespace Lilly.IntegratedModManager
         internal ManagerPresetSaveDialog(
             IList<ManagerPresetData> presets,
             Action<string, ManagerPresetData> onSave,
-            Action<string> onSaveVanillaList)
+            Action<string, Action> onSaveVanillaList)
         {
             this.presets = presets ?? new List<ManagerPresetData>();
-            vanillaLists = GenFilePaths.AllModListFiles
-                .OrderBy(file => file.Name, StringComparer.OrdinalIgnoreCase).ToList();
+            vanillaLists = new List<FileInfo>();
+            RefreshVanillaLists();
             this.onSave = onSave;
             this.onSaveVanillaList = onSaveVanillaList;
             doCloseX = true;
@@ -118,6 +118,14 @@ namespace Lilly.IntegratedModManager
             Widgets.EndScrollView();
         }
 
+        private void RefreshVanillaLists()
+        {
+            vanillaLists.Clear();
+            vanillaLists.AddRange(GenFilePaths.AllModListFiles
+                .OrderByDescending(file => file.LastWriteTimeUtc)
+                .ThenByDescending(file => file.Name, StringComparer.OrdinalIgnoreCase));
+        }
+
         private void ConfirmDeleteVanillaList(FileInfo file)
         {
             if (file == null)
@@ -190,7 +198,7 @@ namespace Lilly.IntegratedModManager
                 return;
             }
             if (onSaveVanillaList != null)
-                onSaveVanillaList(name);
+                onSaveVanillaList(name, RefreshVanillaLists);
         }
 
         private void SaveNewPreset()

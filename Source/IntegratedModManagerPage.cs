@@ -4298,7 +4298,7 @@ namespace Lilly.IntegratedModManager
                 presets, SavePreset, SaveVanillaModList));
         }
 
-        private void SaveVanillaModList(string requestedName)
+        private void SaveVanillaModList(string requestedName, Action onSaved)
         {
             string name = SanitizeModListName(requestedName);
             if (name.NullOrEmpty())
@@ -4339,13 +4339,13 @@ namespace Lilly.IntegratedModManager
                 Find.WindowStack.Add(new Dialog_MessageBox(
                     ManagerTranslation.Get("LMM_0162") + name,
                     ManagerTranslation.Get("LMM_0134"),
-                    () => WriteVanillaModList(name, activePackageIds),
+                    () => WriteVanillaModList(name, activePackageIds, onSaved),
                     ManagerTranslation.Get("LMM_0074"), null,
                     null, false, null, null, WindowLayer.Dialog));
                 return;
             }
 
-            WriteVanillaModList(name, activePackageIds);
+            WriteVanillaModList(name, activePackageIds, onSaved);
         }
 
         private static string SanitizeModListName(string name)
@@ -4358,7 +4358,10 @@ namespace Lilly.IntegratedModManager
             return sanitized.Trim().Trim('.');
         }
 
-        private static void WriteVanillaModList(string name, List<string> packageIds)
+        private static void WriteVanillaModList(
+            string name,
+            List<string> packageIds,
+            Action onSaved)
         {
             try
             {
@@ -4404,6 +4407,8 @@ namespace Lilly.IntegratedModManager
                         throw new IOException("The game rejected the mod list save request.");
                     Messages.Message(ManagerTranslation.Get("LMM_0161") + name,
                         MessageTypeDefOf.PositiveEvent);
+                    if (onSaved != null)
+                        onSaved();
                     return;
                 }
 
