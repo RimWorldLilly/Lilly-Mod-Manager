@@ -29,6 +29,12 @@ namespace Lilly.IntegratedModManager
         private readonly Dictionary<string, ModMetaData> modsByPackageId =
             new Dictionary<string, ModMetaData>(StringComparer.OrdinalIgnoreCase);
         private readonly List<ModMetaData> visibleMods = new List<ModMetaData>();
+        private readonly HashSet<string> loadOrderIssuePackageIds =
+            new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        private readonly Dictionary<string, List<string>> loadAfterCache =
+            new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
+        private readonly Dictionary<string, List<string>> loadBeforeCache =
+            new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
 
         private string currentCategoryId;
         private string currentTagId;
@@ -1093,7 +1099,14 @@ namespace Lilly.IntegratedModManager
                 SelectModByPackageId(mod.PackageId, Event.current.control, Event.current.shift);
 
             string name = GetDisplayName(mod);
+            Color previousTextColor = GUI.color;
+            if (loadOrderIssuePackageIds.Contains(mod.PackageId))
+            {
+                GUI.color = new Color(1f, 0.28f, 0.28f, 1f);
+                TooltipHandler.TipRegion(nameRect, ManagerTranslation.Get("LMM_0143"));
+            }
             Widgets.Label(nameRect, protectedMod ? name + ManagerTranslation.Get("LMM_0001") : name);
+            GUI.color = previousTextColor;
         }
 
         private static float GetTagChipWidth(string name)
@@ -1206,6 +1219,26 @@ namespace Lilly.IntegratedModManager
             Widgets.Label(new Rect(inner.x, y, inner.width, 24f),
                 ManagerTranslation.Get("LMM_0072") + mod.AuthorsString);
             y += 32f;
+
+            List<string> loadAfterIds = GetDependencyIds(mod,
+                new[] { "Dependencies", "RequiredMods", "LoadAfter" });
+            List<string> loadBeforeIds = GetDependencyIds(mod, new[] { "LoadBefore" });
+            if (loadAfterIds.Count > 0)
+            {
+                string text = ManagerTranslation.Get("LMM_0059") +
+                    FormatDependencyNames(loadAfterIds);
+                float height = Text.CalcHeight(text, inner.width);
+                Widgets.Label(new Rect(inner.x, y, inner.width, height), text);
+                y += height + 3f;
+            }
+            if (loadBeforeIds.Count > 0)
+            {
+                string text = ManagerTranslation.Get("LMM_0142") +
+                    FormatDependencyNames(loadBeforeIds);
+                float height = Text.CalcHeight(text, inner.width);
+                Widgets.Label(new Rect(inner.x, y, inner.width, height), text);
+                y += height + 3f;
+            }
 
             ManagerModData modData = FindModState(mod.PackageId);
             Widgets.Label(new Rect(inner.x, y, 48f, 26f), ManagerTranslation.Get("LMM_0089"));
@@ -3226,6 +3259,106 @@ namespace Lilly.IntegratedModManager
             }
         }
 
+        private static List<string> GetDependencyIds(
+            ModMetaData mod,
+            IEnumerable<string> propertyNames)
+        {
+            List<string> ids = new List<string>();
+            AddDependencyIds(mod, propertyNames, id =>
+            {
+                if (!id.NullOrEmpty() && !ids.Contains(id, StringComparer.OrdinalIgnoreCase))
+                    ids.Add(id);
+            });
+            return ids;
+        }
+
+        private string FormatDependencyNames(IEnumerable<string> packageIds)
+        {
+            List<string> names = new List<string>();
+            foreach (string packageId in packageIds)
+            {
+                ModMetaData dependency = FindMod(packageId);
+                names.Add(dependency == null ? packageId : GetDisplayName(dependency));
+            }
+            return string.Join(", ", names);
+        }
+
+        private void RebuildLoadOrderIssueIds()
+        {
+            loadOrderIssuePackageIds.Clear();
+            List<string> activeOrder = new List<string>();
+            for (int categoryIndex = 0; categoryIndex < categories.Count; categoryIndex++)
+            {
+                ManagerCategoryData category = categories[categoryIndex];
+                if (category == null || category.Folders == null)
+                    continue;
+                for (int folderIndex = 0; folderIndex < category.Folders.Count; folderIndex++)
+                {
+                    ManagerFolderData folder = category.Folders[folderIndex];
+                    if (folder == null || folder.ModIds == null)
+                        continue;
+                    for (int modIndex = 0; modIndex < folder.ModIds.Count; modIndex++)
+                    {
+                        string packageId = folder.ModIds[modIndex];
+                        ModMetaData mod = FindMod(packageId);
+                        ManagerModData state = FindModState(packageId);
+                        if (mod != null && (IsProtected(mod) ||
+                            (category.Enabled && state != null && state.Enabled)) &&
+                            !activeOrder.Contains(mod.PackageId, StringComparer.OrdinalIgnoreCase))
+                            activeOrder.Add(mod.PackageId);
+                    }
+                }
+            }
+
+            Dictionary<string, int> positions = new Dictionary<string, int>(
+                StringComparer.OrdinalIgnoreCase);
+            for (int i = 0; i < activeOrder.Count; i++)
+                positions[activeOrder[i]] = i;
+
+            for (int i = 0; i < activeOrder.Count; i++)
+            {
+                string packageId = activeOrder[i];
+                ModMetaData mod = FindMod(packageId);
+                if (mod == null)
+                    continue;
+
+                List<string> loadAfter;
+                if (!loadAfterCache.TryGetValue(packageId, out loadAfter))
+                {
+                    loadAfter = GetDependencyIds(mod,
+                        new[] { "Dependencies", "RequiredMods", "LoadAfter" });
+                    loadAfterCache[packageId] = loadAfter;
+                }
+                for (int dependencyIndex = 0; dependencyIndex < loadAfter.Count; dependencyIndex++)
+                {
+                    int dependencyPosition;
+                    if (positions.TryGetValue(loadAfter[dependencyIndex], out dependencyPosition) &&
+                        dependencyPosition > i)
+                    {
+                        loadOrderIssuePackageIds.Add(packageId);
+                        loadOrderIssuePackageIds.Add(loadAfter[dependencyIndex]);
+                    }
+                }
+
+                List<string> loadBefore;
+                if (!loadBeforeCache.TryGetValue(packageId, out loadBefore))
+                {
+                    loadBefore = GetDependencyIds(mod, new[] { "LoadBefore" });
+                    loadBeforeCache[packageId] = loadBefore;
+                }
+                for (int dependencyIndex = 0; dependencyIndex < loadBefore.Count; dependencyIndex++)
+                {
+                    int dependencyPosition;
+                    if (positions.TryGetValue(loadBefore[dependencyIndex], out dependencyPosition) &&
+                        dependencyPosition < i)
+                    {
+                        loadOrderIssuePackageIds.Add(packageId);
+                        loadOrderIssuePackageIds.Add(loadBefore[dependencyIndex]);
+                    }
+                }
+            }
+        }
+
         private static string ReadDependencyPackageId(object dependency)
         {
             if (dependency == null)
@@ -3535,6 +3668,7 @@ namespace Lilly.IntegratedModManager
         private void RefreshVisibleMods()
         {
             EnsureCurrentSelectionValid();
+            RebuildLoadOrderIssueIds();
             visibleMods.Clear();
             if (tagMode)
             {

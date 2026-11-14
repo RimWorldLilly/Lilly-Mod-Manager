@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("Lilly.IntegratedModManager")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+2a3a8e335d830fab6601ea9809cb380694fcc078")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+780b9e951f872408ea5520c423728ddd286d9812")]
 [assembly: System.Reflection.AssemblyProductAttribute("Lilly.IntegratedModManager")]
 [assembly: System.Reflection.AssemblyTitleAttribute("Lilly.IntegratedModManager")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
