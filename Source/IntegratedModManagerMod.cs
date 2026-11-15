@@ -128,9 +128,13 @@ namespace Lilly.IntegratedModManager
                     Categories.RemoveAt(i--);
                     continue;
                 }
+// 기존 저장 데이터에 색상이 없으면 자동 생성
+if (!ManagerTagColors.IsValidHex(category.ColorHex))
+    category.ColorHex = ManagerTagColors.RandomHex();
 
                 if (category.ModIds == null)
                     category.ModIds = new List<string>();
+
                 category.ModIds.RemoveAll(excludedPackageIds.Contains);
                 if (category.Folders == null)
                     category.Folders = new List<ManagerFolderData>();
@@ -365,6 +369,10 @@ namespace Lilly.IntegratedModManager
         public string Id;
         public string Name;
         public bool Enabled = true;
+
+    // 카테고리 배경색
+    public string ColorHex;
+    
         public List<string> ModIds = new List<string>();
         public List<ManagerFolderData> Folders = new List<ManagerFolderData>();
 
@@ -376,6 +384,9 @@ namespace Lilly.IntegratedModManager
         {
             Id = id;
             Name = name;
+
+              // 기본 색상 자동 지정
+    ColorHex = ManagerTagColors.RandomHex();
         }
 
         public void ExposeData()
@@ -383,6 +394,11 @@ namespace Lilly.IntegratedModManager
             Scribe_Values.Look(ref Id, "id");
             Scribe_Values.Look(ref Name, "name");
             Scribe_Values.Look(ref Enabled, "enabled", true);
+
+
+    // 카테고리 색상 저장 및 불러오기
+    Scribe_Values.Look(ref ColorHex, "colorHex", null);
+    
             Scribe_Collections.Look(ref ModIds, "mods", LookMode.Value);
             Scribe_Collections.Look(ref Folders, "folders", LookMode.Deep);
         }
@@ -390,15 +406,25 @@ namespace Lilly.IntegratedModManager
         internal ManagerCategoryData Copy()
         {
             ManagerCategoryData copy = new ManagerCategoryData(Id, Name);
+
             copy.Enabled = Enabled;
+
+            // 색상 복사
+            copy.ColorHex = ManagerTagColors.IsValidHex(ColorHex)
+                ? ColorHex
+                : ManagerTagColors.RandomHex();
+
             copy.ModIds = ModIds == null
                 ? new List<string>()
                 : new List<string>(ModIds);
+
             copy.Folders = Folders == null
                 ? new List<ManagerFolderData>()
                 : Folders.Select(folder => folder.Copy()).ToList();
+
             return copy;
         }
+
     }
 
     public sealed class ManagerFolderData : IExposable

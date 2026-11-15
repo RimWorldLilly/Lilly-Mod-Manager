@@ -105,11 +105,26 @@ namespace Lilly.IntegratedModManager
                 throw new InvalidOperationException("Integrated Mod Manager did not initialize.");
 
             settings = IntegratedModManagerMod.Instance.Settings;
-            bool persistGeneratedTagColors = settings.Tags == null || settings.Tags.Count == 0 ||
-                settings.Tags.Any(tag => tag != null && !ManagerTagColors.IsValidHex(tag.ColorHex));
-            settings.EnsureInitialized();
-            if (persistGeneratedTagColors)
-                IntegratedModManagerMod.Instance.WriteSettings();
+
+
+bool persistGeneratedColors =
+    settings.Tags == null ||
+    settings.Tags.Count == 0 ||
+    settings.Tags.Any(tag =>
+        tag != null && !ManagerTagColors.IsValidHex(tag.ColorHex)) ||
+
+    settings.Categories == null ||
+    settings.Categories.Count == 0 ||
+    settings.Categories.Any(category =>
+        category != null &&
+        !ManagerTagColors.IsValidHex(category.ColorHex));
+
+settings.EnsureInitialized();
+
+if (persistGeneratedColors)
+    IntegratedModManagerMod.Instance.WriteSettings();
+
+
             categories = settings.Categories.Select(category => category.Copy()).ToList();
             tags = settings.Tags.Select(tag => tag.Copy()).ToList();
             modStates = settings.Mods.Select(mod => mod.Copy()).ToList();
@@ -502,33 +517,49 @@ namespace Lilly.IntegratedModManager
         }
 
         private void OpenRenameCategoryDialog(ManagerCategoryData category)
+{
+    if (category == null)
+        return;
+
+    Find.WindowStack.Add(new ManagerFolderNameDialog(
+        ManagerTranslation.Get("LMM_0078"),
+        category.Name,
+        category.ColorHex,
+        (name, colorHex) =>
         {
-            if (category == null)
-                return;
+            string trimmed = name == null
+                ? string.Empty
+                : name.Trim();
 
-            Find.WindowStack.Add(new ManagerFolderNameDialog(
-                ManagerTranslation.Get("LMM_0078"),
-                category.Name,
-                name =>
-                {
-                    string trimmed = name == null ? string.Empty : name.Trim();
-                    if (trimmed.NullOrEmpty())
-                        return false;
+            if (trimmed.NullOrEmpty())
+                return false;
 
-                    if (categories.Any(existing => existing != category &&
-                        string.Equals(existing.Name, trimmed, StringComparison.OrdinalIgnoreCase)))
-                    {
-                        Messages.Message(ManagerTranslation.Get("LMM_0015"),
-                            MessageTypeDefOf.RejectInput);
-                        return false;
-                    }
+            if (categories.Any(existing =>
+                existing != category &&
+                string.Equals(
+                    existing.Name,
+                    trimmed,
+                    StringComparison.OrdinalIgnoreCase)))
+            {
+                Messages.Message(
+                    ManagerTranslation.Get("LMM_0015"),
+                    MessageTypeDefOf.RejectInput);
 
-                    category.Name = trimmed;
-                    PersistCategoryData();
-                    return true;
-                }));
-        }
+                return false;
+            }
 
+            // 이름 변경
+            category.Name = trimmed;
+
+            // 색상 변경
+            category.ColorHex = colorHex;
+
+            // 영구 저장
+            PersistCategoryData();
+
+            return true;
+        }));
+}
         private void ConfirmDeleteCategory(ManagerCategoryData category)
         {
             if (category == null)
@@ -1147,9 +1178,33 @@ private void OpenMoveToCategoryMenu()
             bool rowIsVisible = y + RowHeight >= modListScroll.y &&
                 y <= modListScroll.y + modListViewportHeight;
             Rect checkboxHitRect = new Rect(rowRect.x, rowRect.y, 32f, rowRect.height);
-            Widgets.DrawBoxSolid(rowRect, visibleIndex % 2 == 0
+
+            // 기존 교차 배경색
+            Color baseRowColor = visibleIndex % 2 == 0
                 ? new Color(0.095f, 0.095f, 0.095f, 1f)
-                : new Color(0.055f, 0.055f, 0.055f, 1f));
+                : new Color(0.055f, 0.055f, 0.055f, 1f);
+
+            // 현재 선택된 카테고리 또는 태그의 색상
+            string rowColorHex = tagMode
+                ? FindCurrentTag()?.ColorHex
+                : FindCurrentCategory()?.ColorHex;
+
+            // 색상 유효성 검사
+            Color categoryOrTagColor = ManagerTagColors.IsValidHex(rowColorHex)
+                ? ManagerTagColors.Background(rowColorHex)
+                : baseRowColor;
+
+            // 기존 어두운 배경과 지정 색상을 혼합
+            Color finalRowColor = Color.Lerp(
+                baseRowColor,
+                categoryOrTagColor,
+                0.28f);
+
+            // 행 전체에 배경색 적용
+            Widgets.DrawBoxSolid(rowRect, finalRowColor);
+
+
+
             if (selectedPackageIds.Contains(mod.PackageId))
                 Widgets.DrawHighlight(rowRect);
             else
@@ -2721,31 +2776,43 @@ private void OpenMoveToCategoryMenu()
                 }));
         }
 
-        private void OpenRenameTagDialog(ManagerTagData tag)
+private void OpenRenameTagDialog(ManagerTagData tag)
+{
+    if (tag == null || tag.IsSystem)
+        return;
+
+    Find.WindowStack.Add(new ManagerFolderNameDialog(
+        ManagerTranslation.Get("LMM_0084"),
+        tag.Name,
+        tag.ColorHex,
+        (name, colorHex) =>
         {
-            if (tag == null || tag.IsSystem)
-                return;
+            if (tags.Any(existing =>
+                existing != tag &&
+                string.Equals(
+                    existing.Name,
+                    name.Trim(),
+                    StringComparison.OrdinalIgnoreCase)))
+            {
+                Messages.Message(
+                    ManagerTranslation.Get("LMM_0016"),
+                    MessageTypeDefOf.RejectInput);
 
-            Find.WindowStack.Add(new ManagerFolderNameDialog(
-                ManagerTranslation.Get("LMM_0084"),
-                tag.Name,
-                name =>
-                {
-                    if (tags.Any(existing => existing != tag &&
-                        string.Equals(existing.Name, name.Trim(),
-                            StringComparison.OrdinalIgnoreCase)))
-                    {
-                        Messages.Message(ManagerTranslation.Get("LMM_0016"),
-                            MessageTypeDefOf.RejectInput);
-                        return false;
-                    }
+                return false;
+            }
 
-                    tag.Name = name.Trim();
-                    PersistTagData();
-                    return true;
-                }));
-        }
+            // 이름 변경
+            tag.Name = name.Trim();
 
+            // 색상 변경
+            tag.ColorHex = colorHex;
+
+            // 영구 저장
+            PersistTagData();
+
+            return true;
+        }));
+}
         private void OpenTagColorDialog(ManagerTagData tag)
         {
             if (tag == null || tag.IsSystem)
