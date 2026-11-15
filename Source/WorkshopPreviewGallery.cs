@@ -2,6 +2,7 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
+using System.IO;
 using System.Net.Http;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
@@ -55,8 +56,18 @@ namespace Lilly.IntegratedModManager
         private static readonly Regex UrlRegex = new Regex(
             @"https?:\\?/\\?/[^\""'\s<>]+", RegexOptions.Compiled | RegexOptions.IgnoreCase);
         private const int MaxPreviewImages = 6;
-        private const int MaxCachedEntries = 24;
+        private const int MaxCachedEntries = 100;
         private const int MaxPreviewImageBytes = 8 * 1024 * 1024;
+
+// 디스크 캐시 설정
+private static readonly string DiskCacheRoot = Path.Combine(
+    Application.persistentDataPath,
+    "LillyIntegratedModManager",
+    "WorkshopPreviewCache");
+
+private static readonly TimeSpan DiskCacheLifetime =
+    TimeSpan.FromDays(30);
+
         private const int MaxStillTextureSize = 1024;
         private const int MaxGifFrames = 32;
         private const int MaxGifWidth = 480;
@@ -370,44 +381,205 @@ private static Texture2D CreateTexture(GifDecoder.GifFrame frame)
 }
 
 
-        private static async Task LoadAsync(ulong workshopId, GalleryEntry entry)
+private static async Task LoadAsync(ulong workshopId, GalleryEntry entry)
+{
+    try
+    {
+        // 1. 디스크 캐시 확인
+        byte[][] cachedImages = TryLoadDiskCache(workshopId);
+
+        if (cachedImages != null)
         {
-            try
+            List<GalleryImage> cachedGallery = new List<GalleryImage>();
+
+            for (int i = 0; i < cachedImages.Length; i++)
             {
-                string pageUrl = "https://steamcommunity.com/sharedfiles/filedetails/?id=" + workshopId;
-                using (HttpRequestMessage request = new HttpRequestMessage(HttpMethod.Get, pageUrl))
+                GalleryImage image = CreateGalleryImage(cachedImages[i]);
+
+                if (image != null)
+                    cachedGallery.Add(image);
+            }
+
+            entry.Images = cachedGallery.ToArray();
+
+            if (entry.Images.Length == 0)
+                entry.Error = "No preview images were found.";
+
+            return;
+        }
+
+        // 2. 디스크 캐시가 없으면 Steam 페이지 요청
+        string pageUrl =
+            "https://steamcommunity.com/sharedfiles/filedetails/?id=" + workshopId;
+
+        using (HttpRequestMessage request =
+            new HttpRequestMessage(HttpMethod.Get, pageUrl))
+        {
+            request.Headers.TryAddWithoutValidation(
+                "User-Agent",
+                "Mozilla/5.0 RimWorld Mod Manager");
+
+            using (HttpResponseMessage response =
+                await Client.SendAsync(request).ConfigureAwait(false))
+            {
+                response.EnsureSuccessStatusCode();
+
+                string html = await response.Content.ReadAsStringAsync()
+                    .ConfigureAwait(false);
+
+                List<string> imageUrls = ExtractImageUrls(html);
+
+                List<Task<byte[]>> downloads = imageUrls
+                    .Take(MaxPreviewImages)
+                    .Select(url => DownloadImageAsync(url))
+                    .ToList();
+
+                byte[][] downloadsResult =
+                    await Task.WhenAll(downloads).ConfigureAwait(false);
+
+                // 3. 다운로드한 원본 이미지를 디스크에 저장
+                SaveDiskCache(workshopId, downloadsResult);
+
+                // 4. 이미지 생성
+                List<GalleryImage> images = new List<GalleryImage>();
+
+                for (int i = 0; i < downloadsResult.Length; i++)
                 {
-                    request.Headers.TryAddWithoutValidation("User-Agent", "Mozilla/5.0 RimWorld Mod Manager");
-                    using (HttpResponseMessage response = await Client.SendAsync(request).ConfigureAwait(false))
-                    {
-                        response.EnsureSuccessStatusCode();
-                        string html = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
-                        List<string> imageUrls = ExtractImageUrls(html);
-                        List<Task<byte[]>> downloads = imageUrls.Take(MaxPreviewImages)
-                            .Select(url => DownloadImageAsync(url)).ToList();
-                        byte[][] downloadsResult = await Task.WhenAll(downloads).ConfigureAwait(false);
-                        List<GalleryImage> images = new List<GalleryImage>();
-                        for (int i = 0; i < downloadsResult.Length; i++)
-                        {
-                            GalleryImage image = CreateGalleryImage(downloadsResult[i]);
-                            if (image != null)
-                                images.Add(image);
-                        }
-                        entry.Images = images.ToArray();
-                    }
+                    GalleryImage image =
+                        CreateGalleryImage(downloadsResult[i]);
+
+                    if (image != null)
+                        images.Add(image);
                 }
-                if (entry.Images == null || entry.Images.Length == 0)
-                    entry.Error = "No preview images were found.";
-            }
-            catch (Exception exception)
-            {
-                entry.Error = exception.Message;
-            }
-            finally
-            {
-                entry.Loading = false;
+
+                entry.Images = images.ToArray();
             }
         }
+
+        if (entry.Images == null || entry.Images.Length == 0)
+            entry.Error = "No preview images were found.";
+    }
+    catch (Exception exception)
+    {
+        entry.Error = exception.Message;
+    }
+    finally
+    {
+        entry.Loading = false;
+    }
+}
+
+// 디스크 캐시 불러오기
+private static byte[][] TryLoadDiskCache(ulong workshopId)
+{
+    try
+    {
+        string directory = Path.Combine(
+            DiskCacheRoot,
+            workshopId.ToString());
+
+        string manifestPath = Path.Combine(directory, "manifest.txt");
+
+        if (!File.Exists(manifestPath))
+            return null;
+
+        // 30일이 지난 캐시는 만료 처리
+        DateTime lastWrite = File.GetLastWriteTimeUtc(manifestPath);
+
+        if (DateTime.UtcNow - lastWrite > DiskCacheLifetime)
+        {
+            Directory.Delete(directory, true);
+            return null;
+        }
+
+        int count;
+
+        if (!int.TryParse(File.ReadAllText(manifestPath), out count))
+            return null;
+
+        if (count <= 0 || count > MaxPreviewImages)
+            return null;
+
+        byte[][] images = new byte[count][];
+
+        for (int i = 0; i < count; i++)
+        {
+            string imagePath = Path.Combine(
+                directory,
+                "image_" + i + ".bin");
+
+            if (!File.Exists(imagePath))
+                return null;
+
+            byte[] bytes = File.ReadAllBytes(imagePath);
+
+            if (bytes.Length == 0 ||
+                bytes.Length > MaxPreviewImageBytes)
+                return null;
+
+            images[i] = bytes;
+        }
+
+        return images;
+    }
+    catch (Exception)
+    {
+        // 캐시를 읽지 못하면 인터넷에서 다시 다운로드
+        return null;
+    }
+}
+
+// 디스크 캐시 저장
+private static void SaveDiskCache(ulong workshopId, byte[][] images)
+{
+    if (images == null || images.Length == 0)
+        return;
+
+    try
+    {
+        string directory = Path.Combine(
+            DiskCacheRoot,
+            workshopId.ToString());
+
+        Directory.CreateDirectory(directory);
+
+        string manifestPath = Path.Combine(directory, "manifest.txt");
+
+        // 저장 중 문제가 발생해도 이전 캐시를 잘못 읽지 않도록
+        // 기존 인덱스를 먼저 제거
+        if (File.Exists(manifestPath))
+            File.Delete(manifestPath);
+
+        int savedCount = 0;
+
+        for (int i = 0; i < images.Length && savedCount < MaxPreviewImages; i++)
+        {
+            byte[] bytes = images[i];
+
+            if (bytes == null ||
+                bytes.Length == 0 ||
+                bytes.Length > MaxPreviewImageBytes)
+                continue;
+
+            string imagePath = Path.Combine(
+                directory,
+                "image_" + savedCount + ".bin");
+
+            File.WriteAllBytes(imagePath, bytes);
+            savedCount++;
+        }
+
+        if (savedCount > 0)
+        {
+            // 마지막에 인덱스를 기록하여 저장 완료 표시
+            File.WriteAllText(manifestPath, savedCount.ToString());
+        }
+    }
+    catch (Exception)
+    {
+        // 디스크 저장 실패는 미리보기 표시를 방해하지 않음
+    }
+}
 
         private static GalleryImage CreateGalleryImage(byte[] bytes)
         {
