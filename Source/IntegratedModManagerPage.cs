@@ -129,7 +129,9 @@ if (persistGeneratedColors)
             categories = settings.Categories.Select(category => category.Copy()).ToList();
             tags = settings.Tags.Select(tag => tag.Copy()).ToList();
             modStates = settings.Mods.Select(mod => mod.Copy()).ToList();
-            presets = settings.Presets.Select(preset => preset.Copy()).ToList();
+            // presets = settings.Presets.Select(preset => preset.Copy()).ToList();
+            // 개별 XML 프리셋 읽기 및 기존 프리셋 자동 분리
+presets = ManagerPresetStorage.LoadAndMigrate(settings);
 
 
 foreach (ModMetaData mod in ModLister.AllInstalledMods)
@@ -5073,27 +5075,64 @@ Find.WindowStack.Add(new ManagerFolderNameDialog(
             }
         }
 
-        private void SavePreset(string name, ManagerPresetData existingPreset)
-        {
-            ManagerPresetData snapshot = new ManagerPresetData(
-                existingPreset == null ? Guid.NewGuid().ToString("N") : existingPreset.Id,
-                name,
-                categories,
-                tags,
-                modStates);
-            if (existingPreset == null)
-                presets.Add(snapshot);
-            else
-            {
-                if (!presets.Remove(existingPreset))
-                    return;
-                presets.Add(snapshot);
-            }
 
-            SavePresetsToSettings();
-            Messages.Message(ManagerTranslation.Get("LMM_0108") + snapshot.Name,
-                MessageTypeDefOf.PositiveEvent);
+private void SavePreset(string name, ManagerPresetData existingPreset)
+{
+    string safeName = SanitizeModListName(name);
+
+    if (safeName.NullOrEmpty())
+    {
+        Messages.Message(
+            ManagerTranslation.Get("LMM_0064"),
+            MessageTypeDefOf.RejectInput);
+        return;
+    }
+
+    ManagerPresetData snapshot = new ManagerPresetData(
+        existingPreset == null
+            ? Guid.NewGuid().ToString("N")
+            : existingPreset.Id,
+        name,
+        categories,
+        tags,
+        modStates);
+
+    try
+    {
+        // 새 프리셋 파일 저장
+        ManagerPresetStorage.Save(snapshot);
+
+        // 이름을 변경한 경우 이전 파일 삭제
+        if (existingPreset != null &&
+            !string.Equals(
+                existingPreset.Name,
+                snapshot.Name,
+                StringComparison.OrdinalIgnoreCase))
+        {
+            ManagerPresetStorage.Delete(existingPreset);
         }
+
+        if (existingPreset != null)
+            presets.Remove(existingPreset);
+
+        presets.Add(snapshot);
+
+        SavePresetsToSettings();
+
+        Messages.Message(
+            ManagerTranslation.Get("LMM_0108") + snapshot.Name,
+            MessageTypeDefOf.PositiveEvent);
+    }
+    catch (Exception exception)
+    {
+        Log.Warning(
+            "[Lilly Mod Manager] 프리셋 저장 실패: " + exception);
+
+        Messages.Message(
+            "프리셋 저장에 실패했습니다. 로그를 확인하세요.",
+            MessageTypeDefOf.RejectInput);
+    }
+}
 
         private void OpenPresetMenu()
         {
@@ -5236,25 +5275,55 @@ Find.WindowStack.Add(new ManagerFolderNameDialog(
             }
         }
 
-        private void ConfirmDeletePreset(ManagerPresetData preset)
-        {
-            Find.WindowStack.Add(Dialog_MessageBox.CreateConfirmation(
-                ManagerTranslation.Get("LMM_0106") + preset.Name + ManagerTranslation.Get("LMM_0006"),
-                () =>
-                {
-                    presets.Remove(preset);
-                    SavePresetsToSettings();
-                    Messages.Message(ManagerTranslation.Get("LMM_0107") + preset.Name,
-                        MessageTypeDefOf.PositiveEvent);
-                },
-                destructive: true));
-        }
 
-        private void SavePresetsToSettings()
+private void ConfirmDeletePreset(ManagerPresetData preset)
+{
+    Find.WindowStack.Add(Dialog_MessageBox.CreateConfirmation(
+        ManagerTranslation.Get("LMM_0106") +
+        preset.Name +
+        ManagerTranslation.Get("LMM_0006"),
+        () =>
         {
-            settings.Presets = presets.Select(preset => preset.Copy()).ToList();
-            IntegratedModManagerMod.Instance.WriteSettings();
-        }
+            try
+            {
+                // XML 파일 삭제
+                ManagerPresetStorage.Delete(preset);
+
+                presets.Remove(preset);
+
+                SavePresetsToSettings();
+
+                Messages.Message(
+                    ManagerTranslation.Get("LMM_0107") + preset.Name,
+                    MessageTypeDefOf.PositiveEvent);
+            }
+            catch (Exception exception)
+            {
+                Log.Warning(
+                    "[Lilly Mod Manager] 프리셋 삭제 실패: " +
+                    exception);
+
+                Messages.Message(
+                    "프리셋 삭제에 실패했습니다.",
+                    MessageTypeDefOf.RejectInput);
+            }
+        },
+        destructive: true));
+}
+
+
+
+private void SavePresetsToSettings()
+{
+    // 모든 프리셋을 개별 XML 파일로 저장
+    ManagerPresetStorage.SaveAll(presets);
+
+    // 기존 통합 설정 파일에는 프리셋을 저장하지 않음
+    settings.Presets.Clear();
+
+    IntegratedModManagerMod.Instance.WriteSettings();
+}
+
 
         private void PersistTagData()
         {
