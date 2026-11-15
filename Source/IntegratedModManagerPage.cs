@@ -26,6 +26,7 @@ namespace Lilly.IntegratedModManager
 
         private const float RowHeight = 27f;
         private const float BottomHeight = 30f;
+        private const float DetailsPreviewMaxHeight = 190f;
 
         private readonly IntegratedModManagerSettings settings;
         private readonly List<ManagerCategoryData> categories;
@@ -617,11 +618,18 @@ namespace Lilly.IntegratedModManager
                 Rect labelRect = new Rect(stateRect.xMax + 4f, rowRect.y,
                     Mathf.Max(24f, editRect.x - stateRect.xMax - 7f), 32f);
                 string label = tag.Name + " (" + GetInstalledCount(tag) + ")";
+
                 Color oldColor = GUI.color;
-                if (!tag.IsSystem)
-                    GUI.color = ManagerTagColors.Foreground(tag.ColorHex);
+
+
+                // 태그 목록에서는 항상 흰색 글자 사용
+                GUI.color = Color.white;
                 Widgets.Label(labelRect, label);
+
+
                 GUI.color = oldColor;
+
+
                 TooltipHandler.TipRegion(labelRect, label);
 
                 if (tag.IsSystem)
@@ -1092,6 +1100,9 @@ namespace Lilly.IntegratedModManager
 
         private void DrawModRow(ModMetaData mod, int visibleIndex, float width, float y)
         {
+            Color previousGuiColor = GUI.color;
+            GUI.color = Color.white;
+
             Rect rowRect = new Rect(0f, y, width, RowHeight);
             bool rowIsVisible = y + RowHeight >= modListScroll.y &&
                 y <= modListScroll.y + modListViewportHeight;
@@ -1205,7 +1216,7 @@ namespace Lilly.IntegratedModManager
                 SelectModByPackageId(mod.PackageId, Event.current.control, Event.current.shift);
 
             string name = GetDisplayName(mod);
-            Color previousTextColor = GUI.color;
+            // Color previousTextColor = GUI.color;
             ModRowIssue rowIssue = rowIsVisible ? GetModRowIssue(mod) : ModRowIssue.None;
             if (rowIssue == ModRowIssue.RequiredMod)
                 GUI.color = new Color(1f, 0.28f, 0.28f, 1f);
@@ -1238,7 +1249,8 @@ namespace Lilly.IntegratedModManager
                     strikeWidth);
                 TooltipHandler.TipRegion(nameRect, ManagerTranslation.Get("LMM_0144"));
             }
-            GUI.color = previousTextColor;
+            // GUI.color = previousTextColor;
+            GUI.color = previousGuiColor;
         }
 
         private void DrawModDragPreview(Rect windowRect)
@@ -1386,13 +1398,14 @@ namespace Lilly.IntegratedModManager
                 GetCachedWorkshopId(mod));
             IReadOnlyList<WorkshopPreviewGallery.GalleryImage> galleryImages =
                 WorkshopPreviewGallery.GetImages(gallery);
+
             float previewHeight = 0f;
             if (modPreviewImage != null)
-                previewHeight = Mathf.Min(190f,
+                previewHeight = Mathf.Min(DetailsPreviewMaxHeight,
                     inner.width * modPreviewImage.height /
                     Mathf.Max(1f, modPreviewImage.width));
             else if (galleryImages.Count > 0)
-                previewHeight = 190f;
+                previewHeight = DetailsPreviewMaxHeight;
 
             float previewTop = y;
             if (previewHeight > 0f)
