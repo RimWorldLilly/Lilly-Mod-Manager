@@ -131,11 +131,20 @@ if (persistGeneratedColors)
             modStates = settings.Mods.Select(mod => mod.Copy()).ToList();
             presets = settings.Presets.Select(preset => preset.Copy()).ToList();
 
-            foreach (ModMetaData mod in ModLister.AllInstalledMods)
-            {
-                if (mod != null && !mod.PackageId.NullOrEmpty())
-                    modsByPackageId[mod.PackageId] = mod;
-            }
+
+foreach (ModMetaData mod in ModLister.AllInstalledMods)
+{
+    if (mod != null && !mod.PackageId.NullOrEmpty())
+        modsByPackageId[mod.PackageId] = mod;
+}
+
+// 저장된 카테고리/모드 데이터에 없는 설치 모드 등록
+AddInstalledModsMissingFromPreset();
+
+// 변경된 데이터 저장
+PersistCategoryData();
+PersistTagData();
+
 // 다음 신규 모드 검색 시간 설정
 nextInstalledModRefreshTime =
     Time.realtimeSinceStartup + InstalledModRefreshInterval;

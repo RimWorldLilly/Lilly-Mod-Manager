@@ -17,59 +17,65 @@ namespace Lilly.IntegratedModManager
         }
 
         // 림월드의 설치된 모드 목록 갱신
-        internal static bool RefreshModList()
+        
+internal static bool RefreshModList()
+{
+    bool refreshed = false;
+
+    try
+    {
+        const BindingFlags flags =
+            BindingFlags.Static |
+            BindingFlags.Public |
+            BindingFlags.NonPublic;
+
+        // 1. 창작마당 구독 모드 목록 갱신
+        Type workshopItemsType =
+            typeof(ModLister).Assembly.GetType(
+                "Verse.Steam.WorkshopItems");
+
+        MethodInfo rebuildWorkshopMethod =
+            workshopItemsType == null
+                ? null
+                : workshopItemsType.GetMethod(
+                    "RebuildItemsList", flags);
+
+        if (rebuildWorkshopMethod != null)
         {
-            try
-            {
-                const BindingFlags flags =
-                    BindingFlags.Static |
-                    BindingFlags.Public |
-                    BindingFlags.NonPublic;
-
-                // 창작마당 설치 목록 갱신
-                Type workshopItemsType =
-                    typeof(ModLister).Assembly.GetType(
-                        "Verse.Steam.WorkshopItems");
-
-                MethodInfo rebuildWorkshopMethod =
-                    workshopItemsType == null
-                        ? null
-                        : workshopItemsType.GetMethod(
-                            "RebuildItemsList", flags);
-
-                if (rebuildWorkshopMethod != null)
-                {
-                    rebuildWorkshopMethod.Invoke(null, null);
-                    return true;
-                }
-
-                // 창작마당 갱신 함수를 찾지 못하면
-                // 로컬 모드 목록 갱신
-                MethodInfo rebuildModMethod =
-                    typeof(ModLister).GetMethod(
-                        "RebuildModList", flags);
-
-                if (rebuildModMethod != null)
-                {
-                    rebuildModMethod.Invoke(null, null);
-                    return true;
-                }
-
-                Log.Warning(
-                    "[Lilly Mod Manager] 모드 목록 갱신 함수를 찾지 못했습니다.");
-
-                return false;
-            }
-            catch (Exception exception)
-            {
-                Log.Warning(
-                    "[Lilly Mod Manager] 모드 목록 갱신 실패: " +
-                    exception);
-
-                return false;
-            }
+            rebuildWorkshopMethod.Invoke(null, null);
+            refreshed = true;
         }
+
+        // 2. 림월드의 실제 설치 모드 목록 갱신
+        MethodInfo rebuildModMethod =
+            typeof(ModLister).GetMethod(
+                "RebuildModList", flags);
+
+        if (rebuildModMethod != null)
+        {
+            rebuildModMethod.Invoke(null, null);
+            refreshed = true;
+        }
+
+        if (!refreshed)
+        {
+            Log.Warning(
+                "[Lilly Mod Manager] 모드 목록 갱신 함수를 찾지 못했습니다.");
+        }
+
+        return refreshed;
     }
+    catch (Exception exception)
+    {
+        Log.Warning(
+            "[Lilly Mod Manager] 모드 목록 갱신 실패: " +
+            exception);
+
+        return false;
+    }
+}
+
+}
 
     [HarmonyPatch(typeof(WindowStack), nameof(WindowStack.Add),
         new[] { typeof(Window) })]
