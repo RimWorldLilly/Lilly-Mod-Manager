@@ -57,6 +57,7 @@ namespace Lilly.IntegratedModManager
         private string currentCategoryId;
         private string currentTagId;
         private string primarySelectedPackageId;
+        
 
         // 새 모드 검색 간격 (초)
 private const float InstalledModRefreshInterval = 10f;
@@ -135,12 +136,16 @@ if (persistGeneratedColors)
                 if (mod != null && !mod.PackageId.NullOrEmpty())
                     modsByPackageId[mod.PackageId] = mod;
             }
+// 다음 신규 모드 검색 시간 설정
+nextInstalledModRefreshTime =
+    Time.realtimeSinceStartup + InstalledModRefreshInterval;
 
             currentCategoryId = categories.FirstOrDefault()?.Id;
             currentTagId = tags.FirstOrDefault()?.Id;
             EnsureCurrentSelectionValid();
             RefreshVisibleMods();
         }
+
 
         public override void DoWindowContents(Rect inRect)
         {
@@ -5141,59 +5146,27 @@ Find.WindowStack.Add(new ManagerFolderNameDialog(
         }
 
 // 게임 도중 새로 설치된 모드 검색
+// 게임 도중 새로 설치된 모드 검색
 private void RefreshInstalledModsIfNeeded()
 {
-    // 10초마다 한 번만 검사
+    // 15초마다 검색
     if (Time.realtimeSinceStartup < nextInstalledModRefreshTime)
         return;
 
     nextInstalledModRefreshTime =
         Time.realtimeSinceStartup + InstalledModRefreshInterval;
 
-    try
-    {
-        const BindingFlags flags =
-            BindingFlags.Static |
-            BindingFlags.Public |
-            BindingFlags.NonPublic;
-
-        // Steam 창작마당 구독 목록 갱신
-        Type workshopItemsType =
-            typeof(ModLister).Assembly.GetType(
-                "Verse.Steam.WorkshopItems");
-
-        MethodInfo rebuildMethod = workshopItemsType == null
-            ? null
-            : workshopItemsType.GetMethod("RebuildItemsList", flags);
-
-        // 창작마당 갱신 함수를 찾지 못하면
-        // 일반 모드 목록 갱신 함수 사용
-        if (rebuildMethod == null)
-        {
-            rebuildMethod = typeof(ModLister).GetMethod(
-                "RebuildModList", flags);
-        }
-
-        if (rebuildMethod == null)
-            return;
-
-        rebuildMethod.Invoke(null, null);
-    }
-    catch (Exception exception)
-    {
-        Log.Warning(
-            "[Lilly Mod Manager] 모드 목록 갱신 실패: " +
-            exception.Message);
-        return;
-    }
-
-    // 기존에 등록된 모드 목록 기억
+    // 기존 모드 목록 기억
     HashSet<string> previousPackageIds =
         new HashSet<string>(
             modsByPackageId.Keys,
             StringComparer.OrdinalIgnoreCase);
 
-    // 현재 설치된 모드 목록 다시 수집
+    // 림월드의 원본 모드 목록 갱신
+    if (!IntegratedModManagerStartup.RefreshModList())
+        return;
+
+    // 현재 설치된 모드 다시 수집
     modsByPackageId.Clear();
 
     bool newModFound = false;
@@ -5205,30 +5178,28 @@ private void RefreshInstalledModsIfNeeded()
 
         modsByPackageId[mod.PackageId] = mod;
 
-        // 기존에 없었던 모드인지 확인
         if (!previousPackageIds.Contains(mod.PackageId))
             newModFound = true;
     }
 
-    // 새 모드가 없으면 종료
+    // 신규 모드가 없다면 종료
     if (!newModFound)
         return;
 
-    // 신규 모드를 일반 카테고리에 등록
+    // 신규 모드를 카테고리와 모드 데이터에 등록
     AddInstalledModsMissingFromPreset();
 
-    // 카테고리 및 태그 정보 저장
+    // 데이터 저장
     PersistCategoryData();
     PersistTagData();
 
-    // 화면 갱신
+    // 현재 화면 갱신
     RefreshVisibleMods();
 
     Messages.Message(
         "새로운 모드가 목록에 추가되었습니다.",
         MessageTypeDefOf.PositiveEvent);
 }
-
         private void RefreshVisibleMods()
         {
             EnsureCurrentSelectionValid();
