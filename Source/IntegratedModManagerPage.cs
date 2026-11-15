@@ -324,29 +324,43 @@ nextInstalledModRefreshTime =
                 ManagerCategoryData category = categories[i];
                 Rect rowRect = new Rect(0f, i * 30f, viewRect.width, 30f);
 
+// 왼쪽 2/3: 검정/회색 교차 배경
+float colorWidth = rowRect.width / 3f;
+
+Rect leftRect = new Rect(
+    rowRect.x,
+    rowRect.y,
+    rowRect.width - colorWidth,
+    rowRect.height);
+
+Rect rightRect = new Rect(
+    leftRect.xMax,
+    rowRect.y,
+    colorWidth,
+    rowRect.height);
+
 Color baseRowColor = i % 2 == 0
     ? new Color(0.09f, 0.09f, 0.09f, 1f)
     : new Color(0.055f, 0.055f, 0.055f, 1f);
 
-Color rowColor = ManagerTagColors.IsValidHex(category.ColorHex)
-    ? ManagerTagColors.Background(category.ColorHex)
-    : baseRowColor;
+Widgets.DrawBoxSolid(leftRect, baseRowColor);
 
-Widgets.DrawBoxSolid(rowRect, rowColor);
+// 오른쪽 1/3: 지정한 색상
+if (ManagerTagColors.IsValidHex(category.ColorHex))
+{
+    Widgets.DrawBoxSolid(
+        rightRect,
+        ManagerTagColors.Background(category.ColorHex));
+}
 
-// 선택된 카테고리 강조
 // 선택된 카테고리 강조
 if (category.Id == currentCategoryId)
 {
-    // 선택된 항목 배경
     Widgets.DrawBoxSolid(
-        rowRect,
+        leftRect,
         new Color(0.18f, 0.30f, 0.48f, 0.85f));
 
-    // 선택된 항목 테두리
-    Widgets.DrawBox(
-        rowRect,
-        2);
+    Widgets.DrawBox(leftRect, 2);
 }
 
                 bool isDragTarget = !dragCategoryId.NullOrEmpty() &&
@@ -660,25 +674,44 @@ GUI.color = previousLabelColor;
                 Rect rowRect = new Rect(0f, rowIndex * 30f, viewRect.width, 30f);
 
 
+// 왼쪽 2/3: 검정/회색 교차 배경
+float colorWidth = rowRect.width / 3f;
+
+Rect leftRect = new Rect(
+    rowRect.x,
+    rowRect.y,
+    rowRect.width - colorWidth,
+    rowRect.height);
+
+Rect rightRect = new Rect(
+    leftRect.xMax,
+    rowRect.y,
+    colorWidth,
+    rowRect.height);
+
 Color baseRowColor = rowIndex % 2 == 0
     ? new Color(0.09f, 0.09f, 0.09f, 1f)
     : new Color(0.055f, 0.055f, 0.055f, 1f);
 
-Color rowColor = ManagerTagColors.IsValidHex(tag.ColorHex)
-    ? ManagerTagColors.Background(tag.ColorHex)
-    : baseRowColor;
+Widgets.DrawBoxSolid(leftRect, baseRowColor);
 
-Widgets.DrawBoxSolid(rowRect, rowColor);
+// 오른쪽 1/3: 지정한 색상
+if (ManagerTagColors.IsValidHex(tag.ColorHex))
+{
+    Widgets.DrawBoxSolid(
+        rightRect,
+        ManagerTagColors.Background(tag.ColorHex));
+}
 
 // 선택된 태그 강조
 if (tag.Id == currentTagId)
-                {
-                    Widgets.DrawBoxSolid(
-    rowRect,
-    new Color(0.18f, 0.30f, 0.48f, 0.85f));
+{
+    Widgets.DrawBoxSolid(
+        leftRect,
+        new Color(0.18f, 0.30f, 0.48f, 0.85f));
 
-Widgets.DrawBox(rowRect, 2);
-                }
+    Widgets.DrawBox(leftRect, 2);
+}
 
 
                 bool isDragTarget = !dragTagId.NullOrEmpty() && !tag.IsSystem &&
