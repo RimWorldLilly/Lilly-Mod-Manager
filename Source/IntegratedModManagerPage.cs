@@ -486,6 +486,16 @@ GUI.color = previousLabelColor;
                 if (Widgets.ButtonText(deleteRect, "×"))
                     ConfirmDeleteCategory(category);
                 TooltipHandler.TipRegion(deleteRect, ManagerTranslation.Get("LMM_0045"));
+
+// 검색 결과가 없는 카테고리 회색 처리
+if (!searchText.NullOrEmpty() &&
+    !MatchesCategorySearch(category))
+{
+    Widgets.DrawBoxSolid(
+        rowRect,
+        new Color(0.45f, 0.45f, 0.45f, 0.55f));
+}
+
             }
             Widgets.EndScrollView();
         }
@@ -557,6 +567,37 @@ GUI.color = previousLabelColor;
                 return mod != null && MatchesSearch(mod);
             });
         }
+
+
+
+private bool MatchesTagSearch(ManagerTagData tag)
+{
+    if (tag == null)
+        return false;
+
+    if (searchText.NullOrEmpty())
+        return true;
+
+    if (tag.Folders == null)
+        return false;
+
+    foreach (ManagerFolderData folder in tag.Folders)
+    {
+        if (folder == null || folder.ModIds == null)
+            continue;
+
+        foreach (string packageId in folder.ModIds)
+        {
+            ModMetaData mod = FindMod(packageId);
+
+            if (mod != null && MatchesSearch(mod))
+                return true;
+        }
+    }
+
+    return false;
+}
+
 
         private void MoveCategory(int index, int offset)
         {
@@ -829,6 +870,16 @@ Widgets.Label(labelRect, label);
                     TooltipHandler.TipRegion(deleteRect, ManagerTranslation.Get("LMM_0045"));
                 }
                 rowIndex++;
+
+// 검색 결과가 없는 태그 회색 처리
+if (!searchText.NullOrEmpty() &&
+    !MatchesTagSearch(tag))
+{
+    Widgets.DrawBoxSolid(
+        rowRect,
+        new Color(0.45f, 0.45f, 0.45f, 0.55f));
+}
+
             }
             Widgets.EndScrollView();
         }
