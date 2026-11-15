@@ -510,6 +510,7 @@ if (!ManagerTagColors.IsValidHex(category.ColorHex))
         public string PackageId;
         public bool Enabled = true;
         public string DisplayName;
+public string ColorHex;
         public List<string> TagIds = new List<string>();
 
         public ManagerModData()
@@ -527,6 +528,7 @@ if (!ManagerTagColors.IsValidHex(category.ColorHex))
             Scribe_Values.Look(ref PackageId, "packageId");
             Scribe_Values.Look(ref Enabled, "enabled", true);
             Scribe_Values.Look(ref DisplayName, "displayName", null);
+            Scribe_Values.Look(ref ColorHex, "colorHex", null);
             Scribe_Collections.Look(ref TagIds, "tags", LookMode.Value);
             if (Scribe.mode == LoadSaveMode.PostLoadInit && TagIds == null)
                 TagIds = new List<string>();
@@ -536,6 +538,7 @@ if (!ManagerTagColors.IsValidHex(category.ColorHex))
         {
             ManagerModData copy = new ManagerModData(PackageId, Enabled);
             copy.DisplayName = DisplayName;
+            copy.ColorHex = ColorHex;
             copy.TagIds = TagIds == null ? new List<string>() : new List<string>(TagIds);
             return copy;
         }

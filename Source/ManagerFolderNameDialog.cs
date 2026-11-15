@@ -59,9 +59,9 @@ namespace Lilly.IntegratedModManager
             this.title = title;
             inputName = initialName ?? "";
 
-            inputColor = ManagerTagColors.IsValidHex(initialColor)
-                ? initialColor
-                : ManagerTagColors.RandomHex();
+inputColor = ManagerTagColors.IsValidHex(initialColor)
+    ? initialColor
+    : null;
 
             this.acceptAction = acceptAction;
             allowColorSelection = true;

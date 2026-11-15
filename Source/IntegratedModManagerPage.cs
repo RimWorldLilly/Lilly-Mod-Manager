@@ -315,10 +315,21 @@ if (persistGeneratedColors)
             {
                 ManagerCategoryData category = categories[i];
                 Rect rowRect = new Rect(0f, i * 30f, viewRect.width, 30f);
-                Widgets.DrawBoxSolid(rowRect, category.Id == currentCategoryId
-                    ? new Color(0.22f, 0.18f, 0.12f, 1f)
-                    : i % 2 == 0 ? new Color(0.09f, 0.09f, 0.09f, 1f)
-                    : new Color(0.055f, 0.055f, 0.055f, 1f));
+
+Color baseRowColor = i % 2 == 0
+    ? new Color(0.09f, 0.09f, 0.09f, 1f)
+    : new Color(0.055f, 0.055f, 0.055f, 1f);
+
+Color rowColor = ManagerTagColors.IsValidHex(category.ColorHex)
+    ? ManagerTagColors.Background(category.ColorHex)
+    : baseRowColor;
+
+Widgets.DrawBoxSolid(rowRect, rowColor);
+
+// 선택된 카테고리 강조
+if (category.Id == currentCategoryId)
+    Widgets.DrawHighlight(rowRect);
+
                 bool isDragTarget = !dragCategoryId.NullOrEmpty() &&
                     rowRect.Contains(Event.current.mousePosition);
                 if (dragCategoryId == category.Id)
@@ -354,11 +365,26 @@ if (persistGeneratedColors)
                 string label = category.Name + " (" +
     GetActiveCount(category) + "/" +
     GetInstalledCount(category) + ")";
-                Color previousLabelColor = GUI.color;
-                if (HasCategoryLoadOrderIssue(category))
-                    GUI.color = new Color(1f, 0.28f, 0.28f, 1f);
-                Widgets.Label(labelRect, label);
-                GUI.color = previousLabelColor;
+
+
+Color previousLabelColor = GUI.color;
+
+if (HasCategoryLoadOrderIssue(category))
+{
+    // 선후행 오류가 있으면 기존 빨간색 유지
+    GUI.color = new Color(1f, 0.28f, 0.28f, 1f);
+}
+else if (ManagerTagColors.IsValidHex(category.ColorHex))
+{
+    // 배경색에 맞춰 검정/흰색 자동 선택
+    GUI.color = ManagerTagColors.Foreground(category.ColorHex);
+}
+
+Widgets.Label(labelRect, label);
+
+GUI.color = previousLabelColor;
+
+
                 TooltipHandler.TipRegion(labelRect, label);
                 HandleCategoryTabReorder(category, labelRect);
                 if (Widgets.ButtonText(editRect, "E"))
@@ -613,10 +639,23 @@ if (persistGeneratedColors)
                 if (tag == null)
                     continue;
                 Rect rowRect = new Rect(0f, rowIndex * 30f, viewRect.width, 30f);
-                Widgets.DrawBoxSolid(rowRect, tag.Id == currentTagId
-                    ? new Color(0.22f, 0.18f, 0.12f, 1f)
-                    : rowIndex % 2 == 0 ? new Color(0.09f, 0.09f, 0.09f, 1f)
-                    : new Color(0.055f, 0.055f, 0.055f, 1f));
+
+
+Color baseRowColor = rowIndex % 2 == 0
+    ? new Color(0.09f, 0.09f, 0.09f, 1f)
+    : new Color(0.055f, 0.055f, 0.055f, 1f);
+
+Color rowColor = ManagerTagColors.IsValidHex(tag.ColorHex)
+    ? ManagerTagColors.Background(tag.ColorHex)
+    : baseRowColor;
+
+Widgets.DrawBoxSolid(rowRect, rowColor);
+
+// 선택된 태그 강조
+if (tag.Id == currentTagId)
+    Widgets.DrawHighlight(rowRect);
+
+
                 bool isDragTarget = !dragTagId.NullOrEmpty() && !tag.IsSystem &&
                     rowRect.Contains(Event.current.mousePosition);
                 if (dragTagId == tag.Id)
@@ -655,15 +694,15 @@ if (persistGeneratedColors)
     GetActiveCount(tag) + "/" +
     GetInstalledCount(tag) + ")";
 
-                Color oldColor = GUI.color;
+Color oldColor = GUI.color;
 
+GUI.color = ManagerTagColors.IsValidHex(tag.ColorHex)
+    ? ManagerTagColors.Foreground(tag.ColorHex)
+    : Color.white;
 
-                // 태그 목록에서는 항상 흰색 글자 사용
-                GUI.color = Color.white;
-                Widgets.Label(labelRect, label);
+Widgets.Label(labelRect, label);
 
-
-                GUI.color = oldColor;
+GUI.color = oldColor;
 
 
                 TooltipHandler.TipRegion(labelRect, label);
@@ -1179,29 +1218,21 @@ private void OpenMoveToCategoryMenu()
                 y <= modListScroll.y + modListViewportHeight;
             Rect checkboxHitRect = new Rect(rowRect.x, rowRect.y, 32f, rowRect.height);
 
-            // 기존 교차 배경색
-            Color baseRowColor = visibleIndex % 2 == 0
-                ? new Color(0.095f, 0.095f, 0.095f, 1f)
-                : new Color(0.055f, 0.055f, 0.055f, 1f);
+// 현재 모드의 개별 색상
+ManagerModData state = FindModState(mod.PackageId);
 
-            // 현재 선택된 카테고리 또는 태그의 색상
-            string rowColorHex = tagMode
-                ? FindCurrentTag()?.ColorHex
-                : FindCurrentCategory()?.ColorHex;
+string rowColorHex = state != null
+    ? state.ColorHex
+    : null;
 
-            // 색상 유효성 검사
-            Color categoryOrTagColor = ManagerTagColors.IsValidHex(rowColorHex)
-                ? ManagerTagColors.Background(rowColorHex)
-                : baseRowColor;
+// 모드에 지정된 색상이 있으면 사용
+// 없으면 기존 교차 배경색 사용
+Color finalRowColor = ManagerTagColors.IsValidHex(rowColorHex)
+    ? ManagerTagColors.Background(rowColorHex)
+    : baseRowColor;
 
-            // 기존 어두운 배경과 지정 색상을 혼합
-            Color finalRowColor = Color.Lerp(
-                baseRowColor,
-                categoryOrTagColor,
-                0.28f);
-
-            // 행 전체에 배경색 적용
-            Widgets.DrawBoxSolid(rowRect, finalRowColor);
+// 행 전체에 배경색 적용
+Widgets.DrawBoxSolid(rowRect, finalRowColor);
 
 
 
@@ -1253,7 +1284,6 @@ private void OpenMoveToCategoryMenu()
                 Event.current.Use();
             }
             Rect checkRect = new Rect(rowRect.x + 3f, rowRect.y + 3f, 24f, 24f);
-            ManagerModData state = FindModState(mod.PackageId);
             bool checkedValue = state != null && state.Enabled;
             bool protectedMod = IsProtected(mod);
             Widgets.Checkbox(checkRect.position, ref checkedValue, checkRect.width, protectedMod);
@@ -2931,7 +2961,33 @@ private void OpenRenameTagDialog(ManagerTagData tag)
             }
             return count;
         }
+private void OpenModColorDialog(List<string> packageIds)
+{
+    if (packageIds == null || packageIds.Count == 0)
+        return;
 
+    ManagerModData firstMod = FindModState(packageIds[0]);
+
+    string initialColor = firstMod != null
+        ? firstMod.ColorHex
+        : null;
+
+    Find.WindowStack.Add(new ManagerModColorDialog(
+        initialColor,
+        colorHex =>
+        {
+            foreach (string packageId in packageIds)
+            {
+                ManagerModData state = FindModState(packageId);
+
+                if (state != null)
+                    state.ColorHex = colorHex;
+            }
+
+            PersistTagData();
+            RefreshVisibleMods();
+        }));
+}
         private void OpenModContextMenu(ModMetaData mod)
         {
             if (mod == null)
@@ -2974,6 +3030,25 @@ else
                     () => OpenSelectedTagMenu(targets)));
                 options.Add(new FloatMenuOption(ManagerTranslation.Get("LMM_0053"),
                     () => ClearTagsForSelection(targets)));
+
+// 선택한 모드들의 배경색 변경
+options.Add(new FloatMenuOption("모드 색상 변경",
+    () => OpenModColorDialog(targets)));
+
+// 선택한 모드들의 배경색 초기화
+options.Add(new FloatMenuOption("모드 색상 초기화",
+    () =>
+    {
+        foreach (string packageId in targets)
+        {
+            ManagerModData state = FindModState(packageId);
+            if (state != null)
+                state.ColorHex = null;
+        }
+
+        PersistTagData();
+        RefreshVisibleMods();
+    }));
             }
 
             List<string> precedingIds = GetPrecedingIds(mod);
@@ -3681,17 +3756,29 @@ else
             if (state == null)
                 return;
 
-            Find.WindowStack.Add(new ManagerFolderNameDialog(
-                ManagerTranslation.Get("LMM_0105"),
-                state.DisplayName ?? GetDisplayName(mod),
-                name =>
-                {
-                    string trimmed = name == null ? string.Empty : name.Trim();
-                    state.DisplayName = trimmed.Length == 0 ? null : trimmed;
-                    PersistTagData();
-                    RefreshVisibleMods();
-                    return true;
-                }));
+Find.WindowStack.Add(new ManagerFolderNameDialog(
+    ManagerTranslation.Get("LMM_0105"),
+    state.DisplayName ?? GetDisplayName(mod),
+    state.ColorHex,
+    (name, colorHex) =>
+    {
+        string trimmed = name == null
+            ? string.Empty
+            : name.Trim();
+
+        state.DisplayName = trimmed.Length == 0
+            ? null
+            : trimmed;
+
+        state.ColorHex = ManagerTagColors.IsValidHex(colorHex)
+            ? colorHex
+            : null;
+
+        PersistTagData();
+        RefreshVisibleMods();
+
+        return true;
+    }));
         }
 
         private void MoveSelectionTo(ManagerCategoryData target)
