@@ -22,9 +22,9 @@ namespace Lilly.IntegratedModManager
         {
             get
             {
-                return allowColorSelection
-                    ? new Vector2(440f, 390f)
-                    : new Vector2(420f, 160f);
+return allowColorSelection
+    ? new Vector2(440f, 430f)
+    : new Vector2(420f, 160f);
             }
         }
 

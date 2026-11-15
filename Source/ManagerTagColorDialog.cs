@@ -11,7 +11,7 @@ namespace Lilly.IntegratedModManager
 
         public override Vector2 InitialSize
         {
-            get { return new Vector2(440f, 380f); }
+      get { return new Vector2(440f, 430f); }
         }
 
         internal ManagerTagColorDialog(ManagerTagData tag, Action<string> onColorSelected)

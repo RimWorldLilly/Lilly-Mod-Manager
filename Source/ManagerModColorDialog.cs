@@ -12,7 +12,7 @@ namespace Lilly.IntegratedModManager
 
         public override Vector2 InitialSize
         {
-            get { return new Vector2(440f, 355f); }
+        get { return new Vector2(440f, 430f); }
         }
 
         internal ManagerModColorDialog(
