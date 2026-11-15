@@ -336,7 +336,9 @@ namespace Lilly.IntegratedModManager
                 Rect deleteRect = new Rect(rowRect.xMax - 27f, rowRect.y + 3f, 22f, 24f);
                 Rect labelRect = new Rect(enabledRect.xMax + 4f, rowRect.y,
                     Mathf.Max(24f, editRect.x - enabledRect.xMax - 7f), 32f);
-                string label = category.Name + " (" + GetInstalledCount(category) + ")";
+                string label = category.Name + " (" +
+    GetActiveCount(category) + "/" +
+    GetInstalledCount(category) + ")";
                 Color previousLabelColor = GUI.color;
                 if (HasCategoryLoadOrderIssue(category))
                     GUI.color = new Color(1f, 0.28f, 0.28f, 1f);
@@ -618,7 +620,9 @@ namespace Lilly.IntegratedModManager
                 }
                 Rect labelRect = new Rect(stateRect.xMax + 4f, rowRect.y,
                     Mathf.Max(24f, editRect.x - stateRect.xMax - 7f), 32f);
-                string label = tag.Name + " (" + GetInstalledCount(tag) + ")";
+                string label = tag.Name + " (" +
+    GetActiveCount(tag) + "/" +
+    GetInstalledCount(tag) + ")";
 
                 Color oldColor = GUI.color;
 
@@ -669,7 +673,9 @@ namespace Lilly.IntegratedModManager
         {
             if (tag == null)
                 return 6f;
-            string label = tag.Name + " (" + GetInstalledCount(tag) + ")";
+            string label = tag.Name + " (" +
+    GetActiveCount(tag) + "/" +
+    GetInstalledCount(tag) + ")";
             return Mathf.Max(130f, Text.CalcSize(label).x + 43f) + 6f;
         }
 
@@ -677,7 +683,9 @@ namespace Lilly.IntegratedModManager
         {
             if (tag == null)
                 return 163f;
-            string label = tag.Name + " (" + GetInstalledCount(tag) + ")";
+            string label = tag.Name + " (" +
+    GetActiveCount(tag) + "/" +
+    GetInstalledCount(tag) + ")";
             return Mathf.Max(157f, Text.CalcSize(label).x + 63f) + 6f;
         }
 
@@ -5059,6 +5067,54 @@ else
 
             currentFolderId = null;
         }
+
+private int GetActiveCount(ManagerCategoryData category)
+{
+    if (category == null || category.ModIds == null)
+        return 0;
+
+    int count = 0;
+
+    for (int i = 0; i < category.ModIds.Count; i++)
+    {
+        ModMetaData mod = FindMod(category.ModIds[i]);
+
+        if (mod != null && IsModActiveInManager(mod))
+            count++;
+    }
+
+    return count;
+}
+
+private int GetActiveCount(ManagerTagData tag)
+{
+    if (tag == null)
+        return 0;
+
+    int count = 0;
+
+    for (int i = 0; i < modStates.Count; i++)
+    {
+        ManagerModData modData = modStates[i];
+
+        if (modData == null || FindMod(modData.PackageId) == null)
+            continue;
+
+        bool belongsToTag = tag.IsSystem
+            ? modData.TagIds == null || modData.TagIds.Count == 0
+            : modData.TagIds != null && modData.TagIds.Contains(tag.Id);
+
+        if (!belongsToTag)
+            continue;
+
+        ModMetaData mod = FindMod(modData.PackageId);
+
+        if (IsModActiveInManager(mod))
+            count++;
+    }
+
+    return count;
+}
 
         private int GetInstalledCount(ManagerCategoryData category)
         {
