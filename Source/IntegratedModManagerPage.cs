@@ -1218,6 +1218,11 @@ private void OpenMoveToCategoryMenu()
                 y <= modListScroll.y + modListViewportHeight;
             Rect checkboxHitRect = new Rect(rowRect.x, rowRect.y, 32f, rowRect.height);
 
+// 기존 교차 배경색
+Color baseRowColor = visibleIndex % 2 == 0
+    ? new Color(0.09f, 0.09f, 0.09f, 1f)
+    : new Color(0.055f, 0.055f, 0.055f, 1f);
+
 // 현재 모드의 개별 색상
 ManagerModData state = FindModState(mod.PackageId);
 
@@ -1230,6 +1235,9 @@ string rowColorHex = state != null
 Color finalRowColor = ManagerTagColors.IsValidHex(rowColorHex)
     ? ManagerTagColors.Background(rowColorHex)
     : baseRowColor;
+
+// 행 전체에 배경색 적용
+Widgets.DrawBoxSolid(rowRect, finalRowColor);
 
 // 행 전체에 배경색 적용
 Widgets.DrawBoxSolid(rowRect, finalRowColor);
