@@ -402,15 +402,10 @@ if (category.Id == currentCategoryId)
 
 Color previousLabelColor = GUI.color;
 
+// 선후행 오류가 있으면 빨간색 유지
 if (HasCategoryLoadOrderIssue(category))
 {
-    // 선후행 오류가 있으면 기존 빨간색 유지
     GUI.color = new Color(1f, 0.28f, 0.28f, 1f);
-}
-else if (ManagerTagColors.IsValidHex(category.ColorHex))
-{
-    // 배경색에 맞춰 검정/흰색 자동 선택
-    GUI.color = ManagerTagColors.Foreground(category.ColorHex);
 }
 
 Widgets.Label(labelRect, label);
@@ -752,15 +747,7 @@ if (tag.Id == currentTagId)
     GetActiveCount(tag) + "/" +
     GetInstalledCount(tag) + ")";
 
-Color oldColor = GUI.color;
-
-GUI.color = ManagerTagColors.IsValidHex(tag.ColorHex)
-    ? ManagerTagColors.Foreground(tag.ColorHex)
-    : Color.white;
-
 Widgets.Label(labelRect, label);
-
-GUI.color = oldColor;
 
 
                 TooltipHandler.TipRegion(labelRect, label);
