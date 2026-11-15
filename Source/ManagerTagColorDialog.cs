@@ -61,7 +61,7 @@ const float gap = 5f;
                 }
             }
 
-            if (Widgets.ButtonText(new Rect(rect.width - 112f, rect.height - 32f, 112f, 28f), ManagerTranslation.Get("LMM_0066")))
+            if (Widgets.ButtonText(new Rect(rect.width - 112f, rect.height - 42f, 112f, 28f), ManagerTranslation.Get("LMM_0066")))
             {
                 if (onColorSelected != null)
                     onColorSelected(ManagerTagColors.RandomHex());

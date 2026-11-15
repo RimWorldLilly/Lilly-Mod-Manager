@@ -23,7 +23,7 @@ namespace Lilly.IntegratedModManager
             get
             {
 return allowColorSelection
-    ? new Vector2(440f, 430f)
+    ? new Vector2(440f, 480f)
     : new Vector2(420f, 160f);
             }
         }
@@ -180,7 +180,7 @@ const float gap = 5f;
             }
 
             float buttonWidth = 120f;
-            float buttonY = rect.height - 42f;
+            float buttonY = 380f;
 
             if (Widgets.ButtonText(
                 new Rect(
