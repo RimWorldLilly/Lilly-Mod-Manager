@@ -26,7 +26,8 @@ namespace Lilly.IntegratedModManager
 
         private const float RowHeight = 27f;
         private const float BottomHeight = 30f;
-        private const float DetailsPreviewMaxHeight = 190f;
+        private const float DetailsPreviewMaxHeight = 320f;
+        
 
         private readonly IntegratedModManagerSettings settings;
         private readonly List<ManagerCategoryData> categories;
@@ -1097,7 +1098,38 @@ namespace Lilly.IntegratedModManager
 
             Widgets.EndScrollView();
         }
+/// <summary>
+/// 태그 모드에서 선택한 모드들을 다른 카테고리로 이동하는 메뉴
+/// </summary>
+private void OpenMoveToCategoryMenu()
+{
+    if (selectedPackageIds.Count == 0)
+        return;
 
+    List<FloatMenuOption> options = new List<FloatMenuOption>();
+
+    for (int i = 0; i < categories.Count; i++)
+    {
+        ManagerCategoryData category = categories[i];
+
+        if (category == null)
+            continue;
+
+        ManagerCategoryData target = category;
+
+        options.Add(new FloatMenuOption(
+            target.Name,
+            () =>
+            {
+                MoveSelectionTo(target);
+            }));
+    }
+
+    if (options.Count > 0)
+    {
+        Find.WindowStack.Add(new FloatMenu(options));
+    }
+}
         private void DrawModRow(ModMetaData mod, int visibleIndex, float width, float y)
         {
             Color previousGuiColor = GUI.color;
@@ -1123,7 +1155,26 @@ namespace Lilly.IntegratedModManager
                 if (Event.current.type == EventType.MouseUp)
                     HandleDragDropToMod(mod.PackageId);
             }
+// 태그 모드에서 모드 우클릭 시 카테고리 이동 메뉴
+if (tagMode &&
+    Event.current.type == EventType.MouseDown &&
+    Event.current.button == 1 &&
+    rowRect.Contains(Event.current.mousePosition))
+{
+    // 우클릭한 모드가 현재 선택 목록에 없으면 해당 모드만 선택
+    // 이미 선택된 모드라면 기존 다중 선택 유지
+    if (!selectedPackageIds.Contains(mod.PackageId))
+    {
+        SelectModByPackageId(mod.PackageId, false, false);
+    }
+    else
+    {
+        primarySelectedPackageId = mod.PackageId;
+    }
 
+    OpenMoveToCategoryMenu();
+    Event.current.Use();
+}
             if (Event.current.type == EventType.MouseDown && Event.current.button == 0 &&
                 rowRect.Contains(Event.current.mousePosition) &&
                 !checkboxHitRect.Contains(Event.current.mousePosition))
@@ -1400,12 +1451,15 @@ namespace Lilly.IntegratedModManager
                 WorkshopPreviewGallery.GetImages(gallery);
 
             float previewHeight = 0f;
-            if (modPreviewImage != null)
-                previewHeight = Mathf.Min(DetailsPreviewMaxHeight,
-                    inner.width * modPreviewImage.height /
-                    Mathf.Max(1f, modPreviewImage.width));
-            else if (galleryImages.Count > 0)
+
+            if (modPreviewImage != null || galleryImages.Count > 0)
                 previewHeight = DetailsPreviewMaxHeight;
+            // if (modPreviewImage != null)
+            //     previewHeight = Mathf.Min(DetailsPreviewMaxHeight,
+            //         inner.width * modPreviewImage.height /
+            //         Mathf.Max(1f, modPreviewImage.width));
+            // else if (galleryImages.Count > 0)
+            //     previewHeight = DetailsPreviewMaxHeight;
 
             float previewTop = y;
             if (previewHeight > 0f)
@@ -1427,6 +1481,7 @@ namespace Lilly.IntegratedModManager
                     : modPreviewImage;
                 if (previewTexture != null)
                     GUI.DrawTexture(previewRect, previewTexture, ScaleMode.ScaleToFit);
+                    // GUI.DrawTexture(previewRect, previewTexture, ScaleMode.ScaleAndCrop);
             }
 
             Text.Font = GameFont.Medium;
@@ -1677,11 +1732,13 @@ namespace Lilly.IntegratedModManager
             ulong workshopId = GetCachedWorkshopId(mod);
             IReadOnlyList<WorkshopPreviewGallery.GalleryImage> gallery =
                 WorkshopPreviewGallery.GetImages(WorkshopPreviewGallery.Request(workshopId));
-            if (previewImage != null)
-                y += Mathf.Min(190f, width * previewImage.height /
-                    Mathf.Max(1f, previewImage.width)) + 8f;
-            else if (gallery.Count > 0)
-                y += 190f + 8f;
+            if (previewImage != null || gallery.Count > 0)
+                y += DetailsPreviewMaxHeight + 8f;
+            // if (previewImage != null)
+            //     y += Mathf.Min(190f, width * previewImage.height /
+            //         Mathf.Max(1f, previewImage.width)) + 8f;
+            // else if (gallery.Count > 0)
+            //     y += 190f + 8f;
             if (gallery.Count > 0)
             {
                 float galleryWidth = Mathf.Max(width, gallery.Count * 106f);
@@ -4569,7 +4626,10 @@ namespace Lilly.IntegratedModManager
         private void OpenSavePresetDialog()
         {
             Find.WindowStack.Add(new ManagerPresetSaveDialog(
-                presets, SavePreset, SaveVanillaModList));
+                presets,
+                SavePreset,
+                SaveVanillaModList,
+                ConfirmDeletePreset));
         }
 
         private void SaveVanillaModList(string requestedName, Action onSaved)

@@ -16,8 +16,76 @@
   <loadAfter>
     <li>brrainz.harmony</li>
   </loadAfter>
-  <description>Replaces the vanilla Mods entry screen with a category-, tag-, folder-, preset-, and search-based mod manager. Organize installed mods into four categories and custom tags, place mods in category- or tag-specific folders, search by mod name, PackageId, or author, save and load named configuration presets, select multiple mods, toggle activation, and apply changes using RimWorld's mod configuration.
+  <description>
+  **English**
 
-바닐라 모드 화면을 카테고리·태그·폴더·프리셋 기반 모드 관리 화면으로 대체합니다. 설치된 모드를 네 카테고리와 사용자 태그로 분류하고, 카테고리 또는 태그별 폴더로 정리할 수 있습니다. 모드 이름, PackageId, 제작자로 검색하고 구성 프리셋을 저장·불러오기·삭제할 수 있습니다. 여러 모드 선택, 태그 일괄 추가·제거, 개별·카테고리·태그별 활성화 관리와 적용을 지원합니다. 불러온 프리셋은 편집 중인 구성에 반영되며, ‘적용’을 누른 뒤 게임 모드 설정에 저장됩니다. Core와 DLC는 필수 모드로 보호합니다.</description>
+Lilly - Mod Manager replaces RimWorld's vanilla Mods screen with an integrated mod management interface designed to make organizing, configuring, and maintaining large mod lists easier and more convenient.
+
+Organize your installed mods using categories, custom tags, and folders. Manage mod activation, organize related mods into groups, create configuration presets, and quickly find specific mods without having to navigate through the entire mod list.
+
+**Main Features**
+
+- **Custom Categories:** Organize installed mods into four built-in categories. Assign mods to categories to keep different types of mods organized and easy to find.
+
+- **Custom Tags:** Create and manage your own tags to classify mods according to your preferences. A mod can have multiple tags, allowing you to organize mods using more than one classification system.
+
+- **Tag Management:** Add or remove tags from individual mods or multiple selected mods at once. Customize tag background colors to make different tags easier to recognize.
+
+- **Category and Tag Folders:** Organize mods into folders specific to their assigned category or tag. Keep related mods grouped together and maintain a cleaner, more structured mod list.
+
+- **Mod Search:** Quickly find installed mods by searching their display names, PackageIds, or authors.
+
+- **Mod Filtering:** Filter the mod list using activation status, subscription status, tag availability, and other available criteria. Combine multiple filters to narrow down the displayed results.
+
+- **Multi-Selection:** Select multiple mods and perform supported management operations on them together, reducing repetitive work when managing large mod lists.
+
+- **Activation Management:** Enable or disable individual mods, or manage activation for entire categories and tags. Review your selections before applying changes.
+
+- **Configuration Presets:** Save your current mod configuration as a named preset. Load, overwrite, and delete saved presets whenever you need to switch between different mod configurations.
+
+- **Vanilla Mod List Support:** Import and save RimWorld's vanilla mod lists. Manage saved vanilla lists separately from this mod's configuration presets, including loading and deleting them.
+
+- **Apply and Cancel:** Changes are managed as an editable configuration. Loading a preset updates the configuration currently being edited; the changes are saved to RimWorld's mod configuration only when you press Apply. Use Cancel to discard unapplied changes.
+
+- **Core and DLC Protection:** RimWorld Core and DLC entries are protected as essential components and cannot be managed like ordinary mods.
+
+Whether you use a small collection of mods or maintain a large and frequently changing mod list, Lilly - Mod Manager helps you keep your configuration organized and easier to maintain.
+
+---
+
+**한국어**
+
+Lilly - Mod Manager는 림월드의 기존 바닐라 모드 관리 화면을 대체하는 통합 모드 관리 인터페이스입니다.
+
+많은 모드를 사용하는 환경에서도 설치된 모드를 체계적으로 분류하고, 활성화 상태를 관리하며, 원하는 모드를 빠르게 검색하고, 다양한 모드 구성 프리셋을 저장하고 불러올 수 있도록 설계되었습니다.
+
+**주요 기능**
+
+- **사용자 카테고리:** 기본 제공되는 네 가지 카테고리를 이용하여 설치된 모드를 종류별로 분류할 수 있습니다. 모드를 적절한 카테고리에 배치하여 서로 다른 유형의 모드를 체계적으로 관리할 수 있습니다.
+
+- **사용자 태그:** 원하는 이름으로 태그를 생성하고 모드에 지정할 수 있습니다. 하나의 모드에 여러 태그를 지정할 수 있어 다양한 기준으로 모드를 분류할 수 있습니다.
+
+- **태그 관리:** 개별 모드뿐만 아니라 여러 모드를 선택하여 태그를 일괄 추가하거나 제거할 수 있습니다. 태그별 배경색을 직접 지정하여 태그를 시각적으로 구분할 수 있습니다.
+
+- **카테고리 및 태그별 폴더:** 카테고리 또는 태그에 속한 모드를 각각의 폴더로 정리할 수 있습니다. 관련 모드끼리 그룹화하여 대규모 모드 목록도 깔끔하게 관리할 수 있습니다.
+
+- **모드 검색:** 모드 표시 이름, PackageId, 제작자 이름을 기준으로 원하는 모드를 빠르게 검색할 수 있습니다.
+
+- **모드 필터:** 활성화 여부, 구독 여부, 태그 유무 등 제공되는 조건을 기준으로 모드 목록을 필터링할 수 있습니다. 여러 필터 조건을 조합하여 원하는 모드만 표시할 수 있습니다.
+
+- **다중 선택:** 여러 모드를 동시에 선택하고 지원되는 관리 작업을 일괄 적용할 수 있습니다. 모드가 많을 때 반복적인 작업을 줄일 수 있습니다.
+
+- **활성화 관리:** 개별 모드의 활성화 및 비활성화는 물론, 카테고리 또는 태그 단위로 모드 활성화 상태를 관리할 수 있습니다. 적용하기 전에 변경 사항을 확인할 수 있습니다.
+
+- **구성 프리셋:** 현재 모드 구성을 원하는 이름으로 저장할 수 있습니다. 저장한 프리셋은 언제든지 불러오거나 덮어쓰고 삭제할 수 있어 여러 모드 구성 사이를 편리하게 전환할 수 있습니다.
+
+- **바닐라 모드 목록 지원:** 림월드에서 기본적으로 저장하는 바닐라 모드 목록을 불러오거나 새로 저장할 수 있습니다. 이 모드의 구성 프리셋과 바닐라 모드 목록을 별도로 관리하며, 저장된 목록을 불러오거나 삭제할 수 있습니다.
+
+- **적용 및 변경 취소:** 모든 변경 사항은 편집 중인 구성에 반영됩니다. 프리셋을 불러와도 즉시 게임 설정에 저장되지 않으며, 최종적으로 '적용' 버튼을 눌러야 림월드의 모드 설정에 반영됩니다. '변경 취소'를 이용하면 아직 적용하지 않은 변경 사항을 취소할 수 있습니다.
+
+- **Core 및 DLC 보호:** 림월드의 필수 구성 요소인 Core와 DLC는 일반 모드와 구분하여 보호하며, 일반 모드처럼 활성화 상태를 변경할 수 없도록 처리합니다.
+
+소규모 모드 구성부터 수백 개 이상의 모드를 사용하는 대규모 환경까지, Lilly - Mod Manager를 이용하면 복잡한 모드 목록을 더욱 체계적이고 편리하게 관리할 수 있습니다.
+  </description>
   <modVersion>0.5.0</modVersion>
 </ModMetaData>

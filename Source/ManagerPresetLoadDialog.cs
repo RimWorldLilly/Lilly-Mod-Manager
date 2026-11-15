@@ -75,44 +75,114 @@ namespace Lilly.IntegratedModManager
             Widgets.Label(rect, title);
             Widgets.DrawBox(rect);
         }
+private void ConfirmDeleteVanillaList(FileInfo file)
+{
+    if (file == null)
+        return;
 
-        private void DrawVanillaLists(Rect listRect)
-        {
-            float contentHeight = Mathf.Max(listRect.height, vanillaLists.Count * RowHeight);
-            float scrollbarWidth = contentHeight > listRect.height
-                ? ManagerUiMetrics.VerticalScrollbarWidth : 0f;
-            Rect viewRect = new Rect(0f, 0f, listRect.width - scrollbarWidth, contentHeight);
-            Widgets.BeginScrollView(listRect, ref vanillaScrollPosition, viewRect);
-            for (int i = 0; i < vanillaLists.Count; i++)
+    string name = Path.GetFileNameWithoutExtension(file.Name);
+
+    Find.WindowStack.Add(
+        Dialog_MessageBox.CreateConfirmation(
+            ManagerTranslation.Get("LMM_0164") + name,
+            () =>
             {
-                FileInfo file = vanillaLists[i];
-                Rect rowRect = new Rect(0f, i * RowHeight, viewRect.width, RowHeight);
-                DrawAlternatingRow(rowRect, i);
-                string name = Path.GetFileNameWithoutExtension(file.Name);
-                Widgets.Label(new Rect(rowRect.x + 8f, rowRect.y + 4f,
-                    Mathf.Max(40f, rowRect.width - 112f), 28f), name);
-                if (Widgets.ButtonText(new Rect(rowRect.xMax - 96f, rowRect.y + 4f,
-                    88f, 28f), ManagerTranslation.Get("LMM_0123")))
+                try
                 {
-                    List<string> activeIds;
-                    if (TryReadVanillaModList(file, out activeIds))
-                    {
-                        Close();
-                        if (onImportVanillaList != null)
-                            onImportVanillaList(activeIds);
-                    }
-                    else
-                    {
-                        Messages.Message(ManagerTranslation.Get("LMM_0132") + name,
-                            MessageTypeDefOf.RejectInput);
-                    }
-                    Widgets.EndScrollView();
-                    return;
+                    if (file.Exists)
+                        file.Delete();
+
+                    vanillaLists.Remove(file);
+
+                    Messages.Message(
+                        ManagerTranslation.Get("LMM_0165") + name,
+                        MessageTypeDefOf.PositiveEvent);
                 }
+                catch (Exception exception)
+                {
+                    Log.Warning(
+                        "Failed to delete vanilla mod list '" +
+                        name + "': " + exception);
+
+                    Messages.Message(
+                        ManagerTranslation.Get("LMM_0166"),
+                        MessageTypeDefOf.RejectInput);
+                }
+            },
+            destructive: true));
+}
+private void DrawVanillaLists(Rect listRect)
+{
+    float contentHeight = Mathf.Max(
+        listRect.height,
+        vanillaLists.Count * RowHeight);
+
+    float scrollbarWidth = contentHeight > listRect.height
+        ? ManagerUiMetrics.VerticalScrollbarWidth : 0f;
+
+    Rect viewRect = new Rect(
+        0f, 0f,
+        listRect.width - scrollbarWidth,
+        contentHeight);
+
+    Widgets.BeginScrollView(
+        listRect, ref vanillaScrollPosition, viewRect);
+
+    for (int i = 0; i < vanillaLists.Count; i++)
+    {
+        FileInfo file = vanillaLists[i];
+
+        Rect rowRect = new Rect(
+            0f, i * RowHeight,
+            viewRect.width, RowHeight);
+
+        DrawAlternatingRow(rowRect, i);
+
+        string name = Path.GetFileNameWithoutExtension(file.Name);
+
+        Widgets.Label(
+            new Rect(rowRect.x + 8f, rowRect.y + 4f,
+                Mathf.Max(40f, rowRect.width - 164f), 28f),
+            name);
+
+        // 불러오기
+        if (Widgets.ButtonText(
+            new Rect(rowRect.xMax - 152f, rowRect.y + 4f,
+                84f, 28f),
+            ManagerTranslation.Get("LMM_0123")))
+        {
+            List<string> activeIds;
+
+            if (TryReadVanillaModList(file, out activeIds))
+            {
+                Close();
+
+                if (onImportVanillaList != null)
+                    onImportVanillaList(activeIds);
             }
+            else
+            {
+                Messages.Message(
+                    ManagerTranslation.Get("LMM_0132") + name,
+                    MessageTypeDefOf.RejectInput);
+            }
+
             Widgets.EndScrollView();
+            return;
         }
 
+        // 삭제
+        if (Widgets.ButtonText(
+            new Rect(rowRect.xMax - 62f, rowRect.y + 4f,
+                54f, 28f),
+            ManagerTranslation.Get("LMM_0045")))
+        {
+            ConfirmDeleteVanillaList(file);
+        }
+    }
+
+    Widgets.EndScrollView();
+}
         private void DrawPresets(Rect listRect)
         {
             float contentHeight = Mathf.Max(listRect.height, presets.Count * RowHeight);

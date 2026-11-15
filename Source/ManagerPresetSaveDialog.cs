@@ -9,6 +9,7 @@ namespace Lilly.IntegratedModManager
 {
     internal sealed class ManagerPresetSaveDialog : Window
     {
+        private readonly Action<ManagerPresetData> onDelete;
         private const float RowHeight = 38f;
         private readonly IList<ManagerPresetData> presets;
         private readonly List<FileInfo> vanillaLists;
@@ -26,13 +27,16 @@ namespace Lilly.IntegratedModManager
         internal ManagerPresetSaveDialog(
             IList<ManagerPresetData> presets,
             Action<string, ManagerPresetData> onSave,
-            Action<string, Action> onSaveVanillaList)
+            Action<string, Action> onSaveVanillaList,
+            Action<ManagerPresetData> onDelete)
         {
             this.presets = presets ?? new List<ManagerPresetData>();
             vanillaLists = new List<FileInfo>();
             RefreshVanillaLists();
             this.onSave = onSave;
             this.onSaveVanillaList = onSaveVanillaList;
+            this.onDelete = onDelete;
+
             doCloseX = true;
             absorbInputAroundWindow = true;
             closeOnCancel = true;
@@ -151,30 +155,72 @@ namespace Lilly.IntegratedModManager
                     }
                 }, destructive: true));
         }
+private void ConfirmDeletePreset(ManagerPresetData preset)
+{
+    if (preset == null || onDelete == null)
+        return;
 
-        private void DrawPresets(Rect listRect)
-        {
-            float contentHeight = Mathf.Max(listRect.height, presets.Count * RowHeight);
-            float scrollbarWidth = contentHeight > listRect.height
-                ? ManagerUiMetrics.VerticalScrollbarWidth : 0f;
-            Rect viewRect = new Rect(0f, 0f, listRect.width - scrollbarWidth, contentHeight);
-            Widgets.BeginScrollView(listRect, ref presetScrollPosition, viewRect);
-            for (int i = 0; i < presets.Count; i++)
+    Find.WindowStack.Add(
+        Dialog_MessageBox.CreateConfirmation(
+            ManagerTranslation.Get("LMM_0164") + preset.Name,
+            () =>
             {
-                ManagerPresetData preset = presets[presets.Count - 1 - i];
-                if (preset == null)
-                    continue;
+                onDelete(preset);
+            },
+            destructive: true));
+}
+private void DrawPresets(Rect listRect)
+{
+    float contentHeight = Mathf.Max(listRect.height, presets.Count * RowHeight);
+    float scrollbarWidth = contentHeight > listRect.height
+        ? ManagerUiMetrics.VerticalScrollbarWidth : 0f;
 
-                Rect rowRect = new Rect(0f, i * RowHeight, viewRect.width, RowHeight);
-                DrawAlternatingRow(rowRect, i);
-                Widgets.Label(new Rect(8f, rowRect.y + 4f,
-                    Mathf.Max(40f, rowRect.width - 104f), 28f), preset.Name);
-                if (Widgets.ButtonText(new Rect(rowRect.xMax - 92f, rowRect.y + 4f,
-                    84f, 28f), ManagerTranslation.Get("LMM_0134")))
-                    ConfirmOverwrite(preset);
-            }
-            Widgets.EndScrollView();
+    Rect viewRect = new Rect(
+        0f, 0f,
+        listRect.width - scrollbarWidth,
+        contentHeight);
+
+    Widgets.BeginScrollView(
+        listRect, ref presetScrollPosition, viewRect);
+
+    for (int i = 0; i < presets.Count; i++)
+    {
+        ManagerPresetData preset = presets[presets.Count - 1 - i];
+        if (preset == null)
+            continue;
+
+        Rect rowRect = new Rect(
+            0f, i * RowHeight,
+            viewRect.width, RowHeight);
+
+        DrawAlternatingRow(rowRect, i);
+
+        Widgets.Label(
+            new Rect(8f, rowRect.y + 4f,
+                Mathf.Max(40f, rowRect.width - 190f), 28f),
+            preset.Name);
+
+        // 덮어쓰기
+        if (Widgets.ButtonText(
+            new Rect(rowRect.xMax - 176f, rowRect.y + 4f,
+                82f, 28f),
+            ManagerTranslation.Get("LMM_0134")))
+        {
+            ConfirmOverwrite(preset);
         }
+
+        // 삭제
+        if (Widgets.ButtonText(
+            new Rect(rowRect.xMax - 86f, rowRect.y + 4f,
+                78f, 28f),
+            ManagerTranslation.Get("LMM_0045")))
+        {
+            ConfirmDeletePreset(preset);
+        }
+    }
+
+    Widgets.EndScrollView();
+}
 
         private static void DrawAlternatingRow(Rect rect, int index)
         {
