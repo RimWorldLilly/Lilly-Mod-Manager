@@ -299,7 +299,7 @@ namespace Lilly.IntegratedModManager
             for (int i = 0; i < categories.Count; i++)
             {
                 ManagerCategoryData category = categories[i];
-                Rect rowRect = new Rect(0f, i * 34f, viewRect.width, 32f);
+                Rect rowRect = new Rect(0f, i * 30f, viewRect.width, 30f);
                 Widgets.DrawBoxSolid(rowRect, category.Id == currentCategoryId
                     ? new Color(0.22f, 0.18f, 0.12f, 1f)
                     : i % 2 == 0 ? new Color(0.09f, 0.09f, 0.09f, 1f)
@@ -579,7 +579,7 @@ namespace Lilly.IntegratedModManager
                 ManagerTagData tag = tags[i];
                 if (tag == null)
                     continue;
-                Rect rowRect = new Rect(0f, rowIndex * 34f, viewRect.width, 32f);
+                Rect rowRect = new Rect(0f, rowIndex * 30f, viewRect.width, 30f);
                 Widgets.DrawBoxSolid(rowRect, tag.Id == currentTagId
                     ? new Color(0.22f, 0.18f, 0.12f, 1f)
                     : rowIndex % 2 == 0 ? new Color(0.09f, 0.09f, 0.09f, 1f)
