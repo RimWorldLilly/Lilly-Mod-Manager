@@ -1155,26 +1155,7 @@ private void OpenMoveToCategoryMenu()
                 if (Event.current.type == EventType.MouseUp)
                     HandleDragDropToMod(mod.PackageId);
             }
-// 태그 모드에서 모드 우클릭 시 카테고리 이동 메뉴
-if (tagMode &&
-    Event.current.type == EventType.MouseDown &&
-    Event.current.button == 1 &&
-    rowRect.Contains(Event.current.mousePosition))
-{
-    // 우클릭한 모드가 현재 선택 목록에 없으면 해당 모드만 선택
-    // 이미 선택된 모드라면 기존 다중 선택 유지
-    if (!selectedPackageIds.Contains(mod.PackageId))
-    {
-        SelectModByPackageId(mod.PackageId, false, false);
-    }
-    else
-    {
-        primarySelectedPackageId = mod.PackageId;
-    }
-
-    OpenMoveToCategoryMenu();
-    Event.current.Use();
-}
+ 
             if (Event.current.type == EventType.MouseDown && Event.current.button == 0 &&
                 rowRect.Contains(Event.current.mousePosition) &&
                 !checkboxHitRect.Contains(Event.current.mousePosition))
@@ -2894,9 +2875,18 @@ if (tagMode &&
                     () => SetSelectedEnabled(false)));
                 options.Add(new FloatMenuOption(ManagerTranslation.Get("LMM_0056"),
                     () => ClearSelection()));
-                if (!tagMode)
-                    options.Add(new FloatMenuOption(ManagerTranslation.Get("LMM_0077"),
-                        () => OpenMoveCategoryMenu()));
+if (tagMode)
+{
+    options.Add(new FloatMenuOption(
+        ManagerTranslation.Get("LMM_0077"),
+        () => OpenMoveToCategoryMenu()));
+}
+else
+{
+    options.Add(new FloatMenuOption(
+        ManagerTranslation.Get("LMM_0077"),
+        () => OpenMoveCategoryMenu()));
+}
                 options.Add(new FloatMenuOption(ManagerTranslation.Get("LMM_0098"),
                     () =>
                     {
