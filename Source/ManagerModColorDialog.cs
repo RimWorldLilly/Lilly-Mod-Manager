@@ -12,7 +12,7 @@ namespace Lilly.IntegratedModManager
 
         public override Vector2 InitialSize
         {
-            get { return new Vector2(440f, 250f); }
+            get { return new Vector2(440f, 355f); }
         }
 
         internal ManagerModColorDialog(
@@ -37,10 +37,10 @@ namespace Lilly.IntegratedModManager
 
             Text.Font = GameFont.Small;
 
-            const int columns = 6;
-            const float swatchWidth = 54f;
-            const float swatchHeight = 48f;
-            const float gap = 8f;
+const int columns = 8;
+const float swatchWidth = 44f;
+const float swatchHeight = 40f;
+const float gap = 5f;
 
             for (int i = 0; i < ManagerTagColors.Palette.Length; i++)
             {

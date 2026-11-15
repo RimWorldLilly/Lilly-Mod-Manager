@@ -4,12 +4,34 @@ namespace Lilly.IntegratedModManager
 {
     internal static class ManagerTagColors
     {
-        internal static readonly string[] Palette =
-        {
-            "E57373", "F06292", "BA68C8", "9575CD", "7986CB", "64B5F6",
-            "4FC3F7", "4DB6AC", "81C784", "AED581", "DCE775", "FFD54F",
-            "FFB74D", "A1887F", "90A4AE", "5C8D89", "6C8EBF", "9673A6"
-        };
+internal static readonly string[] Palette =
+{
+    // 빨강 / 분홍
+    "EF5350", "E57373", "C62828", "FF8A80",
+    "F06292", "EC407A", "AD1457", "F8BBD0",
+
+    // 보라
+    "AB47BC", "BA68C8", "8E24AA", "E1BEE7",
+    "7E57C2", "9575CD", "5E35B1", "D1C4E9",
+
+    // 파랑
+    "5C6BC0", "7986CB", "3949AB", "C5CAE9",
+    "42A5F5", "64B5F6", "1565C0", "BBDEFB",
+    "26C6DA", "4FC3F7", "00838F", "B2EBF2",
+
+    // 초록
+    "26A69A", "4DB6AC", "00796B", "B2DFDB",
+    "66BB6A", "81C784", "2E7D32", "C8E6C9",
+
+    // 노랑 / 주황
+    "D4E157", "AED581", "827717", "F0F4C3",
+    "FFCA28", "FFD54F", "F9A825", "FFF9C4",
+    "FFA726", "FFB74D", "EF6C00", "FFE0B2",
+
+    // 갈색 / 회색
+    "8D6E63", "A1887F", "5D4037", "D7CCC8",
+    "78909C", "90A4AE", "455A64", "CFD8DC"
+};
 
         internal static string RandomHex()
         {

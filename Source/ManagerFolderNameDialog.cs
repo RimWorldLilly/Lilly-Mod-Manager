@@ -23,7 +23,7 @@ namespace Lilly.IntegratedModManager
             get
             {
                 return allowColorSelection
-                    ? new Vector2(440f, 300f)
+                    ? new Vector2(440f, 390f)
                     : new Vector2(420f, 160f);
             }
         }
@@ -115,14 +115,21 @@ inputColor = ManagerTagColors.IsValidHex(initialColor)
             // 색상 선택 UI
             if (allowColorSelection)
             {
-                Widgets.Label(
-                    new Rect(0f, 80f, rect.width, 24f),
-                    "색상 선택");
+if (Widgets.ButtonText(
+    new Rect(0f, 80f, 100f, 24f),
+    "색상 없음"))
+{
+    inputColor = null;
+}
 
-                const int columns = 6;
-                const float swatchWidth = 54f;
-                const float swatchHeight = 32f;
-                const float gap = 8f;
+Widgets.Label(
+    new Rect(110f, 80f, rect.width - 110f, 24f),
+    "색상 선택");
+
+const int columns = 8;
+const float swatchWidth = 44f;
+const float swatchHeight = 32f;
+const float gap = 5f;
 
                 float totalWidth =
                     columns * swatchWidth +

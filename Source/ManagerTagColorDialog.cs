@@ -11,7 +11,7 @@ namespace Lilly.IntegratedModManager
 
         public override Vector2 InitialSize
         {
-            get { return new Vector2(440f, 250f); }
+            get { return new Vector2(440f, 380f); }
         }
 
         internal ManagerTagColorDialog(ManagerTagData tag, Action<string> onColorSelected)
@@ -35,10 +35,10 @@ namespace Lilly.IntegratedModManager
             Widgets.Label(new Rect(0f, 32f, rect.width, 24f),
                 ManagerTranslation.Get("LMM_0041"));
 
-            const int columns = 6;
-            const float swatchWidth = 54f;
-            const float swatchHeight = 48f;
-            const float gap = 8f;
+const int columns = 8;
+const float swatchWidth = 44f;
+const float swatchHeight = 40f;
+const float gap = 5f;
             for (int i = 0; i < ManagerTagColors.Palette.Length; i++)
             {
                 int column = i % columns;

@@ -111,13 +111,7 @@ bool persistGeneratedColors =
     settings.Tags == null ||
     settings.Tags.Count == 0 ||
     settings.Tags.Any(tag =>
-        tag != null && !ManagerTagColors.IsValidHex(tag.ColorHex)) ||
-
-    settings.Categories == null ||
-    settings.Categories.Count == 0 ||
-    settings.Categories.Any(category =>
-        category != null &&
-        !ManagerTagColors.IsValidHex(category.ColorHex));
+        tag != null && !ManagerTagColors.IsValidHex(tag.ColorHex));
 
 settings.EnsureInitialized();
 

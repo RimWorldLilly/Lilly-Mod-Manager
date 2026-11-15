@@ -129,8 +129,8 @@ namespace Lilly.IntegratedModManager
                     continue;
                 }
 // 기존 저장 데이터에 색상이 없으면 자동 생성
-if (!ManagerTagColors.IsValidHex(category.ColorHex))
-    category.ColorHex = ManagerTagColors.RandomHex();
+// if (!ManagerTagColors.IsValidHex(category.ColorHex))
+//     category.ColorHex = ManagerTagColors.RandomHex();
 
                 if (category.ModIds == null)
                     category.ModIds = new List<string>();
@@ -386,7 +386,7 @@ if (!ManagerTagColors.IsValidHex(category.ColorHex))
             Name = name;
 
               // 기본 색상 자동 지정
-    ColorHex = ManagerTagColors.RandomHex();
+    ColorHex = ColorHex = null;
         }
 
         public void ExposeData()
@@ -412,7 +412,7 @@ if (!ManagerTagColors.IsValidHex(category.ColorHex))
             // 색상 복사
             copy.ColorHex = ManagerTagColors.IsValidHex(ColorHex)
                 ? ColorHex
-                : ManagerTagColors.RandomHex();
+                : null;
 
             copy.ModIds = ModIds == null
                 ? new List<string>()
