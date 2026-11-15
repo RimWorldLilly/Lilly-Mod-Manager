@@ -329,26 +329,46 @@ namespace Lilly.IntegratedModManager
             return target;
         }
 
-        private static Texture2D CreateTexture(GifDecoder.GifFrame frame)
-        {
-            if (frame == null || frame.Pixels == null || frame.Width <= 0 || frame.Height <= 0)
-                return null;
-            byte[] pixels = frame.Pixels;
-            Color32[] colors = new Color32[frame.Width * frame.Height];
-            for (int i = 0; i < colors.Length; i++)
-            {
-                int offset = i * 4;
-                colors[i] = new Color32(pixels[offset], pixels[offset + 1],
-                    pixels[offset + 2], pixels[offset + 3]);
-            }
 
-            Texture2D texture = new Texture2D(frame.Width, frame.Height,
-                TextureFormat.RGBA32, false);
-            texture.SetPixels32(colors);
-            texture.filterMode = FilterMode.Bilinear;
-            texture.Apply(false, true);
-            return texture;
+private static Texture2D CreateTexture(GifDecoder.GifFrame frame)
+{
+    if (frame == null || frame.Pixels == null || frame.Width <= 0 || frame.Height <= 0)
+        return null;
+
+    byte[] pixels = frame.Pixels;
+    Color32[] colors = new Color32[frame.Width * frame.Height];
+
+    // GIF의 위→아래 픽셀 행 순서를 Unity 텍스처의 아래→위 순서로 변환
+    for (int y = 0; y < frame.Height; y++)
+    {
+        int sourceY = frame.Height - 1 - y;
+
+        for (int x = 0; x < frame.Width; x++)
+        {
+            int sourceOffset = (sourceY * frame.Width + x) * 4;
+            int targetIndex = y * frame.Width + x;
+
+            colors[targetIndex] = new Color32(
+                pixels[sourceOffset],
+                pixels[sourceOffset + 1],
+                pixels[sourceOffset + 2],
+                pixels[sourceOffset + 3]);
         }
+    }
+
+    Texture2D texture = new Texture2D(
+        frame.Width,
+        frame.Height,
+        TextureFormat.RGBA32,
+        false);
+
+    texture.SetPixels32(colors);
+    texture.filterMode = FilterMode.Bilinear;
+    texture.Apply(false, true);
+
+    return texture;
+}
+
 
         private static async Task LoadAsync(ulong workshopId, GalleryEntry entry)
         {

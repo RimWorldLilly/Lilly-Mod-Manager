@@ -17,7 +17,7 @@ namespace Lilly.IntegratedModManager
 
         public override Vector2 InitialSize => new Vector2(
             Mathf.Min(UI.screenWidth - 80f, 460f),
-            Mathf.Min(UI.screenHeight - 100f, 520f));
+            Mathf.Min(UI.screenHeight - 100f, 700f));
 
         internal ManagerTagSelectDialog(
             IList<ManagerTagData> tags,
