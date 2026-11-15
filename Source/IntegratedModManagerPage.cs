@@ -335,8 +335,19 @@ Color rowColor = ManagerTagColors.IsValidHex(category.ColorHex)
 Widgets.DrawBoxSolid(rowRect, rowColor);
 
 // 선택된 카테고리 강조
+// 선택된 카테고리 강조
 if (category.Id == currentCategoryId)
-    Widgets.DrawHighlight(rowRect);
+{
+    // 선택된 항목 배경
+    Widgets.DrawBoxSolid(
+        rowRect,
+        new Color(0.18f, 0.30f, 0.48f, 0.85f));
+
+    // 선택된 항목 테두리
+    Widgets.DrawBox(
+        rowRect,
+        2);
+}
 
                 bool isDragTarget = !dragCategoryId.NullOrEmpty() &&
                     rowRect.Contains(Event.current.mousePosition);
@@ -661,7 +672,13 @@ Widgets.DrawBoxSolid(rowRect, rowColor);
 
 // 선택된 태그 강조
 if (tag.Id == currentTagId)
-    Widgets.DrawHighlight(rowRect);
+                {
+                    Widgets.DrawBoxSolid(
+    rowRect,
+    new Color(0.18f, 0.30f, 0.48f, 0.85f));
+
+Widgets.DrawBox(rowRect, 2);
+                }
 
 
                 bool isDragTarget = !dragTagId.NullOrEmpty() && !tag.IsSystem &&
