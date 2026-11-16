@@ -90,6 +90,7 @@ private float nextInstalledModRefreshTime;
         private string dragCategoryId;
         private string dragTagId;
         private string dragFolderId;
+        private string dragFolderSourceCategoryId;
         private bool dragFolderInTagMode;
 
         public override Vector2 InitialSize
@@ -211,6 +212,7 @@ nextInstalledModRefreshTime =
                 dragCategoryId = null;
                 dragTagId = null;
                 dragFolderId = null;
+                dragFolderSourceCategoryId = null;
                 if (isDraggingMod)
                     EndModDrag();
             }
@@ -441,6 +443,16 @@ if (category.Id == currentCategoryId)
                 }
                 if (isDraggingMod && rowRect.Contains(Event.current.mousePosition))
                     Widgets.DrawLightHighlight(rowRect);
+                if (!tagMode && !dragFolderInTagMode &&
+                    !dragFolderId.NullOrEmpty() &&
+                    Event.current.type == EventType.MouseUp &&
+                    rowRect.Contains(Event.current.mousePosition))
+                {
+                    MoveFolderToCategory(dragFolderId, dragFolderSourceCategoryId, category);
+                    dragFolderId = null;
+                    dragFolderSourceCategoryId = null;
+                    Event.current.Use();
+                }
                 if (isDraggingMod && Event.current.type == EventType.MouseUp &&
                     rowRect.Contains(Event.current.mousePosition))
                 {
@@ -1098,6 +1110,7 @@ if (!searchText.NullOrEmpty() &&
             {
                 dragFolderId = folder.Id;
                 dragFolderInTagMode = inTagMode;
+                dragFolderSourceCategoryId = inTagMode ? null : currentCategoryId;
                 current.Use();
             }
             else if (current.type == EventType.MouseUp && !dragFolderId.NullOrEmpty() &&
@@ -1120,6 +1133,51 @@ if (!searchText.NullOrEmpty() &&
                 current.Use();
                 RefreshVisibleMods();
             }
+        }
+
+        private void MoveFolderToCategory(
+            string folderId,
+            string sourceCategoryId,
+            ManagerCategoryData targetCategory)
+        {
+            if (folderId.NullOrEmpty() ||
+                folderId == "uncategorized" ||
+                sourceCategoryId.NullOrEmpty() ||
+                targetCategory == null ||
+                string.Equals(sourceCategoryId, targetCategory.Id,
+                    StringComparison.OrdinalIgnoreCase))
+                return;
+
+            ManagerCategoryData sourceCategory = categories.FirstOrDefault(
+                item => item != null &&
+                    string.Equals(item.Id, sourceCategoryId,
+                        StringComparison.OrdinalIgnoreCase));
+            if (sourceCategory == null || sourceCategory.Folders == null)
+                return;
+
+            ManagerFolderData movingFolder = FindFolder(sourceCategory, folderId);
+            if (movingFolder == null || movingFolder.Id == "uncategorized")
+                return;
+
+            if (targetCategory.Folders == null)
+                targetCategory.Folders = new List<ManagerFolderData>();
+
+            // 폴더 ID가 대상 카테고리에 이미 있으면 새 ID를 부여한다.
+            if (FindFolder(targetCategory, movingFolder.Id) != null)
+                movingFolder.Id = Guid.NewGuid().ToString("N");
+
+            sourceCategory.Folders.Remove(movingFolder);
+            movingFolder.Collapsed = false;
+            targetCategory.Folders.Add(movingFolder);
+
+            currentCategoryId = targetCategory.Id;
+            currentFolderId = movingFolder.Id;
+            selectedPackageIds.Clear();
+            primarySelectedPackageId = null;
+            lastSelectedIndex = -1;
+
+            PersistCategoryData();
+            RefreshVisibleMods();
         }
 
         private void MoveTag(ManagerTagData tag, int offset)
