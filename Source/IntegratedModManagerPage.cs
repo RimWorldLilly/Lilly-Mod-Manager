@@ -1256,6 +1256,33 @@ if (!searchText.NullOrEmpty() &&
             if (FindFolder(targetCategory, movingFolder.Id) != null)
                 movingFolder.Id = Guid.NewGuid().ToString("N");
 
+            // 폴더에 포함된 모드의 카테고리 소속도 함께 이전한다.
+            // 카테고리 건수는 category.ModIds를 기준으로 집계하므로 이 목록을 갱신해야 한다.
+            List<string> movingPackageIds = movingFolder.ModIds == null
+                ? new List<string>()
+                : movingFolder.ModIds
+                    .Where(packageId => !packageId.NullOrEmpty())
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .ToList();
+
+            if (sourceCategory.ModIds != null)
+            {
+                HashSet<string> movingIdSet = new HashSet<string>(
+                    movingPackageIds, StringComparer.OrdinalIgnoreCase);
+                sourceCategory.ModIds.RemoveAll(packageId =>
+                    !packageId.NullOrEmpty() && movingIdSet.Contains(packageId));
+            }
+
+            if (targetCategory.ModIds == null)
+                targetCategory.ModIds = new List<string>();
+
+            foreach (string packageId in movingPackageIds)
+            {
+                if (!targetCategory.ModIds.Contains(packageId,
+                    StringComparer.OrdinalIgnoreCase))
+                    targetCategory.ModIds.Add(packageId);
+            }
+
             sourceCategory.Folders.Remove(movingFolder);
             movingFolder.Collapsed = false;
             targetCategory.Folders.Add(movingFolder);
@@ -1359,9 +1386,11 @@ if (!searchText.NullOrEmpty() &&
                     Widgets.DrawHighlight(titleRect);
                     Widgets.DrawBox(titleRect, 2);
                 }
-                if (Widgets.ButtonText(titleRect,
-                    folder.Name + " (" + GetInstalledCount(folder) + ")"))
+                string folderCountLabel = folder.Name + " (" +
+                    GetActiveCount(folder) + "/" + GetInstalledCount(folder) + ")";
+                if (Widgets.ButtonText(titleRect, folderCountLabel))
                     currentFolderId = folder.Id;
+                TooltipHandler.TipRegion(titleRect, folderCountLabel);
 
                 float actionX = headerRect.xMax - 186f;
                 if (Widgets.ButtonText(new Rect(actionX, y + 2f, 42f, 26f), "+"))
@@ -5918,12 +5947,40 @@ private int GetActiveCount(ManagerTagData tag)
             return count;
         }
 
-        private int GetInstalledCount(ManagerFolderData folder)
+        private int GetActiveCount(ManagerFolderData folder)
         {
+            if (folder == null || folder.ModIds == null)
+                return 0;
+
             int count = 0;
+            HashSet<string> counted = new HashSet<string>(
+                StringComparer.OrdinalIgnoreCase);
             for (int i = 0; i < folder.ModIds.Count; i++)
             {
-                if (modsByPackageId.ContainsKey(folder.ModIds[i]))
+                string packageId = folder.ModIds[i];
+                if (packageId.NullOrEmpty() || !counted.Add(packageId))
+                    continue;
+
+                ModMetaData mod = FindMod(packageId);
+                if (mod != null && IsModActiveInManager(mod))
+                    count++;
+            }
+            return count;
+        }
+
+        private int GetInstalledCount(ManagerFolderData folder)
+        {
+            if (folder == null || folder.ModIds == null)
+                return 0;
+
+            int count = 0;
+            HashSet<string> counted = new HashSet<string>(
+                StringComparer.OrdinalIgnoreCase);
+            for (int i = 0; i < folder.ModIds.Count; i++)
+            {
+                string packageId = folder.ModIds[i];
+                if (!packageId.NullOrEmpty() && counted.Add(packageId) &&
+                    modsByPackageId.ContainsKey(packageId))
                     count++;
             }
             return count;
