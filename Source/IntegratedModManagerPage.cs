@@ -5074,56 +5074,54 @@ Find.WindowStack.Add(new ManagerFolderNameDialog(
             {
                 Type modListType = typeof(RimWorld.ModList);
                 object modList = Activator.CreateInstance(modListType, true);
+                if (modList == null)
+                    throw new MissingMemberException("Could not initialize the vanilla mod list.");
+
                 FieldInfo idsField = modListType.GetField("ids",
                     BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public);
-                if (modList == null || idsField == null)
-                    throw new MissingMemberException("Could not initialize the vanilla mod list.");
-                idsField.SetValue(modList, packageIds);
+                if (idsField == null)
+                    throw new MissingFieldException(modListType.FullName, "ids");
 
-                MethodInfo[] saveMethods = typeof(GameDataSaveLoader).GetMethods(
-                    BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic)
-                    .Where(method => method.Name == "SaveModList")
-                    .OrderByDescending(method => method.GetParameters().Length).ToArray();
-                foreach (MethodInfo method in saveMethods)
-                {
-                    ParameterInfo[] parameters = method.GetParameters();
-                    object[] arguments = new object[parameters.Length];
-                    bool supported = true;
-                    for (int i = 0; i < parameters.Length; i++)
-                    {
-                        Type parameterType = parameters[i].ParameterType;
-                        if (parameterType.IsAssignableFrom(modListType))
-                            arguments[i] = modList;
-                        else if (parameterType == typeof(string))
-                            arguments[i] = name;
-                        else if (parameterType.IsAssignableFrom(typeof(List<string>)))
-                            arguments[i] = packageIds;
-                        else if (parameterType == typeof(string[]))
-                            arguments[i] = packageIds.ToArray();
-                        else
-                        {
-                            supported = false;
-                            break;
-                        }
-                    }
-                    if (!supported)
-                        continue;
+                // Vanilla ModList stores the package IDs in its public ids field.
+                idsField.SetValue(modList, packageIds ?? new List<string>());
 
-                    object result = method.Invoke(null, arguments);
-                    if (method.ReturnType == typeof(bool) && result is bool && !(bool)result)
-                        throw new IOException("The game rejected the mod list save request.");
-                    Messages.Message(ManagerTranslation.Get("LMM_0161") + name,
-                        MessageTypeDefOf.PositiveEvent);
-                    if (onSaved != null)
-                        onSaved();
-                    return;
-                }
+                // GameDataSaveLoader.SaveModList expects an ABSOLUTE file path,
+                // not the display name. Passing only 'name' was the reason the
+                // vanilla list could not be saved.
+                string absolutePath = GenFilePaths.AbsFilePathForModList(name);
+                MethodInfo saveMethod = typeof(GameDataSaveLoader).GetMethod(
+                    "SaveModList",
+                    BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic,
+                    null,
+                    new[] { modListType, typeof(string) },
+                    null);
 
-                throw new MissingMethodException("Could not find a compatible vanilla mod list save method.");
+                if (saveMethod == null)
+                    throw new MissingMethodException(
+                        "Could not find GameDataSaveLoader.SaveModList(ModList, string).");
+
+                saveMethod.Invoke(null, new[] { modList, (object)absolutePath });
+
+                // The vanilla SaveModList method handles its own exceptions,
+                // so verify that the target file was actually created.
+                FileInfo savedFile = new FileInfo(absolutePath);
+                if (!savedFile.Exists || savedFile.Length == 0)
+                    throw new IOException(
+                        "The vanilla mod list file was not created: " + absolutePath);
+
+                Messages.Message(ManagerTranslation.Get("LMM_0161") + name,
+                    MessageTypeDefOf.PositiveEvent);
+                if (onSaved != null)
+                    onSaved();
             }
             catch (Exception exception)
             {
-                Log.Warning("Failed to save vanilla mod list '" + name + "': " + exception);
+                Exception actualException = exception is TargetInvocationException &&
+                    ((TargetInvocationException)exception).InnerException != null
+                        ? ((TargetInvocationException)exception).InnerException
+                        : exception;
+                Log.Warning("Failed to save vanilla mod list '" + name + "': " +
+                    actualException);
                 Messages.Message(ManagerTranslation.Get("LMM_0163"),
                     MessageTypeDefOf.RejectInput);
             }
