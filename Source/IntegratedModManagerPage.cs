@@ -1611,6 +1611,16 @@ Widgets.DrawBoxSolid(rowRect, finalRowColor);
                     HandleDragDropToMod(mod.PackageId);
             }
  
+            if (Event.current.type == EventType.MouseDown &&
+                Event.current.button == 0 &&
+                rowRect.Contains(Event.current.mousePosition))
+            {
+                // 필터가 적용된 상태에서도 실제 모드 행을 클릭하면
+                // 키보드 포커스가 반드시 모드 목록으로 전환되도록 행 자체에서 처리한다.
+                modListHasKeyboardFocus = true;
+                categoryTabsHaveKeyboardFocus = false;
+            }
+
             if (Event.current.type == EventType.MouseDown && Event.current.button == 0 &&
                 rowRect.Contains(Event.current.mousePosition) &&
                 !checkboxHitRect.Contains(Event.current.mousePosition))
