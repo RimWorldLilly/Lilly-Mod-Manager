@@ -1758,6 +1758,16 @@ Widgets.DrawBoxSolid(rowRect, finalRowColor);
                 y += 26f;
             }
 
+            ulong workshopIdForUpdate = GetCachedWorkshopId(mod);
+            DateTime lastUpdated;
+            if (mod.OnSteamWorkshop &&
+                WorkshopPreviewGallery.TryGetLastUpdatedDate(workshopIdForUpdate, out lastUpdated))
+            {
+                Widgets.Label(new Rect(inner.x, y, inner.width, 24f),
+                    "마지막 업데이트: " + lastUpdated.ToString("yyyy-MM-dd"));
+                y += 26f;
+            }
+
             Widgets.Label(new Rect(inner.x, y, inner.width, 24f),
                 "PackageId: " + mod.PackageIdPlayerFacing);
             y += 28f;
@@ -2001,6 +2011,10 @@ Widgets.DrawBoxSolid(rowRect, finalRowColor);
             if (!GetModVersionText(mod).NullOrEmpty())
                 y += 26f;
             if (!GetSupportedGameVersionText(mod).NullOrEmpty())
+                y += 26f;
+            DateTime lastUpdated;
+            if (mod.OnSteamWorkshop &&
+                WorkshopPreviewGallery.TryGetLastUpdatedDate(workshopId, out lastUpdated))
                 y += 26f;
             y += 28f + 32f;
 
