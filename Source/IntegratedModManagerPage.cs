@@ -6203,13 +6203,13 @@ private int GetActiveCount(ManagerTagData tag)
             if (filterMissingRequired)
             {
                 selectedCount++;
-                if (GetModRowIssue(mod) == ModRowIssue.RequiredMod) matchedCount++;
+                if (HasUnsatisfiedRequirement(mod, false)) matchedCount++;
                 else if (filterUseAnd) return false;
             }
             if (filterVersionMismatch)
             {
                 selectedCount++;
-                if (GetModRowIssue(mod) == ModRowIssue.Version) matchedCount++;
+                if (HasUnsatisfiedRequirement(mod, true)) matchedCount++;
                 else if (filterUseAnd) return false;
             }
             if (filterLocal)
@@ -6241,6 +6241,36 @@ private int GetActiveCount(ManagerTagData tag)
             if (selectedCount == 0)
                 return true;
             return filterUseAnd ? matchedCount == selectedCount : matchedCount > 0;
+        }
+
+        private bool HasUnsatisfiedRequirement(ModMetaData mod, bool versionIssue)
+        {
+            if (mod == null || !IsModActiveInManager(mod))
+                return false;
+
+            try
+            {
+                foreach (ModRequirement requirement in mod.GetRequirements())
+                {
+                    if (requirement == null || IsRequirementSatisfiedInManager(requirement))
+                        continue;
+
+                    string requirementType = requirement.RequirementTypeLabel ?? string.Empty;
+                    string tooltip = requirement.Tooltip ?? string.Empty;
+                    bool isVersionIssue =
+                        requirementType.IndexOf("version", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                        requirementType.IndexOf("踰꾩쟾", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                        tooltip.IndexOf("version", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                        tooltip.IndexOf("踰꾩쟾", StringComparison.OrdinalIgnoreCase) >= 0;
+                    if (isVersionIssue == versionIssue)
+                        return true;
+                }
+            }
+            catch (Exception)
+            {
+                // 잘못된 메타데이터가 있어도 필터 UI가 중단되지 않도록 한다.
+            }
+            return false;
         }
 
         private bool IsAssignedToAnyCategoryFolder(string packageId)
