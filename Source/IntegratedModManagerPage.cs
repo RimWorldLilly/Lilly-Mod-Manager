@@ -204,8 +204,15 @@ nextInstalledModRefreshTime =
             Rect detailsRect = new Rect(mainX + listWidth + 10f, contentTop,
                 mainWidth - listWidth - 10f, contentHeight);
 
-            if (Event.current.type == EventType.MouseDown)
-                modListHasKeyboardFocus = listRect.Contains(Event.current.mousePosition);
+            if (Event.current.type == EventType.MouseDown &&
+                listRect.Contains(Event.current.mousePosition))
+            {
+                // 모드 목록을 마우스로 클릭하면 키보드 포커스도 모드 목록으로 이동한다.
+                // 행 클릭 처리에서 이벤트가 소비되더라도 포커스 상태가 유지되도록
+                // DrawModList 호출 전에 처리한다.
+                modListHasKeyboardFocus = true;
+                categoryTabsHaveKeyboardFocus = false;
+            }
             DrawSearchField(searchRect);
 
             DrawModList(listRect);
