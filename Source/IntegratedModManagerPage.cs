@@ -510,9 +510,14 @@ GUI.color = previousLabelColor;
                     ConfirmDeleteCategory(category);
                 TooltipHandler.TipRegion(deleteRect, ManagerTranslation.Get("LMM_0045"));
 
-// 검색 결과가 없는 카테고리 회색 처리
-if (!searchText.NullOrEmpty() &&
-    !MatchesCategorySearch(category))
+// 텍스트 검색 또는 체크 필터가 활성화된 경우,
+// 조건에 맞는 모드가 하나도 없는 카테고리를 회색 처리
+if ((!searchText.NullOrEmpty() || HasActiveModFilters()) &&
+    !category.ModIds.Any(packageId =>
+    {
+        ModMetaData mod = FindMod(packageId);
+        return mod != null && MatchesSearch(mod);
+    }))
 {
     Widgets.DrawBoxSolid(
         rowRect,
@@ -6043,6 +6048,12 @@ private int GetActiveCount(ManagerTagData tag)
             }
 
             return false;
+        }
+
+        private bool HasActiveModFilters()
+        {
+            return filterActive || filterInactive || filterSubscribed ||
+                filterUntagged || filterUncategorized;
         }
 
         private bool MatchesFilter(ModMetaData mod)
