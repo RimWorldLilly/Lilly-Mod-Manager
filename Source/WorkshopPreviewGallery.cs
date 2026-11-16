@@ -51,6 +51,12 @@ namespace Lilly.IntegratedModManager
         private static readonly ConcurrentDictionary<ulong, WorkshopItemStatus> ItemStatuses =
             new ConcurrentDictionary<ulong, WorkshopItemStatus>();
         private static readonly SemaphoreSlim AvailabilityRequestLimit = new SemaphoreSlim(2, 2);
+        // Unix timestamp returned by Steam's GetPublishedFileDetails API.
+        // 0 means pending and -1 means the lookup failed.
+        private static readonly ConcurrentDictionary<ulong, long> LastUpdatedUnixTimes =
+            new ConcurrentDictionary<ulong, long>();
+        private static readonly Regex LastUpdatedRegex = new Regex(
+            @"\"time_updated\"\s*:\s*(\d+)", RegexOptions.Compiled | RegexOptions.IgnoreCase);
         private static readonly Regex WorkshopResultRegex = new Regex(
             @"\""result\""\s*:\s*(\d+)", RegexOptions.Compiled | RegexOptions.IgnoreCase);
         private static readonly Regex UrlRegex = new Regex(
@@ -100,6 +106,70 @@ private static readonly TimeSpan DiskCacheLifetime =
                 return WorkshopItemStatus.Checking;
             }
             return status;
+        }
+
+        internal static bool TryGetLastUpdatedDate(ulong workshopId, out DateTime lastUpdated)
+        {
+            lastUpdated = default(DateTime);
+            if (workshopId == 0UL)
+                return false;
+
+            long unixTime;
+            if (!LastUpdatedUnixTimes.TryGetValue(workshopId, out unixTime))
+            {
+                if (LastUpdatedUnixTimes.TryAdd(workshopId, 0L))
+                    Task.Run(() => LoadLastUpdatedDateAsync(workshopId));
+                return false;
+            }
+
+            if (unixTime <= 0L)
+                return false;
+
+            try
+            {
+                lastUpdated = new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc)
+                    .AddSeconds(unixTime).ToLocalTime();
+                return true;
+            }
+            catch (ArgumentOutOfRangeException)
+            {
+                return false;
+            }
+        }
+
+        private static async Task LoadLastUpdatedDateAsync(ulong workshopId)
+        {
+            await AvailabilityRequestLimit.WaitAsync().ConfigureAwait(false);
+            try
+            {
+                using (HttpContent content = new FormUrlEncodedContent(new[]
+                {
+                    new KeyValuePair<string, string>("itemcount", "1"),
+                    new KeyValuePair<string, string>("publishedfileids[0]", workshopId.ToString())
+                }))
+                using (HttpResponseMessage response = await Client.PostAsync(
+                    "https://api.steampowered.com/ISteamRemoteStorage/GetPublishedFileDetails/v1/",
+                    content).ConfigureAwait(false))
+                {
+                    response.EnsureSuccessStatusCode();
+                    string json = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+                    Match match = LastUpdatedRegex.Match(json);
+                    long unixTime;
+                    if (match.Success && long.TryParse(match.Groups[1].Value, out unixTime) &&
+                        unixTime > 0L)
+                        LastUpdatedUnixTimes[workshopId] = unixTime;
+                    else
+                        LastUpdatedUnixTimes[workshopId] = -1L;
+                }
+            }
+            catch (Exception)
+            {
+                LastUpdatedUnixTimes[workshopId] = -1L;
+            }
+            finally
+            {
+                AvailabilityRequestLimit.Release();
+            }
         }
 
         private static async Task CheckAvailabilityAsync(ulong workshopId)
