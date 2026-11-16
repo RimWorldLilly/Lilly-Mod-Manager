@@ -804,11 +804,34 @@ private bool MatchesTagSearch(ManagerTagData tag)
             if (category == null)
                 return;
 
-            if (category.ModIds != null && category.ModIds.Count > 0)
+            // 저장 데이터에 남아 있는 미설치 모드 ID는 실제 모드로 취급하지 않는다.
+            // 다만 폴더 안에 설치된 모드가 있다면 카테고리 삭제를 막아 데이터 유실을 방지한다.
+            bool hasInstalledMods =
+                (category.ModIds != null &&
+                    category.ModIds.Any(packageId => FindMod(packageId) != null)) ||
+                (category.Folders != null &&
+                    category.Folders.Any(folder => folder != null &&
+                        folder.ModIds != null &&
+                        folder.ModIds.Any(packageId => FindMod(packageId) != null)));
+
+            if (hasInstalledMods)
             {
                 Messages.Message(ManagerTranslation.Get("LMM_0036"),
                     MessageTypeDefOf.RejectInput);
                 return;
+            }
+
+            // 미설치/삭제된 모드의 오래된 ID를 정리한 뒤 빈 카테고리를 삭제한다.
+            if (category.ModIds != null)
+                category.ModIds.RemoveAll(packageId => FindMod(packageId) == null);
+
+            if (category.Folders != null)
+            {
+                foreach (ManagerFolderData folder in category.Folders)
+                {
+                    if (folder != null && folder.ModIds != null)
+                        folder.ModIds.RemoveAll(packageId => FindMod(packageId) == null);
+                }
             }
 
             Find.WindowStack.Add(Dialog_MessageBox.CreateConfirmation(
