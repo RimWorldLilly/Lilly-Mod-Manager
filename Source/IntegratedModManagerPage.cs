@@ -5321,8 +5321,72 @@ Find.WindowStack.Add(new ManagerFolderNameDialog(
             CommitAppliedChanges(activePackageIds);
         }
 
+        private static bool BackupCurrentModList()
+        {
+            string backupName = DateTime.Now.ToString("yyyyMMddHHmm") + ".backup";
+            try
+            {
+                List<string> currentPackageIds = ModsConfig.ActiveModsInLoadOrder
+                    .Where(mod => mod != null && !mod.PackageId.NullOrEmpty())
+                    .Select(mod => mod.PackageId)
+                    .ToList();
+
+                Type modListType = typeof(RimWorld.ModList);
+                object modList = Activator.CreateInstance(modListType, true);
+                if (modList == null)
+                    throw new MissingMemberException("Could not initialize the vanilla mod list.");
+
+                FieldInfo idsField = modListType.GetField("ids",
+                    BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public);
+                if (idsField == null)
+                    throw new MissingFieldException(modListType.FullName, "ids");
+
+                idsField.SetValue(modList, currentPackageIds);
+
+                string absolutePath = GenFilePaths.AbsFilePathForModList(backupName);
+                MethodInfo saveMethod = typeof(GameDataSaveLoader).GetMethod(
+                    "SaveModList",
+                    BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic,
+                    null,
+                    new[] { modListType, typeof(string) },
+                    null);
+
+                if (saveMethod == null)
+                    throw new MissingMethodException(
+                        "Could not find GameDataSaveLoader.SaveModList(ModList, string).");
+
+                saveMethod.Invoke(null, new[] { modList, (object)absolutePath });
+
+                FileInfo backupFile = new FileInfo(absolutePath);
+                if (!backupFile.Exists || backupFile.Length == 0)
+                    throw new IOException("The backup mod list file was not created: " + absolutePath);
+
+                Log.Message("[Lilly Mod Manager] Backed up the previous active mod list to: " +
+                    backupFile.FullName);
+                return true;
+            }
+            catch (Exception exception)
+            {
+                Exception actualException = exception is TargetInvocationException &&
+                    ((TargetInvocationException)exception).InnerException != null
+                        ? ((TargetInvocationException)exception).InnerException
+                        : exception;
+                Log.Error("[Lilly Mod Manager] Failed to back up the previous active mod list: " +
+                    actualException);
+                Messages.Message(
+                    "모드 목록 백업에 실패하여 적용을 취소했습니다. 로그를 확인하세요.",
+                    MessageTypeDefOf.RejectInput);
+                return false;
+            }
+        }
+
         private void CommitAppliedChanges(List<string> activePackageIds)
         {
+            // 실제 적용 직전에 현재 활성 모드 목록을 백업한다.
+            // 백업에 실패하면 기존 목록을 보존하기 위해 적용을 중단한다.
+            if (!BackupCurrentModList())
+                return;
+
             ModsConfig.SetActiveToList(activePackageIds);
             ModsConfig.Save();
             settings.Categories = categories.Select(category => category.Copy()).ToList();
