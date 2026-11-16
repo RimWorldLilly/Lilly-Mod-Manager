@@ -1779,6 +1779,13 @@ Widgets.DrawBoxSolid(rowRect, finalRowColor);
                 DrawDependencyLinks(inner, ref y, ManagerTranslation.Get("LMM_0142"),
                     mod, loadBeforeIds, false, false);
 
+            // About.xml의 modIncompatibilities를 선후행 정보 바로 아래에 표시
+            List<ModRequirement> incompatibilities = mod.GetRequirements()
+                .Where(requirement => requirement is ModIncompatibility)
+                .ToList();
+            if (incompatibilities.Count > 0)
+                DrawIncompatibilityLinks(inner, ref y, incompatibilities);
+
             ManagerModData modData = FindModState(mod.PackageId);
             Widgets.Label(new Rect(inner.x, y, 48f, 26f), ManagerTranslation.Get("LMM_0089"));
             float chipX = inner.x + 48f;
@@ -2010,6 +2017,10 @@ Widgets.DrawBoxSolid(rowRect, finalRowColor);
             if (loadBeforeIds.Count > 0)
                 y += EstimateDependencyLinksHeight(width,
                     ManagerTranslation.Get("LMM_0142"), loadBeforeIds);
+            int incompatibilityCount = mod.GetRequirements()
+                .Count(requirement => requirement is ModIncompatibility);
+            if (incompatibilityCount > 0)
+                y += 25f + incompatibilityCount * 22f;
             y += 32f;
 
             List<ModRequirement> requirements = mod.GetRequirements().ToList();
@@ -4447,6 +4458,49 @@ Find.WindowStack.Add(new ManagerFolderNameDialog(
             }
 
             y += lineHeight + 3f;
+        }
+
+        private void DrawIncompatibilityLinks(
+            Rect bounds,
+            ref float y,
+            IList<ModRequirement> incompatibilities)
+        {
+            const float lineHeight = 22f;
+            Widgets.Label(new Rect(bounds.x, y, bounds.width, lineHeight), "충돌");
+            y += lineHeight;
+
+            for (int i = 0; i < incompatibilities.Count; i++)
+            {
+                ModRequirement incompatibility = incompatibilities[i];
+                if (incompatibility == null)
+                    continue;
+
+                List<string> packageIds = GetRequirementPackageIds(incompatibility);
+                string displayName = ReadMetadataValue(incompatibility, "displayName") as string;
+                if (displayName.NullOrEmpty())
+                    displayName = packageIds.Count > 0
+                        ? FormatDependencyNames(packageIds)
+                        : incompatibility.RequirementTypeLabel;
+
+                bool conflictActive = packageIds.Any(packageId =>
+                    IsModActiveInManager(FindMod(packageId)));
+                Rect itemRect = new Rect(bounds.x + 8f, y, bounds.width - 8f, lineHeight);
+                Color oldColor = GUI.color;
+                GUI.color = conflictActive
+                    ? new Color(1f, 0.3f, 0.3f, 1f)
+                    : new Color(0.7f, 0.7f, 0.7f, 1f);
+                Widgets.Label(itemRect, (conflictActive ? "⚠ " : "  ") + displayName);
+                GUI.color = oldColor;
+
+                TooltipHandler.TipRegion(itemRect, conflictActive
+                    ? "활성화된 충돌 모드입니다: " + displayName
+                    : "충돌 모드가 비활성화되어 있습니다: " + displayName);
+
+                if (packageIds.Count == 1 && Widgets.ButtonInvisible(itemRect))
+                    SelectDependency(packageIds[0]);
+                y += lineHeight;
+            }
+            y += 3f;
         }
 
         private bool IsLoadConstraintSatisfied(
