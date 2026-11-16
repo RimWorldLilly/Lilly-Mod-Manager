@@ -72,6 +72,13 @@ private float nextInstalledModRefreshTime;
         private bool filterSubscribed;
         private bool filterUntagged;
         private bool filterUncategorized;
+        private bool filterLoadOrderIssue;
+        private bool filterMissingRequired;
+        private bool filterVersionMismatch;
+        private bool filterLocal;
+        private bool filterWorkshop;
+        private bool filterOfficial;
+        private bool filterNoFolder;
         private bool filterUseAnd = true;
         private bool tagMode;
         private bool displayFulfilledRequirements;
@@ -177,7 +184,7 @@ nextInstalledModRefreshTime =
             float mainWidth = Mathf.Max(100f, inRect.width - mainX - 20f);
 
             const float searchTop = 48f;
-            const float searchHeight = 30f;
+            const float searchHeight = 62f;
             const float sortButtonWidth = 130f;
             const float searchGap = 8f;
             if (Widgets.ButtonText(new Rect(20f, searchTop, sortButtonWidth, searchHeight),
@@ -205,6 +212,7 @@ nextInstalledModRefreshTime =
             DrawDetails(detailsRect);
             DrawModDragPreview(inRect);
             DrawSidebarDragPreview(inRect);
+            DrawFolderDragPreview(inRect);
             HandleModListNavigation(categoryRect, listRect);
             DrawBottomButtons(new Rect(20f, inRect.height - BottomHeight - 8f,
                 inRect.width - 40f, BottomHeight));
@@ -222,7 +230,9 @@ nextInstalledModRefreshTime =
 
         private void DrawSearchField(Rect rect)
         {
-            Widgets.Label(new Rect(rect.x, rect.y, 52f, rect.height), ManagerTranslation.Get("LMM_0021"));
+            Widgets.Label(new Rect(rect.x, rect.y, 52f, 30f),
+                ManagerTranslation.Get("LMM_0021"));
+
             string[] filterLabels =
             {
                 ManagerTranslation.Get("LMM_0115"),
@@ -231,16 +241,17 @@ nextInstalledModRefreshTime =
                 ManagerTranslation.Get("LMM_0114"),
                 ManagerTranslation.Get("LMM_0111")
             };
-            float[] filterWidths = filterLabels.Select(label => Text.CalcSize(label).x + 28f).ToArray();
-            float radioWidth = Text.CalcSize(ManagerTranslation.Get("LMM_0140")).x +
-                Text.CalcSize(ManagerTranslation.Get("LMM_0141")).x + 54f;
-            float filterWidth = filterWidths.Sum() + 6f * (filterWidths.Length - 1) + radioWidth + 8f;
-            float searchWidth = Mathf.Max(120f, rect.width - 54f - filterWidth - 12f);
+            float[] filterWidths = filterLabels
+                .Select(label => Text.CalcSize(label).x + 28f).ToArray();
+            float filterWidth = filterWidths.Sum() +
+                6f * (filterWidths.Length - 1) + 8f;
             bool hasSearchText = !searchText.NullOrEmpty();
             float clearButtonWidth = hasSearchText ? 34f : 0f;
+            float searchWidth = Mathf.Max(120f,
+                rect.width - 54f - filterWidth - 12f);
             string newSearchText = Widgets.TextField(
-                new Rect(rect.x + 54f, rect.y, searchWidth - clearButtonWidth, rect.height),
-                searchText);
+                new Rect(rect.x + 54f, rect.y,
+                    searchWidth - clearButtonWidth, 28f), searchText);
             if (!string.Equals(newSearchText, searchText, StringComparison.Ordinal))
             {
                 searchText = newSearchText;
@@ -252,7 +263,7 @@ nextInstalledModRefreshTime =
 
             if (hasSearchText &&
                 Widgets.ButtonText(new Rect(rect.x + 54f + searchWidth - clearButtonWidth,
-                    rect.y, clearButtonWidth, rect.height), "×"))
+                    rect.y, clearButtonWidth, 28f), "×"))
             {
                 searchText = "";
                 selectedPackageIds.Clear();
@@ -264,31 +275,63 @@ nextInstalledModRefreshTime =
             float filterX = rect.x + 54f + searchWidth + 12f;
             bool filtersChanged = false;
             bool activeChanged = DrawFilterCheckbox(ref filterActive, filterLabels[0],
-                new Rect(filterX, rect.y, filterWidths[0], rect.height));
+                new Rect(filterX, rect.y, filterWidths[0], 28f));
             filtersChanged |= activeChanged;
             filterX += filterWidths[0] + 6f;
             bool inactiveChanged = DrawFilterCheckbox(ref filterInactive, filterLabels[1],
-                new Rect(filterX, rect.y, filterWidths[1], rect.height));
+                new Rect(filterX, rect.y, filterWidths[1], 28f));
             filtersChanged |= inactiveChanged;
             filterX += filterWidths[1] + 6f;
             filtersChanged |= DrawFilterCheckbox(ref filterSubscribed, filterLabels[2],
-                new Rect(filterX, rect.y, filterWidths[2], rect.height));
+                new Rect(filterX, rect.y, filterWidths[2], 28f));
             filterX += filterWidths[2] + 6f;
             filtersChanged |= DrawFilterCheckbox(ref filterUntagged, filterLabels[3],
-                new Rect(filterX, rect.y, filterWidths[3], rect.height));
+                new Rect(filterX, rect.y, filterWidths[3], 28f));
             filterX += filterWidths[3] + 6f;
             filtersChanged |= DrawFilterCheckbox(ref filterUncategorized, filterLabels[4],
-                new Rect(filterX, rect.y, filterWidths[4], rect.height));
-            filterX += filterWidths[4] + 8f;
+                new Rect(filterX, rect.y, filterWidths[4], 28f));
+
+            // 추가 필터는 두 번째 줄에 배치한다.
+            string[] additionalLabels =
+            {
+                "선후행 오류", "필수 모드 누락", "버전 불일치",
+                "로컬 모드", "워크샵 모드", "공식 모드", "폴더 미할당"
+            };
+            float[] additionalWidths = additionalLabels
+                .Select(label => Text.CalcSize(label).x + 28f).ToArray();
+            filterX = rect.x + 54f;
+            float secondRowY = rect.y + 32f;
+
+            filtersChanged |= DrawFilterCheckbox(ref filterLoadOrderIssue,
+                additionalLabels[0], new Rect(filterX, secondRowY, additionalWidths[0], 28f));
+            filterX += additionalWidths[0] + 6f;
+            filtersChanged |= DrawFilterCheckbox(ref filterMissingRequired,
+                additionalLabels[1], new Rect(filterX, secondRowY, additionalWidths[1], 28f));
+            filterX += additionalWidths[1] + 6f;
+            filtersChanged |= DrawFilterCheckbox(ref filterVersionMismatch,
+                additionalLabels[2], new Rect(filterX, secondRowY, additionalWidths[2], 28f));
+            filterX += additionalWidths[2] + 6f;
+            filtersChanged |= DrawFilterCheckbox(ref filterLocal,
+                additionalLabels[3], new Rect(filterX, secondRowY, additionalWidths[3], 28f));
+            filterX += additionalWidths[3] + 6f;
+            filtersChanged |= DrawFilterCheckbox(ref filterWorkshop,
+                additionalLabels[4], new Rect(filterX, secondRowY, additionalWidths[4], 28f));
+            filterX += additionalWidths[4] + 6f;
+            filtersChanged |= DrawFilterCheckbox(ref filterOfficial,
+                additionalLabels[5], new Rect(filterX, secondRowY, additionalWidths[5], 28f));
+            filterX += additionalWidths[5] + 6f;
+            filtersChanged |= DrawFilterCheckbox(ref filterNoFolder,
+                additionalLabels[6], new Rect(filterX, secondRowY, additionalWidths[6], 28f));
+            filterX += additionalWidths[6] + 12f;
 
             bool priorFilterUseAnd = filterUseAnd;
             float andWidth = Text.CalcSize(ManagerTranslation.Get("LMM_0140")).x + 20f;
             float orWidth = Text.CalcSize(ManagerTranslation.Get("LMM_0141")).x + 20f;
-            if (Widgets.RadioButtonLabeled(new Rect(filterX, rect.y, andWidth, rect.height),
+            if (Widgets.RadioButtonLabeled(new Rect(filterX, secondRowY, andWidth, 28f),
                 ManagerTranslation.Get("LMM_0140"), filterUseAnd))
                 filterUseAnd = true;
             filterX += andWidth;
-            if (Widgets.RadioButtonLabeled(new Rect(filterX, rect.y, orWidth, rect.height),
+            if (Widgets.RadioButtonLabeled(new Rect(filterX, secondRowY, orWidth, 28f),
                 ManagerTranslation.Get("LMM_0141"), !filterUseAnd))
                 filterUseAnd = false;
             filtersChanged |= priorFilterUseAnd != filterUseAnd;
@@ -452,6 +495,14 @@ if (categoryTabsHaveKeyboardFocus && category.Id == currentCategoryId)
                 }
                 if (isDraggingMod && rowRect.Contains(Event.current.mousePosition))
                     Widgets.DrawLightHighlight(rowRect);
+                if (!tagMode && !dragFolderInTagMode &&
+                    !dragFolderId.NullOrEmpty() &&
+                    dragFolderSourceCategoryId != category.Id &&
+                    rowRect.Contains(Event.current.mousePosition))
+                {
+                    Widgets.DrawLightHighlight(rowRect);
+                    Widgets.DrawBox(rowRect, 2);
+                }
                 if (!tagMode && !dragFolderInTagMode &&
                     !dragFolderId.NullOrEmpty() &&
                     Event.current.type == EventType.MouseUp &&
@@ -1280,6 +1331,11 @@ if (!searchText.NullOrEmpty() &&
                 HandleFolderReorder(folder, titleRect, category.Folders, false);
                 if (folder.Id == currentFolderId)
                     Widgets.DrawHighlight(titleRect);
+                if (dragFolderId == folder.Id)
+                {
+                    Widgets.DrawHighlight(titleRect);
+                    Widgets.DrawBox(titleRect, 2);
+                }
                 if (Widgets.ButtonText(titleRect,
                     folder.Name + " (" + GetInstalledCount(folder) + ")"))
                     currentFolderId = folder.Id;
@@ -1376,6 +1432,11 @@ if (!searchText.NullOrEmpty() &&
                 HandleFolderReorder(folder, titleRect, tag.Folders, true);
                 if (folder.Id == currentFolderId)
                     Widgets.DrawHighlight(titleRect);
+                if (dragFolderId == folder.Id)
+                {
+                    Widgets.DrawHighlight(titleRect);
+                    Widgets.DrawBox(titleRect, 2);
+                }
                 if (Widgets.ButtonText(titleRect,
                     folder.Name + " (" + GetInstalledCount(tag, folder) + ")"))
                     currentFolderId = folder.Id;
@@ -1646,6 +1707,41 @@ Widgets.DrawBoxSolid(rowRect, finalRowColor);
             Text.Anchor = TextAnchor.MiddleLeft;
             Widgets.Label(new Rect(preview.x + 8f, preview.y, preview.width - 16f,
                 preview.height), label);
+            Text.Anchor = previousAnchor;
+        }
+
+        private void DrawFolderDragPreview(Rect windowRect)
+        {
+            if (Event.current.type != EventType.Repaint || dragFolderId.NullOrEmpty())
+                return;
+
+            ManagerFolderData folder = null;
+            if (dragFolderInTagMode)
+                folder = FindFolder(FindCurrentTag(), dragFolderId);
+            else
+            {
+                ManagerCategoryData source = categories.FirstOrDefault(item =>
+                    item != null && item.Id == dragFolderSourceCategoryId);
+                folder = FindFolder(source, dragFolderId);
+            }
+            if (folder == null)
+                return;
+
+            string label = "폴더 이동: " + folder.Name;
+            float width = Mathf.Clamp(Text.CalcSize(label).x + 24f, 150f, 360f);
+            Vector2 mouse = Event.current.mousePosition;
+            Rect preview = new Rect(mouse.x + 14f, mouse.y + 14f, width, 30f);
+            preview.x = Mathf.Clamp(preview.x, windowRect.xMin + 4f,
+                windowRect.xMax - preview.width - 4f);
+            preview.y = Mathf.Clamp(preview.y, windowRect.yMin + 4f,
+                windowRect.yMax - preview.height - 4f);
+
+            Widgets.DrawBoxSolid(preview, new Color(0.22f, 0.18f, 0.12f, 0.96f));
+            Widgets.DrawBox(preview, 2);
+            TextAnchor previousAnchor = Text.Anchor;
+            Text.Anchor = TextAnchor.MiddleLeft;
+            Widgets.Label(new Rect(preview.x + 8f, preview.y,
+                preview.width - 16f, preview.height), label);
             Text.Anchor = previousAnchor;
         }
 
@@ -6053,11 +6149,16 @@ private int GetActiveCount(ManagerTagData tag)
         private bool HasActiveModFilters()
         {
             return filterActive || filterInactive || filterSubscribed ||
-                filterUntagged || filterUncategorized;
+                filterUntagged || filterUncategorized || filterLoadOrderIssue ||
+                filterMissingRequired || filterVersionMismatch || filterLocal ||
+                filterWorkshop || filterOfficial || filterNoFolder;
         }
 
         private bool MatchesFilter(ModMetaData mod)
         {
+            if (mod == null)
+                return false;
+
             ManagerModData state = FindModState(mod.PackageId);
             int selectedCount = 0;
             int matchedCount = 0;
@@ -6065,59 +6166,101 @@ private int GetActiveCount(ManagerTagData tag)
             if (filterActive)
             {
                 selectedCount++;
-                if (state != null && state.Enabled)
-                    matchedCount++;
-                else if (filterUseAnd)
-                    return false;
-                else if (matchedCount > 0)
-                    return true;
+                if (state != null && state.Enabled) matchedCount++;
+                else if (filterUseAnd) return false;
             }
             if (filterInactive)
             {
                 selectedCount++;
-                if (state == null || !state.Enabled)
-                    matchedCount++;
-                else if (filterUseAnd)
-                    return false;
-                else if (matchedCount > 0)
-                    return true;
+                if (state == null || !state.Enabled) matchedCount++;
+                else if (filterUseAnd) return false;
             }
             if (filterSubscribed)
             {
                 selectedCount++;
-                if (IsSteamSubscribed(mod))
-                    matchedCount++;
-                else if (filterUseAnd)
-                    return false;
-                else if (matchedCount > 0)
-                    return true;
+                if (IsSteamSubscribed(mod)) matchedCount++;
+                else if (filterUseAnd) return false;
             }
             if (filterUntagged)
             {
                 selectedCount++;
                 if (state == null || state.TagIds == null || state.TagIds.Count == 0)
                     matchedCount++;
-                else if (filterUseAnd)
-                    return false;
-                else if (matchedCount > 0)
-                    return true;
+                else if (filterUseAnd) return false;
             }
             if (filterUncategorized)
             {
                 selectedCount++;
-                if (IsInUncategorizedFolder(mod.PackageId))
+                if (IsInUncategorizedFolder(mod.PackageId)) matchedCount++;
+                else if (filterUseAnd) return false;
+            }
+            if (filterLoadOrderIssue)
+            {
+                selectedCount++;
+                if (GetModRowIssue(mod) == ModRowIssue.LoadOrder) matchedCount++;
+                else if (filterUseAnd) return false;
+            }
+            if (filterMissingRequired)
+            {
+                selectedCount++;
+                if (GetModRowIssue(mod) == ModRowIssue.RequiredMod) matchedCount++;
+                else if (filterUseAnd) return false;
+            }
+            if (filterVersionMismatch)
+            {
+                selectedCount++;
+                if (GetModRowIssue(mod) == ModRowIssue.Version) matchedCount++;
+                else if (filterUseAnd) return false;
+            }
+            if (filterLocal)
+            {
+                selectedCount++;
+                if (!mod.OnSteamWorkshop && !mod.IsCoreMod && !mod.Official)
                     matchedCount++;
-                else if (filterUseAnd)
-                    return false;
-                else if (matchedCount > 0)
-                    return true;
+                else if (filterUseAnd) return false;
+            }
+            if (filterWorkshop)
+            {
+                selectedCount++;
+                if (mod.OnSteamWorkshop) matchedCount++;
+                else if (filterUseAnd) return false;
+            }
+            if (filterOfficial)
+            {
+                selectedCount++;
+                if (mod.IsCoreMod || mod.Official) matchedCount++;
+                else if (filterUseAnd) return false;
+            }
+            if (filterNoFolder)
+            {
+                selectedCount++;
+                if (!IsAssignedToAnyCategoryFolder(mod.PackageId)) matchedCount++;
+                else if (filterUseAnd) return false;
             }
 
             if (selectedCount == 0)
                 return true;
-            return filterUseAnd
-                ? matchedCount == selectedCount
-                : matchedCount > 0;
+            return filterUseAnd ? matchedCount == selectedCount : matchedCount > 0;
+        }
+
+        private bool IsAssignedToAnyCategoryFolder(string packageId)
+        {
+            for (int categoryIndex = 0; categoryIndex < categories.Count; categoryIndex++)
+            {
+                ManagerCategoryData category = categories[categoryIndex];
+                if (category == null || category.Folders == null)
+                    continue;
+                for (int folderIndex = 0; folderIndex < category.Folders.Count; folderIndex++)
+                {
+                    ManagerFolderData folder = category.Folders[folderIndex];
+                    if (folder == null || folder.ModIds == null)
+                        continue;
+                    if (folder.ModIds.Any(id => string.Equals(id, packageId,
+                        StringComparison.OrdinalIgnoreCase)))
+                        return true;
+                }
+            }
+            return false;
         }
 
         private bool IsInUncategorizedFolder(string packageId)
