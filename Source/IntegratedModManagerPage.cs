@@ -187,7 +187,7 @@ nextInstalledModRefreshTime =
             const float searchHeight = 62f;
             const float sortButtonWidth = 130f;
             const float searchGap = 8f;
-            if (Widgets.ButtonText(new Rect(20f, searchTop, sortButtonWidth, searchHeight),
+            if (Widgets.ButtonText(new Rect(20f, searchTop, sortButtonWidth, 30f),
                 ManagerTranslation.Get("LMM_0067")))
                 SortAllCategories();
             Rect searchRect = new Rect(20f + sortButtonWidth + searchGap, searchTop,
@@ -6197,7 +6197,8 @@ private int GetActiveCount(ManagerTagData tag)
             if (filterLoadOrderIssue)
             {
                 selectedCount++;
-                if (GetModRowIssue(mod) == ModRowIssue.LoadOrder) matchedCount++;
+                if (IsLoadOrderCheckTarget(mod) &&
+                    loadOrderIssuePackageIds.Contains(mod.PackageId)) matchedCount++;
                 else if (filterUseAnd) return false;
             }
             if (filterMissingRequired)
