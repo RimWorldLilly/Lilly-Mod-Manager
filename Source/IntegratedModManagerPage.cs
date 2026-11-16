@@ -76,6 +76,7 @@ private float nextInstalledModRefreshTime;
         private bool tagMode;
         private bool displayFulfilledRequirements;
         private bool modListHasKeyboardFocus;
+        private bool categoryTabsHaveKeyboardFocus;
         private Vector2 categoryTabScroll;
         private Vector2 tagTabScroll;
         private Vector2 modListScroll;
@@ -185,8 +186,9 @@ nextInstalledModRefreshTime =
             Rect searchRect = new Rect(20f + sortButtonWidth + searchGap, searchTop,
                 Mathf.Max(100f, inRect.width - 40f - sortButtonWidth - searchGap), searchHeight);
             float sectionTop = searchRect.yMax + 8f;
-            DrawCategoryTabs(new Rect(20f, sectionTop, sidebarWidth,
-                contentBottom - sectionTop));
+            Rect categoryRect = new Rect(20f, sectionTop, sidebarWidth,
+                contentBottom - sectionTop);
+            DrawCategoryTabs(categoryRect);
 
             float contentTop = searchRect.yMax + 8f;
             float contentHeight = Mathf.Max(100f, contentBottom - contentTop);
@@ -203,7 +205,7 @@ nextInstalledModRefreshTime =
             DrawDetails(detailsRect);
             DrawModDragPreview(inRect);
             DrawSidebarDragPreview(inRect);
-            HandleModListNavigation(listRect);
+            HandleModListNavigation(categoryRect, listRect);
             DrawBottomButtons(new Rect(20f, inRect.height - BottomHeight - 8f,
                 inRect.width - 40f, BottomHeight));
             HandleSelectAll();
@@ -429,6 +431,13 @@ if (category.Id == currentCategoryId)
         new Color(0.18f, 0.30f, 0.48f, 0.85f));
 
     Widgets.DrawBox(selectedRect, 2);
+}
+if (categoryTabsHaveKeyboardFocus && category.Id == currentCategoryId)
+{
+    Color previousFocusColor = GUI.color;
+    GUI.color = Color.white;
+    Widgets.DrawBox(rowRect, 2);
+    GUI.color = previousFocusColor;
 }
 
 
@@ -1045,6 +1054,8 @@ if (!searchText.NullOrEmpty() &&
             if (current.type == EventType.MouseDown && current.button == 0 &&
                 dragRect.Contains(current.mousePosition))
             {
+                categoryTabsHaveKeyboardFocus = true;
+                modListHasKeyboardFocus = false;
                 dragCategoryId = category.Id;
                 current.Use();
             }
@@ -2416,43 +2427,132 @@ Widgets.DrawBoxSolid(rowRect, finalRowColor);
             current.Use();
         }
 
-        private void HandleModListNavigation(Rect listRect)
+        private void HandleModListNavigation(Rect categoryRect, Rect listRect)
         {
             Event current = Event.current;
             if (current.type == EventType.MouseDown)
-                modListHasKeyboardFocus = listRect.Contains(current.mousePosition);
+            {
+                bool clickedCategory = categoryRect.Contains(current.mousePosition);
+                bool clickedModList = listRect.Contains(current.mousePosition);
+                if (clickedCategory)
+                {
+                    categoryTabsHaveKeyboardFocus = true;
+                    modListHasKeyboardFocus = false;
+                }
+                else if (clickedModList)
+                {
+                    modListHasKeyboardFocus = true;
+                    categoryTabsHaveKeyboardFocus = false;
+                }
+            }
 
-            if (!modListHasKeyboardFocus || current.type != EventType.KeyDown ||
-                (current.keyCode != KeyCode.UpArrow && current.keyCode != KeyCode.DownArrow) ||
+            if (current.type != EventType.KeyDown ||
                 current.control || current.alt || current.command)
+                return;
+
+            // 모드 목록에서 왼쪽: 카테고리 목록으로 포커스 이동
+            if (modListHasKeyboardFocus && !tagMode &&
+                current.keyCode == KeyCode.LeftArrow)
+            {
+                modListHasKeyboardFocus = false;
+                categoryTabsHaveKeyboardFocus = true;
+                current.Use();
+                return;
+            }
+
+            // 카테고리 목록에서 오른쪽: 모드 목록으로 포커스 이동
+            if (categoryTabsHaveKeyboardFocus && !tagMode &&
+                current.keyCode == KeyCode.RightArrow)
+            {
+                categoryTabsHaveKeyboardFocus = false;
+                modListHasKeyboardFocus = true;
+                if (visibleMods.Count > 0 &&
+                    visibleMods.FindIndex(mod => string.Equals(
+                        mod.PackageId, primarySelectedPackageId,
+                        StringComparison.OrdinalIgnoreCase)) < 0)
+                {
+                    SelectMod(0, false, false);
+                    modListScroll.y = Mathf.Max(0f,
+                        GetVisibleModRowY(visibleMods[0].PackageId));
+                }
+                current.Use();
+                return;
+            }
+
+            // 카테고리 목록에서 위/아래: 카테고리 선택 및 스크롤 이동
+            if (categoryTabsHaveKeyboardFocus && !tagMode &&
+                (current.keyCode == KeyCode.UpArrow ||
+                 current.keyCode == KeyCode.DownArrow))
+            {
+                if (categories.Count == 0)
+                {
+                    current.Use();
+                    return;
+                }
+
+                int currentIndex = categories.FindIndex(category =>
+                    string.Equals(category.Id, currentCategoryId,
+                        StringComparison.OrdinalIgnoreCase));
+                int nextIndex = currentIndex < 0
+                    ? (current.keyCode == KeyCode.DownArrow ? 0 : categories.Count - 1)
+                    : Mathf.Clamp(currentIndex +
+                        (current.keyCode == KeyCode.DownArrow ? 1 : -1),
+                        0, categories.Count - 1);
+
+                if (nextIndex != currentIndex)
+                {
+                    ManagerCategoryData nextCategory = categories[nextIndex];
+                    currentCategoryId = nextCategory.Id;
+                    currentFolderId = nextCategory.Folders.FirstOrDefault()?.Id;
+                    selectedPackageIds.Clear();
+                    primarySelectedPackageId = null;
+                    lastSelectedIndex = -1;
+                    RefreshVisibleMods();
+
+                    float rowY = nextIndex * 30f;
+                    float viewportHeight = Mathf.Max(1f, categoryRect.height - 36f - 16f);
+                    if (rowY < categoryTabScroll.y)
+                        categoryTabScroll.y = rowY;
+                    else if (rowY + 30f > categoryTabScroll.y + viewportHeight)
+                        categoryTabScroll.y = rowY + 30f - viewportHeight;
+                    categoryTabScroll.y = Mathf.Max(0f, categoryTabScroll.y);
+                }
+
+                current.Use();
+                return;
+            }
+
+            if (!modListHasKeyboardFocus ||
+                (current.keyCode != KeyCode.UpArrow &&
+                 current.keyCode != KeyCode.DownArrow))
                 return;
 
             if (visibleMods.Count == 0)
                 return;
 
-            int currentIndex = visibleMods.FindIndex(mod =>
+            int modIndex = visibleMods.FindIndex(mod =>
                 string.Equals(mod.PackageId, primarySelectedPackageId,
                     StringComparison.OrdinalIgnoreCase));
-            int nextIndex;
-            if (currentIndex < 0)
-                nextIndex = current.keyCode == KeyCode.DownArrow ? 0 : visibleMods.Count - 1;
+            int nextModIndex;
+            if (modIndex < 0)
+                nextModIndex = current.keyCode == KeyCode.DownArrow ? 0 : visibleMods.Count - 1;
             else
-                nextIndex = Mathf.Clamp(currentIndex +
+                nextModIndex = Mathf.Clamp(modIndex +
                     (current.keyCode == KeyCode.DownArrow ? 1 : -1), 0, visibleMods.Count - 1);
 
-            if (nextIndex == currentIndex)
+            if (nextModIndex == modIndex)
             {
                 current.Use();
                 return;
             }
 
-            SelectMod(nextIndex, false, current.shift && lastSelectedIndex >= 0);
-            float rowY = GetVisibleModRowY(visibleMods[nextIndex].PackageId);
-            float viewportHeight = Mathf.Max(1f, listRect.height - 16f);
-            if (rowY < modListScroll.y)
-                modListScroll.y = rowY;
-            else if (rowY + RowHeight > modListScroll.y + viewportHeight)
-                modListScroll.y = rowY + RowHeight - viewportHeight;
+            SelectMod(nextModIndex, false, current.shift && lastSelectedIndex >= 0);
+            float modRowY = GetVisibleModRowY(visibleMods[nextModIndex].PackageId);
+            float modViewportHeight = Mathf.Max(1f, listRect.height - 16f);
+            if (modRowY < modListScroll.y)
+                modListScroll.y = modRowY;
+            else if (modRowY + RowHeight > modListScroll.y + modViewportHeight)
+                modListScroll.y = modRowY + RowHeight - modViewportHeight;
             modListScroll.y = Mathf.Max(0f, modListScroll.y);
             current.Use();
         }
