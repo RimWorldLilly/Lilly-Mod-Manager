@@ -17,7 +17,8 @@ namespace Lilly.IntegratedModManager
         private readonly Action<string, Action> onSaveVanillaList;
         private Vector2 presetScrollPosition;
         private Vector2 vanillaScrollPosition;
-        private string inputName = "";
+        // 기본 이름: YYMMDDHH24MM 형식 (예: 2611160035)
+        private string inputName = DateTime.Now.ToString("yyMMddHHmm");
         private bool focusNameOnNextDraw = true;
 
         public override Vector2 InitialSize => new Vector2(
