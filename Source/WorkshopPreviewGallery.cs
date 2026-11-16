@@ -56,7 +56,7 @@ namespace Lilly.IntegratedModManager
         private static readonly ConcurrentDictionary<ulong, long> LastUpdatedUnixTimes =
             new ConcurrentDictionary<ulong, long>();
         private static readonly Regex LastUpdatedRegex = new Regex(
-            @"\"time_updated\"\s*:\s*(\d+)", RegexOptions.Compiled | RegexOptions.IgnoreCase);
+            @"""time_updated""\s*:\s*(\d+)", RegexOptions.Compiled | RegexOptions.IgnoreCase);
         private static readonly Regex WorkshopResultRegex = new Regex(
             @"\""result\""\s*:\s*(\d+)", RegexOptions.Compiled | RegexOptions.IgnoreCase);
         private static readonly Regex UrlRegex = new Regex(
