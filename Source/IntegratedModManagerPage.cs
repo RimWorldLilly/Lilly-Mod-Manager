@@ -6989,7 +6989,7 @@ private int GetActiveCount(ManagerTagData tag)
                     Widgets.Label(new Rect(row.x + 8f, row.y + 5f, row.width - 16f, 22f),
                         missingActivePackageIds[i]);
                     Widgets.Label(new Rect(row.x + 8f, row.y + 28f, row.width - 16f, 18f),
-                        "ModsConfig.xml의 activeMods에 남아 있음 · 수동 정리 대상");
+                        "ModsConfig.xml의 activeMods에 남아 있음 · 게임 종료 후 파일 백업 및 수동 정리 대상");
                     y += rowHeight;
                 }
             }
@@ -7117,7 +7117,7 @@ private int GetActiveCount(ManagerTagData tag)
 
         private static void CollectIdsFromSection(string text, string sectionName, HashSet<string> ids)
         {
-            int sectionIndex = text.IndexOf("\\"" + sectionName + "\\"", StringComparison.OrdinalIgnoreCase);
+            int sectionIndex = text.IndexOf("\"" + sectionName + "\"", StringComparison.OrdinalIgnoreCase);
             if (sectionIndex < 0)
                 return;
             int openBrace = text.IndexOf('{', sectionIndex);
@@ -7166,5 +7166,4 @@ private int GetActiveCount(ManagerTagData tag)
             }
         }
     }
-}
 }
