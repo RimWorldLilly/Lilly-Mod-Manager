@@ -5977,9 +5977,12 @@ private void RefreshInstalledModsIfNeeded()
             visibleMods.Clear();
             if (allModsView)
             {
+                HashSet<string> addedPackageIds =
+                    new HashSet<string>(StringComparer.OrdinalIgnoreCase);
                 foreach (ModMetaData mod in ModLister.AllInstalledMods)
                 {
-                    if (mod != null && !mod.PackageId.NullOrEmpty() && MatchesSearch(mod))
+                    if (mod != null && !mod.PackageId.NullOrEmpty() &&
+                        addedPackageIds.Add(mod.PackageId) && MatchesSearch(mod))
                         visibleMods.Add(mod);
                 }
                 visibleMods.Sort((left, right) =>
