@@ -497,7 +497,8 @@ if (categoryTabsHaveKeyboardFocus && category.Id == currentCategoryId)
                     Widgets.DrawHighlight(rowRect);
                 if (isDragTarget)
                 {
-                    Widgets.DrawLightHighlight(rowRect);                    Widgets.DrawBox(rowRect);
+                    Widgets.DrawLightHighlight(rowRect);
+                    Widgets.DrawBox(rowRect);
                 }
                 if (isDraggingMod && rowRect.Contains(Event.current.mousePosition))
                     Widgets.DrawLightHighlight(rowRect);
@@ -997,6 +998,7 @@ if (!searchText.NullOrEmpty() &&
             int index = categories.FindIndex(category => category.Id == currentCategoryId);
             return index < 0 ? categories.Count : index + 1;
         }
+
         private int GetSelectedTagInsertIndex()
         {
             int index = tags.FindIndex(tag => tag.Id == currentTagId);
@@ -1495,7 +1497,8 @@ if (!searchText.NullOrEmpty() &&
                     Widgets.DrawBox(titleRect, 2);
                 }
                 if (Widgets.ButtonText(titleRect,
-                    folder.Name + " (" + GetInstalledCount(tag, folder) + ")"))                    currentFolderId = folder.Id;
+                    folder.Name + " (" + GetInstalledCount(tag, folder) + ")"))
+                    currentFolderId = folder.Id;
 
                 float actionX = headerRect.xMax - 186f;
                 if (Widgets.ButtonText(new Rect(actionX, y + 2f, 42f, 26f), "+"))
@@ -1998,7 +2001,8 @@ Widgets.DrawBoxSolid(rowRect, finalRowColor);
                 y += 26f;
             }
 
-            ulong workshopIdForUpdate = GetCachedWorkshopId(mod);            DateTime lastUpdated;
+            ulong workshopIdForUpdate = GetCachedWorkshopId(mod);
+            DateTime lastUpdated;
             if (mod.OnSteamWorkshop &&
                 WorkshopPreviewGallery.TryGetLastUpdatedDate(workshopIdForUpdate, out lastUpdated))
             {
@@ -2497,7 +2501,8 @@ Widgets.DrawBoxSolid(rowRect, finalRowColor);
                 ? null
                 : workshopType.GetMethod("BakeAndUpload",
                     BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic,
-                    null, new[] { typeof(ModMetaData) }, null);            if (bakeAndUpload == null)
+                    null, new[] { typeof(ModMetaData) }, null);
+            if (bakeAndUpload == null)
             {
                 Log.Error("[Lilly Mod Manager] RimWorld Workshop upload API was not found.");
                 return;
@@ -2996,7 +3001,8 @@ Widgets.DrawBoxSolid(rowRect, finalRowColor);
 
         private void OpenMoveCategoryMenu()
         {
-            if (selectedPackageIds.Count == 0)                return;
+            if (selectedPackageIds.Count == 0)
+                return;
 
             List<FloatMenuOption> options = new List<FloatMenuOption>();
             for (int i = 0; i < categories.Count; i++)
@@ -3495,7 +3501,8 @@ private void OpenModColorDialog(List<string> packageIds)
         colorHex =>
         {
             foreach (string packageId in packageIds)
-            {                ManagerModData state = FindModState(packageId);
+            {
+                ManagerModData state = FindModState(packageId);
 
                 if (state != null)
                     state.ColorHex = colorHex;
@@ -3994,7 +4001,8 @@ options.Add(new FloatMenuOption("모드 색상 초기화",
             MethodInfo getPublishedFileId = typeof(ModMetaData).GetMethod("GetPublishedFileId",
                 BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic,
                 null, Type.EmptyTypes, null);
-            if (getPublishedFileId != null)            {
+            if (getPublishedFileId != null)
+            {
                 try
                 {
                     ulong publishedId = ParseWorkshopId(getPublishedFileId.Invoke(mod, null));
@@ -4493,7 +4501,8 @@ Find.WindowStack.Add(new ManagerFolderNameDialog(
             if (folder == null || folder.Id == "uncategorized")
                 return;
 
-            Find.WindowStack.Add(Dialog_MessageBox.CreateConfirmation(                ManagerTranslation.Get("LMM_0103"),
+            Find.WindowStack.Add(Dialog_MessageBox.CreateConfirmation(
+                ManagerTranslation.Get("LMM_0103"),
                 () =>
                 {
                     ManagerFolderData uncategorized = FindFolder(category, "uncategorized");
@@ -4992,7 +5001,8 @@ Find.WindowStack.Add(new ManagerFolderNameDialog(
                     url = GetWorkshopUrlFromObject(dependency);
                     if (!url.NullOrEmpty())
                         return url;
-                }            }
+                }
+            }
             return string.Empty;
         }
 
@@ -5491,7 +5501,8 @@ Find.WindowStack.Add(new ManagerFolderNameDialog(
                 string absolutePath = GenFilePaths.AbsFilePathForModList(name);
                 MethodInfo saveMethod = typeof(GameDataSaveLoader).GetMethod(
                     "SaveModList",
-                    BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic,                    null,
+                    BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic,
+                    null,
                     new[] { modListType, typeof(string) },
                     null);
 
@@ -5990,6 +6001,7 @@ private int GetActiveCount(ManagerTagData tag)
     for (int i = 0; i < modStates.Count; i++)
     {
         ManagerModData modData = modStates[i];
+
         if (modData == null || FindMod(modData.PackageId) == null)
             continue;
 
@@ -6489,7 +6501,8 @@ private int GetActiveCount(ManagerTagData tag)
                 : FindCurrentCategory()?.Folders;
             ManagerFolderData targetFolder = folders == null
                 ? null
-                : folders.FirstOrDefault(folder => folder != null && folder.ModIds != null &&                    folder.ModIds.Any(id => string.Equals(id, targetPackageId,
+                : folders.FirstOrDefault(folder => folder != null && folder.ModIds != null &&
+                    folder.ModIds.Any(id => string.Equals(id, targetPackageId,
                         StringComparison.OrdinalIgnoreCase)));
             if (targetFolder != null && targetFolder.Id != currentFolderId)
             {
