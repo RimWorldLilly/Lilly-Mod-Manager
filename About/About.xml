@@ -87,5 +87,5 @@ Lilly - Mod Manager는 림월드의 기존 바닐라 모드 관리 화면을 대
 
 소규모 모드 구성부터 수백 개 이상의 모드를 사용하는 대규모 환경까지, Lilly - Mod Manager를 이용하면 복잡한 모드 목록을 더욱 체계적이고 편리하게 관리할 수 있습니다.
   </description>
-  <modVersion>0.7</modVersion>
+  <modVersion>0.8</modVersion>
 </ModMetaData>
