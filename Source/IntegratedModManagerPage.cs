@@ -81,6 +81,7 @@ private float nextInstalledModRefreshTime;
         private bool filterNoFolder;
         private bool filterUseAnd = true;
         private bool tagMode;
+        private bool allModsView;
         private bool displayFulfilledRequirements;
         private bool modListHasKeyboardFocus;
         private bool categoryTabsHaveKeyboardFocus;
@@ -439,15 +440,16 @@ private static void DrawDiagonalGradient(
 
             Rect listRect = new Rect(rect.x + 4f, rect.y + 32f,
                 rect.width - 8f, rect.height - 36f);
-            float contentHeight = Mathf.Max(listRect.height, categories.Count * 34f);
+            float contentHeight = Mathf.Max(listRect.height, (categories.Count + 1) * 34f);
             float scrollbarWidth = contentHeight > listRect.height
                 ? ManagerUiMetrics.VerticalScrollbarWidth : 0f;
             Rect viewRect = new Rect(0f, 0f, listRect.width - scrollbarWidth, contentHeight);
             Widgets.BeginScrollView(listRect, ref categoryTabScroll, viewRect);
+            DrawAllModsTab(new Rect(0f, 0f, viewRect.width, 30f), 0);
             for (int i = 0; i < categories.Count; i++)
             {
                 ManagerCategoryData category = categories[i];
-                Rect rowRect = new Rect(0f, i * 30f, viewRect.width, 30f);
+                Rect rowRect = new Rect(0f, (i + 1) * 30f, viewRect.width, 30f);
 
 // 기존 검정/회색 교차 배경색
 Color baseRowColor = i % 2 == 0
@@ -857,6 +859,53 @@ private bool MatchesTagSearch(ManagerTagData tag)
                 destructive: true));
         }
 
+        private void DrawAllModsTab(Rect rowRect, int rowIndex)
+        {
+            Color baseRowColor = rowIndex % 2 == 0
+                ? new Color(0.09f, 0.09f, 0.09f, 1f)
+                : new Color(0.055f, 0.055f, 0.055f, 1f);
+            Widgets.DrawBoxSolid(rowRect, baseRowColor);
+
+            if (allModsView)
+            {
+                Rect selectedRect = new Rect(rowRect.x, rowRect.y,
+                    rowRect.width * 2f / 3f, rowRect.height);
+                Widgets.DrawBoxSolid(selectedRect, new Color(0.18f, 0.30f, 0.48f, 0.85f));
+                Widgets.DrawBox(selectedRect, 2);
+            }
+            if (categoryTabsHaveKeyboardFocus && allModsView)
+                Widgets.DrawBox(rowRect, 2);
+
+            string label = "전체 목록 (" + GetAllInstalledModCount() + ")";
+            Rect labelRect = new Rect(rowRect.x + 8f, rowRect.y, rowRect.width - 16f, rowRect.height);
+            Widgets.Label(labelRect, label);
+            TooltipHandler.TipRegion(rowRect, "카테고리와 태그 구분 없이 설치된 모든 모드 보기");
+
+            if (Widgets.ButtonInvisible(rowRect))
+                SelectAllModsView();
+        }
+
+        private int GetAllInstalledModCount()
+        {
+            return ModLister.AllInstalledMods
+                .Where(mod => mod != null && !mod.PackageId.NullOrEmpty())
+                .Select(mod => mod.PackageId)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .Count();
+        }
+
+        private void SelectAllModsView()
+        {
+            allModsView = true;
+            selectedPackageIds.Clear();
+            primarySelectedPackageId = null;
+            lastSelectedIndex = -1;
+            modListScroll = Vector2.zero;
+            categoryTabsHaveKeyboardFocus = true;
+            modListHasKeyboardFocus = false;
+            RefreshVisibleMods();
+        }
+
         private void DrawTagTabs(Rect rect)
         {
             Widgets.DrawBox(rect);
@@ -870,12 +919,13 @@ private bool MatchesTagSearch(ManagerTagData tag)
 
             Rect listRect = new Rect(rect.x + 4f, rect.y + 32f,
                 rect.width - 8f, rect.height - 36f);
-            float contentHeight = Mathf.Max(listRect.height, tags.Count * 34f);
+            float contentHeight = Mathf.Max(listRect.height, (tags.Count + 1) * 34f);
             float scrollbarWidth = contentHeight > listRect.height
                 ? ManagerUiMetrics.VerticalScrollbarWidth : 0f;
             Rect viewRect = new Rect(0f, 0f, listRect.width - scrollbarWidth, contentHeight);
             Widgets.BeginScrollView(listRect, ref tagTabScroll, viewRect);
-            int rowIndex = 0;
+            DrawAllModsTab(new Rect(0f, 0f, viewRect.width, 30f), 0);
+            int rowIndex = 1;
             for (int i = 0; i < tags.Count; i++)
             {
                 ManagerTagData tag = tags[i];
@@ -1157,6 +1207,7 @@ if (!searchText.NullOrEmpty() &&
                     categories.Insert(to, moving);
                     PersistCategoryData();
                 }
+                allModsView = false;
                 currentCategoryId = category.Id;
                 if (FindFolder(category, currentFolderId) == null)
                     currentFolderId = category.Folders.FirstOrDefault()?.Id;
@@ -1322,6 +1373,7 @@ if (!searchText.NullOrEmpty() &&
                 if (tag == null)
                     return;
 
+                allModsView = false;
                 currentTagId = tag.Id;
                 currentFolderId = tag.Folders.FirstOrDefault()?.Id;
                 selectedPackageIds.Clear();
@@ -1332,6 +1384,12 @@ if (!searchText.NullOrEmpty() &&
 
         private void DrawModList(Rect rect)
         {
+            if (allModsView)
+            {
+                DrawAllModsList(rect);
+                return;
+            }
+
             if (tagMode)
             {
                 DrawTagModList(rect);
@@ -1429,6 +1487,24 @@ if (!searchText.NullOrEmpty() &&
                     visibleIndex++;
                 }
             }
+
+            Widgets.EndScrollView();
+        }
+
+        private void DrawAllModsList(Rect rect)
+        {
+            Widgets.DrawBox(rect);
+            Rect innerRect = rect.ContractedBy(8f);
+            modListViewportHeight = innerRect.height;
+            float viewHeight = Mathf.Max(innerRect.height, visibleMods.Count * RowHeight);
+            float scrollbarWidth = viewHeight > innerRect.height
+                ? ManagerUiMetrics.VerticalScrollbarWidth
+                : 0f;
+            Rect viewRect = new Rect(0f, 0f, innerRect.width - scrollbarWidth, viewHeight);
+            Widgets.BeginScrollView(innerRect, ref modListScroll, viewRect);
+
+            for (int i = 0; i < visibleMods.Count; i++)
+                DrawModRow(visibleMods[i], i, viewRect.width, i * RowHeight);
 
             Widgets.EndScrollView();
         }
@@ -1602,7 +1678,7 @@ Widgets.DrawBoxSolid(rowRect, finalRowColor);
             else
                 Widgets.DrawHighlightIfMouseover(rowRect);
 
-            if (isDraggingMod && !dragPackageId.NullOrEmpty() &&
+            if (!allModsView && isDraggingMod && !dragPackageId.NullOrEmpty() &&
                 !string.Equals(dragPackageId, mod.PackageId, StringComparison.OrdinalIgnoreCase) &&
                 rowRect.Contains(Event.current.mousePosition))
             {
@@ -2667,23 +2743,30 @@ Widgets.DrawBoxSolid(rowRect, finalRowColor);
                 int currentIndex = categories.FindIndex(category =>
                     string.Equals(category.Id, currentCategoryId,
                         StringComparison.OrdinalIgnoreCase));
-                int nextIndex = currentIndex < 0
-                    ? (current.keyCode == KeyCode.DownArrow ? 0 : categories.Count - 1)
-                    : Mathf.Clamp(currentIndex +
-                        (current.keyCode == KeyCode.DownArrow ? 1 : -1),
-                        0, categories.Count - 1);
+                int currentSlot = allModsView ? 0 : currentIndex + 1;
+                int nextSlot = Mathf.Clamp(currentSlot +
+                    (current.keyCode == KeyCode.DownArrow ? 1 : -1),
+                    0, categories.Count);
 
-                if (nextIndex != currentIndex)
+                if (nextSlot != currentSlot)
                 {
-                    ManagerCategoryData nextCategory = categories[nextIndex];
-                    currentCategoryId = nextCategory.Id;
-                    currentFolderId = nextCategory.Folders.FirstOrDefault()?.Id;
-                    selectedPackageIds.Clear();
-                    primarySelectedPackageId = null;
-                    lastSelectedIndex = -1;
-                    RefreshVisibleMods();
+                    if (nextSlot == 0)
+                    {
+                        SelectAllModsView();
+                    }
+                    else
+                    {
+                        ManagerCategoryData nextCategory = categories[nextSlot - 1];
+                        allModsView = false;
+                        currentCategoryId = nextCategory.Id;
+                        currentFolderId = nextCategory.Folders.FirstOrDefault()?.Id;
+                        selectedPackageIds.Clear();
+                        primarySelectedPackageId = null;
+                        lastSelectedIndex = -1;
+                        RefreshVisibleMods();
+                    }
 
-                    float rowY = nextIndex * 30f;
+                    float rowY = nextSlot * 30f;
                     float viewportHeight = Mathf.Max(1f, categoryRect.height - 36f - 16f);
                     if (rowY < categoryTabScroll.y)
                         categoryTabScroll.y = rowY;
@@ -2733,6 +2816,13 @@ Widgets.DrawBoxSolid(rowRect, finalRowColor);
 
         private float GetVisibleModRowY(string packageId)
         {
+            if (allModsView)
+            {
+                int index = visibleMods.FindIndex(mod => mod != null &&
+                    string.Equals(mod.PackageId, packageId, StringComparison.OrdinalIgnoreCase));
+                return index < 0 ? 0f : index * RowHeight;
+            }
+
             float y = 0f;
             if (tagMode)
             {
@@ -5885,7 +5975,22 @@ private void RefreshInstalledModsIfNeeded()
             EnsureCurrentSelectionValid();
             RebuildLoadOrderIssueIds();
             visibleMods.Clear();
-            if (tagMode)
+            if (allModsView)
+            {
+                foreach (ModMetaData mod in ModLister.AllInstalledMods)
+                {
+                    if (mod != null && !mod.PackageId.NullOrEmpty() && MatchesSearch(mod))
+                        visibleMods.Add(mod);
+                }
+                visibleMods.Sort((left, right) =>
+                {
+                    int nameCompare = StringComparer.OrdinalIgnoreCase.Compare(
+                        GetDisplayName(left), GetDisplayName(right));
+                    return nameCompare != 0 ? nameCompare :
+                        StringComparer.OrdinalIgnoreCase.Compare(left.PackageId, right.PackageId);
+                });
+            }
+            else if (tagMode)
             {
                 ManagerTagData tag = FindCurrentTag();
                 if (tag == null)
@@ -5936,6 +6041,9 @@ private void RefreshInstalledModsIfNeeded()
 
         private void EnsureCurrentSelectionValid()
         {
+            if (allModsView)
+                return;
+
             if (tagMode)
             {
                 ManagerTagData currentTag = FindCurrentTag();
