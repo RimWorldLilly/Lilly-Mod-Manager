@@ -7087,7 +7087,7 @@ private int GetActiveCount(ManagerTagData tag)
                 return;
 
             string section = text.Substring(openBrace + 1, closeBrace - openBrace - 1);
-            MatchCollection matches = Regex.Matches(section, @"(?m)^\s*\""(?<id>\d{6,})\""\s*\{");
+            MatchCollection matches = Regex.Matches(section, @"(?m)^\s*""(?<id>\d{6,})""\s*\{");
             foreach (Match match in matches)
                 ids.Add(match.Groups["id"].Value);
         }
