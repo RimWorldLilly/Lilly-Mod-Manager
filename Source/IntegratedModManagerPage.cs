@@ -2607,7 +2607,7 @@ Widgets.DrawBoxSolid(rowRect, finalRowColor);
         private void DrawBottomButtons(Rect rect)
         {
             float gap = 5f;
-            float buttonWidth = (rect.width - gap * 7f) / 8f;
+            float buttonWidth = (rect.width - gap * 8f) / 9f;
             float x = rect.x;
             string modeLabel = tagMode ? ManagerTranslation.Get("LMM_0075") : ManagerTranslation.Get("LMM_0080");
             if (Widgets.ButtonText(new Rect(x, rect.y, buttonWidth, rect.height), modeLabel))
@@ -2626,6 +2626,10 @@ Widgets.DrawBoxSolid(rowRect, finalRowColor);
 
             if (Widgets.ButtonText(new Rect(x, rect.y, buttonWidth, rect.height), ManagerTranslation.Get("LMM_0023")))
                 ConfirmUnsubscribeSelected();
+            x += buttonWidth + gap;
+
+            if (Widgets.ButtonText(new Rect(x, rect.y, buttonWidth, rect.height), "누락 검사"))
+                Find.WindowStack.Add(new WorkshopMissingItemsWindow());
             x += buttonWidth + gap;
 
             if (Widgets.ButtonText(new Rect(x, rect.y, buttonWidth, rect.height), ManagerTranslation.Get("LMM_0094")))
