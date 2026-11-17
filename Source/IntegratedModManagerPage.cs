@@ -6919,17 +6919,17 @@ private int GetActiveCount(ManagerTagData tag)
     {
         public string Id;
         public string Name;
-        public string FolderPath;
     }
 
     internal sealed class WorkshopMissingItemsWindow : Window
     {
         private readonly List<WorkshopMissingItem> items;
+        private readonly List<string> missingActivePackageIds;
         private Vector2 scrollPosition;
 
         public override Vector2 InitialSize
         {
-            get { return new Vector2(Mathf.Min(760f, UI.screenWidth - 80f), Mathf.Min(620f, UI.screenHeight - 80f)); }
+            get { return new Vector2(Mathf.Min(760f, UI.screenWidth - 80f), Mathf.Min(650f, UI.screenHeight - 80f)); }
         }
 
         public WorkshopMissingItemsWindow()
@@ -6938,6 +6938,7 @@ private int GetActiveCount(ManagerTagData tag)
             closeOnClickedOutside = true;
             absorbInputAroundWindow = true;
             items = FindMissingItems();
+            missingActivePackageIds = FindMissingActivePackageIds();
         }
 
         public override void DoWindowContents(Rect inRect)
@@ -6947,42 +6948,75 @@ private int GetActiveCount(ManagerTagData tag)
             Text.Font = GameFont.Small;
 
             Widgets.Label(new Rect(0f, 36f, inRect.width, 42f),
-                "Steam의 appworkshop_294100.acf 기록과 실제 폴더를 비교합니다. 폴더가 없다는 사실만으로 창작마당에서 삭제되었다고 확정할 수는 없습니다.");
+                "Steam 구독 기록과 실제 폴더를 비교합니다. 폴더가 없다는 사실만으로 창작마당에서 삭제되었다고 확정할 수는 없습니다.");
             Widgets.Label(new Rect(0f, 80f, inRect.width, 26f),
-                "발견된 누락 항목: " + items.Count + "개");
+                "창작마당 폴더 누락: " + items.Count + "개    |    활성 목록에만 남은 PackageId: " + missingActivePackageIds.Count + "개");
 
             Rect listRect = new Rect(0f, 110f, inRect.width, inRect.height - 150f);
-            float rowHeight = 58f;
-            Rect viewRect = new Rect(0f, 0f, listRect.width - 18f, items.Count * rowHeight);
+            const float rowHeight = 58f;
+            float contentHeight = 30f + items.Count * rowHeight +
+                (missingActivePackageIds.Count > 0 ? 34f + missingActivePackageIds.Count * rowHeight : 0f);
+            Rect viewRect = new Rect(0f, 0f, listRect.width - 18f, Mathf.Max(listRect.height, contentHeight));
             Widgets.BeginScrollView(listRect, ref scrollPosition, viewRect);
+
+            float y = 0f;
+            Widgets.Label(new Rect(6f, y, viewRect.width - 12f, 26f), "Steam 창작마당 기록에는 있지만 로컬 폴더가 없는 항목");
+            y += 28f;
             for (int i = 0; i < items.Count; i++)
             {
                 WorkshopMissingItem item = items[i];
-                Rect row = new Rect(0f, i * rowHeight, viewRect.width, rowHeight - 4f);
-                Widgets.DrawBoxSolid(row, i % 2 == 0
-                    ? new Color(0.12f, 0.12f, 0.12f, 1f)
-                    : new Color(0.08f, 0.08f, 0.08f, 1f));
+                Rect row = new Rect(0f, y, viewRect.width, rowHeight - 4f);
+                DrawDiagnosticRowBackground(row, i);
                 Widgets.Label(new Rect(row.x + 8f, row.y + 4f, row.width - 190f, 22f),
                     (item.Name.NullOrEmpty() ? "이름 확인 필요" : item.Name) + "  [" + item.Id + "]");
                 Widgets.Label(new Rect(row.x + 8f, row.y + 27f, row.width - 190f, 20f),
-                    "로컬 폴더 없음 · 삭제/다운로드 실패/Steam 캐시 잔존 가능");
+                    "로컬 폴더 없음 · 삭제/다운로드 실패/Steam 기록 잔존 가능");
                 if (Widgets.ButtonText(new Rect(row.xMax - 174f, row.y + 12f, 166f, 30f), "창작마당 페이지 열기"))
                     OpenWorkshopPage(item.Id);
+                y += rowHeight;
             }
+
+            if (missingActivePackageIds.Count > 0)
+            {
+                y += 4f;
+                Widgets.Label(new Rect(6f, y, viewRect.width - 12f, 26f),
+                    "ModsConfig.xml에는 활성화되어 있지만 설치된 모드에서 찾지 못한 항목");
+                y += 28f;
+                for (int i = 0; i < missingActivePackageIds.Count; i++)
+                {
+                    Rect row = new Rect(0f, y, viewRect.width, rowHeight - 4f);
+                    DrawDiagnosticRowBackground(row, i);
+                    Widgets.Label(new Rect(row.x + 8f, row.y + 5f, row.width - 16f, 22f),
+                        missingActivePackageIds[i]);
+                    Widgets.Label(new Rect(row.x + 8f, row.y + 28f, row.width - 16f, 18f),
+                        "ModsConfig.xml의 activeMods에 남아 있음 · 수동 정리 대상");
+                    y += rowHeight;
+                }
+            }
+
             Widgets.EndScrollView();
 
-            if (items.Count == 0)
+            if (items.Count == 0 && missingActivePackageIds.Count == 0)
                 Widgets.Label(new Rect(0f, 116f, inRect.width, 30f),
-                    "현재 확인 가능한 누락 항목이 없습니다. Steam 설치 경로 또는 창작마당 기록 파일을 찾지 못한 경우에도 이 목록은 비어 있을 수 있습니다.");
+                    "누락 항목이 없거나 Steam 설치 경로/appworkshop 기록 파일을 찾지 못했습니다.");
 
             if (Widgets.ButtonText(new Rect(0f, inRect.height - 32f, 150f, 30f), "다시 검사"))
             {
                 items.Clear();
                 items.AddRange(FindMissingItems());
+                missingActivePackageIds.Clear();
+                missingActivePackageIds.AddRange(FindMissingActivePackageIds());
                 scrollPosition = Vector2.zero;
             }
             if (Widgets.ButtonText(new Rect(inRect.width - 150f, inRect.height - 32f, 150f, 30f), "닫기"))
                 Close();
+        }
+
+        private static void DrawDiagnosticRowBackground(Rect row, int index)
+        {
+            Widgets.DrawBoxSolid(row, index % 2 == 0
+                ? new Color(0.12f, 0.12f, 0.12f, 1f)
+                : new Color(0.08f, 0.08f, 0.08f, 1f));
         }
 
         private static List<WorkshopMissingItem> FindMissingItems()
@@ -6994,11 +7028,11 @@ private int GetActiveCount(ManagerTagData tag)
                 if (contentPath.NullOrEmpty() || !Directory.Exists(contentPath))
                     return result;
 
-                string workshopRoot = Directory.GetParent(contentPath)?.Parent?.FullName;
-                if (workshopRoot.NullOrEmpty())
+                DirectoryInfo workshopRootDirectory = Directory.GetParent(contentPath)?.Parent;
+                if (workshopRootDirectory == null)
                     return result;
 
-                string acfPath = Path.Combine(workshopRoot, "appworkshop_294100.acf");
+                string acfPath = Path.Combine(workshopRootDirectory.FullName, "appworkshop_294100.acf");
                 if (!File.Exists(acfPath))
                     return result;
 
@@ -7007,31 +7041,54 @@ private int GetActiveCount(ManagerTagData tag)
                 CollectIdsFromSection(acf, "WorkshopItemsInstalled", itemIds);
                 CollectIdsFromSection(acf, "WorkshopItemDetails", itemIds);
 
-                Dictionary<string, string> names = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-                foreach (ModMetaData mod in ModLister.AllInstalledMods)
-                {
-                    if (mod == null || !mod.OnSteamWorkshop)
-                        continue;
-                    string id = Path.GetFileName(mod.RootDir.ToString().TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
-                    if (!id.NullOrEmpty() && !names.ContainsKey(id))
-                        names[id] = mod.Name;
-                }
-
                 foreach (string id in itemIds.OrderBy(value => value, StringComparer.Ordinal))
                 {
                     if (!Regex.IsMatch(id, @"^\d{6,}$"))
                         continue;
-                    string folder = Path.Combine(contentPath, id);
-                    if (Directory.Exists(folder))
+                    if (Directory.Exists(Path.Combine(contentPath, id)))
                         continue;
-                    string name;
-                    names.TryGetValue(id, out name);
-                    result.Add(new WorkshopMissingItem { Id = id, Name = name, FolderPath = folder });
+                    result.Add(new WorkshopMissingItem { Id = id });
                 }
             }
             catch (Exception exception)
             {
                 Log.Warning("[Lilly Mod Manager] Workshop missing-item scan failed: " + exception.Message);
+            }
+            return result;
+        }
+
+        private static List<string> FindMissingActivePackageIds()
+        {
+            List<string> result = new List<string>();
+            try
+            {
+                string configPath = Path.Combine(GenFilePaths.ConfigFolderPath, "ModsConfig.xml");
+                if (!File.Exists(configPath))
+                    return result;
+
+                HashSet<string> installedPackageIds = new HashSet<string>(
+                    ModLister.AllInstalledMods
+                        .Where(mod => mod != null && !mod.PackageId.NullOrEmpty())
+                        .Select(mod => mod.PackageId),
+                    StringComparer.OrdinalIgnoreCase);
+
+                System.Xml.XmlDocument document = new System.Xml.XmlDocument();
+                document.Load(configPath);
+                System.Xml.XmlNodeList activeMods = document.SelectNodes("//activeMods/li");
+                if (activeMods == null)
+                    return result;
+
+                foreach (System.Xml.XmlNode node in activeMods)
+                {
+                    string packageId = node == null ? null : node.InnerText.Trim();
+                    if (!packageId.NullOrEmpty() && !installedPackageIds.Contains(packageId) &&
+                        !result.Contains(packageId, StringComparer.OrdinalIgnoreCase))
+                        result.Add(packageId);
+                }
+            }
+            catch (Exception exception)
+            {
+                Log.Warning("[Lilly Mod Manager] Missing active mod scan failed: " + exception.Message);
             }
             return result;
         }
@@ -7060,7 +7117,7 @@ private int GetActiveCount(ManagerTagData tag)
 
         private static void CollectIdsFromSection(string text, string sectionName, HashSet<string> ids)
         {
-            int sectionIndex = text.IndexOf("\"" + sectionName + "\"", StringComparison.OrdinalIgnoreCase);
+            int sectionIndex = text.IndexOf("\\"" + sectionName + "\\"", StringComparison.OrdinalIgnoreCase);
             if (sectionIndex < 0)
                 return;
             int openBrace = text.IndexOf('{', sectionIndex);
@@ -7109,4 +7166,5 @@ private int GetActiveCount(ManagerTagData tag)
             }
         }
     }
+}
 }
