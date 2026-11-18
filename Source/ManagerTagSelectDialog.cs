@@ -81,12 +81,25 @@ namespace Lilly.IntegratedModManager
                     : new Color(0.12f, 0.12f, 0.12f, 1f));
 
                 bool assigned = packageIds.Count > 0 && isAssigned != null && isAssigned(tag);
-                string actionLabel = assigned ? "제거" : "추가";
-                Rect actionRect = new Rect(rowRect.xMax - 78f, rowRect.y + 4f, 70f, 28f);
-                Widgets.Label(new Rect(8f, rowRect.y + 4f,
-                    Mathf.Max(40f, actionRect.x - 16f), 28f), tag.Name);
-                if (Widgets.ButtonText(actionRect, actionLabel) && onToggle != null)
-                    onToggle(tag, !assigned);
+                bool newAssigned = assigned;
+                Rect checkboxRect = new Rect(rowRect.x + 7f, rowRect.y + 6f, 24f, 24f);
+                Widgets.Checkbox(checkboxRect.position, ref newAssigned, checkboxRect.width);
+                if (newAssigned != assigned && onToggle != null)
+                    onToggle(tag, newAssigned);
+
+                Rect tagRect = new Rect(rowRect.x + 38f, rowRect.y + 4f,
+                    rowRect.width - 46f, 28f);
+                Color tagBackground = ManagerTagColors.Background(tag.ColorHex);
+                Widgets.DrawBoxSolid(tagRect, tagBackground);
+                Widgets.DrawBox(tagRect);
+                GameFont oldFont = Text.Font;
+                Color oldColor = GUI.color;
+                Text.Font = GameFont.Small;
+                GUI.color = ManagerTagColors.Foreground(tag.ColorHex);
+                Widgets.Label(new Rect(tagRect.x + 7f, tagRect.y,
+                    tagRect.width - 14f, tagRect.height), tag.Name);
+                GUI.color = oldColor;
+                Text.Font = oldFont;
                 rowIndex++;
             }
             Widgets.EndScrollView();
