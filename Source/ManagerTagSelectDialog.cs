@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 using Verse;
 
@@ -9,7 +10,9 @@ namespace Lilly.IntegratedModManager
     {
         private const float RowHeight = 36f;
         private readonly IList<ManagerTagData> tags;
-        private readonly Action<ManagerTagData> onSelect;
+        private readonly List<string> packageIds;
+        private readonly Func<ManagerTagData, bool> isAssigned;
+        private readonly Action<ManagerTagData, bool> onToggle;
         private readonly Func<string, bool> onCreate;
         private Vector2 scrollPosition;
         private string newTagName = "";
@@ -21,11 +24,17 @@ namespace Lilly.IntegratedModManager
 
         internal ManagerTagSelectDialog(
             IList<ManagerTagData> tags,
-            Action<ManagerTagData> onSelect,
+            IEnumerable<string> packageIds,
+            Func<ManagerTagData, bool> isAssigned,
+            Action<ManagerTagData, bool> onToggle,
             Func<string, bool> onCreate)
         {
             this.tags = tags ?? new List<ManagerTagData>();
-            this.onSelect = onSelect;
+            this.packageIds = packageIds == null
+                ? new List<string>()
+                : packageIds.Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+            this.isAssigned = isAssigned;
+            this.onToggle = onToggle;
             this.onCreate = onCreate;
             doCloseX = true;
             absorbInputAroundWindow = true;
@@ -36,13 +45,6 @@ namespace Lilly.IntegratedModManager
         public override void DoWindowContents(Rect rect)
         {
             Event e = Event.current;
-            if (e.type == EventType.KeyDown &&
-                (e.keyCode == KeyCode.Return || e.keyCode == KeyCode.KeypadEnter))
-            {
-                CreateTag();
-                e.Use();
-                return;
-            }
             if (e.type == EventType.KeyDown && e.keyCode == KeyCode.Escape)
             {
                 Close();
@@ -55,54 +57,58 @@ namespace Lilly.IntegratedModManager
             Text.Font = GameFont.Small;
             Widgets.Label(new Rect(0f, 38f, rect.width, 26f), ManagerTranslation.Get("LMM_0138"));
 
+            float inputY = rect.height - 76f;
             float listY = 66f;
-            float listHeight = rect.height - 166f;
+            float listHeight = Mathf.Max(80f, inputY - listY - 8f);
             Rect listRect = new Rect(0f, listY, rect.width, listHeight);
-            float contentHeight = Mathf.Max(listRect.height, tags.Count * RowHeight);
+            int visibleTagCount = tags.Count(tag => tag != null && !tag.IsSystem);
+            float contentHeight = Mathf.Max(listRect.height, visibleTagCount * RowHeight);
             float scrollbarWidth = contentHeight > listRect.height
                 ? ManagerUiMetrics.VerticalScrollbarWidth : 0f;
             Rect viewRect = new Rect(0f, 0f, listRect.width - scrollbarWidth, contentHeight);
             Widgets.BeginScrollView(listRect, ref scrollPosition, viewRect);
+
+            int rowIndex = 0;
             for (int i = 0; i < tags.Count; i++)
             {
                 ManagerTagData tag = tags[i];
                 if (tag == null || tag.IsSystem)
                     continue;
 
-                Rect rowRect = new Rect(0f, i * RowHeight, viewRect.width, RowHeight);
-                Widgets.DrawBoxSolid(rowRect, i % 2 == 0
+                Rect rowRect = new Rect(0f, rowIndex * RowHeight, viewRect.width, RowHeight);
+                Widgets.DrawBoxSolid(rowRect, rowIndex % 2 == 0
                     ? new Color(0.075f, 0.075f, 0.075f, 1f)
                     : new Color(0.12f, 0.12f, 0.12f, 1f));
+
+                bool assigned = packageIds.Count > 0 && isAssigned != null && isAssigned(tag);
+                string actionLabel = assigned ? "제거" : "추가";
+                Rect actionRect = new Rect(rowRect.xMax - 78f, rowRect.y + 4f, 70f, 28f);
                 Widgets.Label(new Rect(8f, rowRect.y + 4f,
-                    Mathf.Max(40f, rowRect.width - 100f), 28f), tag.Name);
-                if (Widgets.ButtonText(new Rect(rowRect.xMax - 92f, rowRect.y + 4f,
-                    84f, 28f), ManagerTranslation.Get("LMM_0137")))
-                {
-                    if (onSelect != null)
-                        onSelect(tag);
-                    Close();
-                    Widgets.EndScrollView();
-                    return;
-                }
+                    Mathf.Max(40f, actionRect.x - 16f), 28f), tag.Name);
+                if (Widgets.ButtonText(actionRect, actionLabel) && onToggle != null)
+                    onToggle(tag, !assigned);
+                rowIndex++;
             }
             Widgets.EndScrollView();
 
-            float inputY = listRect.yMax + 8f;
+            const float createButtonWidth = 104f;
             GUI.SetNextControlName("LillyModManagerNewTagInput");
-            newTagName = Widgets.TextField(new Rect(0f, inputY, rect.width, 30f), newTagName);
+            newTagName = Widgets.TextField(
+                new Rect(0f, inputY, rect.width - createButtonWidth - 8f, 30f),
+                newTagName);
             if (focusNameOnNextDraw)
             {
                 GUI.FocusControl("LillyModManagerNewTagInput");
                 focusNameOnNextDraw = false;
             }
+            if (Widgets.ButtonText(new Rect(rect.width - createButtonWidth, inputY,
+                createButtonWidth, 30f), ManagerTranslation.Get("LMM_0139")))
+                CreateTag();
 
             float buttonY = rect.height - 34f;
-            if (Widgets.ButtonText(new Rect(rect.width - 250f, buttonY, 120f, 30f),
+            if (Widgets.ButtonText(new Rect(rect.width - 120f, buttonY, 120f, 30f),
                 ManagerTranslation.Get("LMM_0124")))
                 Close();
-            if (Widgets.ButtonText(new Rect(rect.width - 120f, buttonY, 120f, 30f),
-                ManagerTranslation.Get("LMM_0139")))
-                CreateTag();
         }
 
         private void CreateTag()
@@ -115,7 +121,11 @@ namespace Lilly.IntegratedModManager
                 return;
             }
             if (onCreate != null && onCreate(trimmed))
-                Close();
+            {
+                newTagName = "";
+                // 생성 직후 창을 유지하여 갱신된 태그 목록을 계속 편집할 수 있다.
+                GUI.FocusControl("LillyModManagerNewTagInput");
+            }
         }
     }
 }
