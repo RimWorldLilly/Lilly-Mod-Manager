@@ -185,14 +185,10 @@ nextInstalledModRefreshTime =
             float mainWidth = Mathf.Max(100f, inRect.width - mainX - 20f);
 
             const float searchTop = 48f;
-            const float searchHeight = 62f;
-            const float sortButtonWidth = 130f;
-            const float searchGap = 8f;
-            if (Widgets.ButtonText(new Rect(20f, searchTop, sortButtonWidth, 30f),
-                ManagerTranslation.Get("LMM_0067")))
-                SortAllCategories();
-            Rect searchRect = new Rect(20f + sortButtonWidth + searchGap, searchTop,
-                Mathf.Max(100f, inRect.width - 40f - sortButtonWidth - searchGap), searchHeight);
+            const float searchHeight = 30f;
+            // 검색 및 모든 필터를 한 줄에 표시한다. 정렬 버튼은 하단 버튼 영역으로 이동.
+            Rect searchRect = new Rect(20f, searchTop,
+                Mathf.Max(100f, inRect.width - 40f), searchHeight);
             float sectionTop = searchRect.yMax + 8f;
             Rect categoryRect = new Rect(20f, sectionTop, sidebarWidth,
                 contentBottom - sectionTop);
@@ -238,7 +234,12 @@ nextInstalledModRefreshTime =
 
         private void DrawSearchField(Rect rect)
         {
-            Widgets.Label(new Rect(rect.x, rect.y, 52f, 30f),
+            const float labelWidth = 48f;
+            const float clearButtonWidth = 28f;
+            const float gap = 4f;
+            const float checkboxHeight = 28f;
+
+            Widgets.Label(new Rect(rect.x, rect.y, labelWidth, checkboxHeight),
                 ManagerTranslation.Get("LMM_0021"));
 
             string[] filterLabels =
@@ -247,19 +248,24 @@ nextInstalledModRefreshTime =
                 ManagerTranslation.Get("LMM_0112"),
                 ManagerTranslation.Get("LMM_0110"),
                 ManagerTranslation.Get("LMM_0114"),
-                ManagerTranslation.Get("LMM_0111")
+                ManagerTranslation.Get("LMM_0111"),
+                "선후행 오류", "필수 모드 누락", "버전 불일치",
+                "로컬 모드", "워크샵 모드", "공식 모드", "폴더 미할당"
             };
             float[] filterWidths = filterLabels
-                .Select(label => Text.CalcSize(label).x + 28f).ToArray();
-            float filterWidth = filterWidths.Sum() +
-                6f * (filterWidths.Length - 1) + 8f;
-            bool hasSearchText = !searchText.NullOrEmpty();
-            float clearButtonWidth = hasSearchText ? 34f : 0f;
-            float searchWidth = Mathf.Max(120f,
-                rect.width - 54f - filterWidth - 12f);
+                .Select(label => Text.CalcSize(label).x + 22f).ToArray();
+
+            float andWidth = Text.CalcSize(ManagerTranslation.Get("LMM_0140")).x + 18f;
+            float orWidth = Text.CalcSize(ManagerTranslation.Get("LMM_0141")).x + 18f;
+            float filterGroupWidth = filterWidths.Sum() +
+                gap * (filterWidths.Length - 1) + gap + andWidth + orWidth;
+            float searchX = rect.x + labelWidth;
+            // 검색어 유무와 관계없이 TextField의 Rect를 고정해 IMGUI control ID가 바뀌지 않게 한다.
+            float searchWidth = Mathf.Max(110f,
+                rect.width - labelWidth - clearButtonWidth - gap - filterGroupWidth);
+            GUI.SetNextControlName("LillyIntegratedModManagerSearch");
             string newSearchText = Widgets.TextField(
-                new Rect(rect.x + 54f, rect.y,
-                    searchWidth - clearButtonWidth, 28f), searchText);
+                new Rect(searchX, rect.y, searchWidth, checkboxHeight), searchText);
             if (!string.Equals(newSearchText, searchText, StringComparison.Ordinal))
             {
                 searchText = newSearchText;
@@ -269,77 +275,65 @@ nextInstalledModRefreshTime =
                 RefreshVisibleMods();
             }
 
-            if (hasSearchText &&
-                Widgets.ButtonText(new Rect(rect.x + 54f + searchWidth - clearButtonWidth,
-                    rect.y, clearButtonWidth, 28f), "×"))
+            float clearX = searchX + searchWidth + gap;
+            if (!searchText.NullOrEmpty() &&
+                Widgets.ButtonText(new Rect(clearX, rect.y, clearButtonWidth, checkboxHeight), "×"))
             {
                 searchText = "";
                 selectedPackageIds.Clear();
                 primarySelectedPackageId = null;
                 lastSelectedIndex = -1;
                 RefreshVisibleMods();
+                GUI.FocusControl("LillyIntegratedModManagerSearch");
             }
 
-            float filterX = rect.x + 54f + searchWidth + 12f;
+            float filterX = clearX + clearButtonWidth + gap;
             bool filtersChanged = false;
             bool activeChanged = DrawFilterCheckbox(ref filterActive, filterLabels[0],
-                new Rect(filterX, rect.y, filterWidths[0], 28f));
+                new Rect(filterX, rect.y, filterWidths[0], checkboxHeight));
             filtersChanged |= activeChanged;
-            filterX += filterWidths[0] + 6f;
+            filterX += filterWidths[0] + gap;
             bool inactiveChanged = DrawFilterCheckbox(ref filterInactive, filterLabels[1],
-                new Rect(filterX, rect.y, filterWidths[1], 28f));
+                new Rect(filterX, rect.y, filterWidths[1], checkboxHeight));
             filtersChanged |= inactiveChanged;
-            filterX += filterWidths[1] + 6f;
+            filterX += filterWidths[1] + gap;
             filtersChanged |= DrawFilterCheckbox(ref filterSubscribed, filterLabels[2],
-                new Rect(filterX, rect.y, filterWidths[2], 28f));
-            filterX += filterWidths[2] + 6f;
+                new Rect(filterX, rect.y, filterWidths[2], checkboxHeight));
+            filterX += filterWidths[2] + gap;
             filtersChanged |= DrawFilterCheckbox(ref filterUntagged, filterLabels[3],
-                new Rect(filterX, rect.y, filterWidths[3], 28f));
-            filterX += filterWidths[3] + 6f;
+                new Rect(filterX, rect.y, filterWidths[3], checkboxHeight));
+            filterX += filterWidths[3] + gap;
             filtersChanged |= DrawFilterCheckbox(ref filterUncategorized, filterLabels[4],
-                new Rect(filterX, rect.y, filterWidths[4], 28f));
-
-            // 추가 필터는 두 번째 줄에 배치한다.
-            string[] additionalLabels =
-            {
-                "선후행 오류", "필수 모드 누락", "버전 불일치",
-                "로컬 모드", "워크샵 모드", "공식 모드", "폴더 미할당"
-            };
-            float[] additionalWidths = additionalLabels
-                .Select(label => Text.CalcSize(label).x + 28f).ToArray();
-            filterX = rect.x + 54f;
-            float secondRowY = rect.y + 32f;
-
-            filtersChanged |= DrawFilterCheckbox(ref filterLoadOrderIssue,
-                additionalLabels[0], new Rect(filterX, secondRowY, additionalWidths[0], 28f));
-            filterX += additionalWidths[0] + 6f;
-            filtersChanged |= DrawFilterCheckbox(ref filterMissingRequired,
-                additionalLabels[1], new Rect(filterX, secondRowY, additionalWidths[1], 28f));
-            filterX += additionalWidths[1] + 6f;
-            filtersChanged |= DrawFilterCheckbox(ref filterVersionMismatch,
-                additionalLabels[2], new Rect(filterX, secondRowY, additionalWidths[2], 28f));
-            filterX += additionalWidths[2] + 6f;
-            filtersChanged |= DrawFilterCheckbox(ref filterLocal,
-                additionalLabels[3], new Rect(filterX, secondRowY, additionalWidths[3], 28f));
-            filterX += additionalWidths[3] + 6f;
-            filtersChanged |= DrawFilterCheckbox(ref filterWorkshop,
-                additionalLabels[4], new Rect(filterX, secondRowY, additionalWidths[4], 28f));
-            filterX += additionalWidths[4] + 6f;
-            filtersChanged |= DrawFilterCheckbox(ref filterOfficial,
-                additionalLabels[5], new Rect(filterX, secondRowY, additionalWidths[5], 28f));
-            filterX += additionalWidths[5] + 6f;
-            filtersChanged |= DrawFilterCheckbox(ref filterNoFolder,
-                additionalLabels[6], new Rect(filterX, secondRowY, additionalWidths[6], 28f));
-            filterX += additionalWidths[6] + 12f;
+                new Rect(filterX, rect.y, filterWidths[4], checkboxHeight));
+            filterX += filterWidths[4] + gap;
+            filtersChanged |= DrawFilterCheckbox(ref filterLoadOrderIssue, filterLabels[5],
+                new Rect(filterX, rect.y, filterWidths[5], checkboxHeight));
+            filterX += filterWidths[5] + gap;
+            filtersChanged |= DrawFilterCheckbox(ref filterMissingRequired, filterLabels[6],
+                new Rect(filterX, rect.y, filterWidths[6], checkboxHeight));
+            filterX += filterWidths[6] + gap;
+            filtersChanged |= DrawFilterCheckbox(ref filterVersionMismatch, filterLabels[7],
+                new Rect(filterX, rect.y, filterWidths[7], checkboxHeight));
+            filterX += filterWidths[7] + gap;
+            filtersChanged |= DrawFilterCheckbox(ref filterLocal, filterLabels[8],
+                new Rect(filterX, rect.y, filterWidths[8], checkboxHeight));
+            filterX += filterWidths[8] + gap;
+            filtersChanged |= DrawFilterCheckbox(ref filterWorkshop, filterLabels[9],
+                new Rect(filterX, rect.y, filterWidths[9], checkboxHeight));
+            filterX += filterWidths[9] + gap;
+            filtersChanged |= DrawFilterCheckbox(ref filterOfficial, filterLabels[10],
+                new Rect(filterX, rect.y, filterWidths[10], checkboxHeight));
+            filterX += filterWidths[10] + gap;
+            filtersChanged |= DrawFilterCheckbox(ref filterNoFolder, filterLabels[11],
+                new Rect(filterX, rect.y, filterWidths[11], checkboxHeight));
+            filterX += filterWidths[11] + gap;
 
             bool priorFilterUseAnd = filterUseAnd;
-            float andWidth = Text.CalcSize(ManagerTranslation.Get("LMM_0140")).x + 20f;
-            float orWidth = Text.CalcSize(ManagerTranslation.Get("LMM_0141")).x + 20f;
-            if (Widgets.RadioButtonLabeled(new Rect(filterX, secondRowY, andWidth, 28f),
+            if (Widgets.RadioButtonLabeled(new Rect(filterX, rect.y, andWidth, checkboxHeight),
                 ManagerTranslation.Get("LMM_0140"), filterUseAnd))
                 filterUseAnd = true;
             filterX += andWidth;
-            if (Widgets.RadioButtonLabeled(new Rect(filterX, secondRowY, orWidth, 28f),
+            if (Widgets.RadioButtonLabeled(new Rect(filterX, rect.y, orWidth, checkboxHeight),
                 ManagerTranslation.Get("LMM_0141"), !filterUseAnd))
                 filterUseAnd = false;
             filtersChanged |= priorFilterUseAnd != filterUseAnd;
@@ -2618,7 +2612,7 @@ Widgets.DrawBoxSolid(rowRect, finalRowColor);
         private void DrawBottomButtons(Rect rect)
         {
             float gap = 5f;
-            float buttonWidth = (rect.width - gap * 8f) / 9f;
+            float buttonWidth = (rect.width - gap * 9f) / 10f;
             float x = rect.x;
             string modeLabel = tagMode ? ManagerTranslation.Get("LMM_0075") : ManagerTranslation.Get("LMM_0080");
             if (Widgets.ButtonText(new Rect(x, rect.y, buttonWidth, rect.height), modeLabel))
@@ -2633,6 +2627,10 @@ Widgets.DrawBoxSolid(rowRect, finalRowColor);
                 else
                     OpenCreateCategoryDialog(GetSelectedCategoryInsertIndex());
             }
+            x += buttonWidth + gap;
+
+            if (Widgets.ButtonText(new Rect(x, rect.y, buttonWidth, rect.height), ManagerTranslation.Get("LMM_0067")))
+                SortAllCategories();
             x += buttonWidth + gap;
 
             if (Widgets.ButtonText(new Rect(x, rect.y, buttonWidth, rect.height), ManagerTranslation.Get("LMM_0023")))
