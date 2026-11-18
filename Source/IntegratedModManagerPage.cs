@@ -1949,6 +1949,7 @@ Widgets.DrawBoxSolid(rowRect, finalRowColor);
         {
             if (tag == null)
                 return false;
+
             Widgets.DrawBoxSolid(rect, ManagerTagColors.Background(tag.ColorHex));
             Widgets.DrawBox(rect);
             GameFont oldFont = Text.Font;
@@ -1959,7 +1960,11 @@ Widgets.DrawBoxSolid(rowRect, finalRowColor);
             GUI.color = oldColor;
             Text.Font = oldFont;
             TooltipHandler.TipRegion(rect, tag.Name);
-            return Widgets.ButtonInvisible(rect);
+
+            // 좌클릭만 태그 화면 이동으로 처리한다. 우클릭은 호출부의 제거 동작만 처리한다.
+            Event current = Event.current;
+            return current.type == EventType.MouseDown &&
+                current.button == 0 && rect.Contains(current.mousePosition);
         }
 
         private static void DrawTagOverflowChip(Rect rect)
@@ -2148,17 +2153,23 @@ Widgets.DrawBoxSolid(rowRect, finalRowColor);
                 }
 
                 Rect chipRect = new Rect(chipX, y + 1f, chipWidth, 23f);
-                if (DrawTagChip(chipRect, tag))
+                Event current = Event.current;
+                if (current.type == EventType.MouseDown && chipRect.Contains(current.mousePosition))
                 {
-                    tagMode = true;
-                    SelectTag(tag);
+                    if (current.button == 1)
+                    {
+                        // 우클릭은 태그 제거만 수행하며 좌클릭 선택 동작은 실행하지 않는다.
+                        SetTagForSelection(new List<string> { mod.PackageId }, tag, false);
+                        current.Use();
+                    }
+                    else if (current.button == 0)
+                    {
+                        tagMode = true;
+                        SelectTag(tag);
+                        current.Use();
+                    }
                 }
-                if (Event.current.type == EventType.MouseDown && Event.current.button == 1 &&
-                    chipRect.Contains(Event.current.mousePosition))
-                {
-                    SetTagForSelection(new List<string> { mod.PackageId }, tag, false);
-                    Event.current.Use();
-                }
+                DrawTagChip(chipRect, tag);
                 chipX += chipWidth + 3f;
             }
 
