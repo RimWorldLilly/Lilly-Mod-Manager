@@ -3387,11 +3387,13 @@ Widgets.DrawBoxSolid(rowRect, finalRowColor);
                 : packageIds.Distinct(StringComparer.OrdinalIgnoreCase).ToList();
             Find.WindowStack.Add(new ManagerTagSelectDialog(
                 tags,
-                tag =>
+                selectedIds,
+                tag => selectedIds.Count > 0 && selectedIds.All(id => HasTag(id, tag.Id)),
+                (tag, add) =>
                 {
                     if (selectedIds.Count > 0)
-                        SetTagForSelection(selectedIds, tag, true);
-                    else
+                        SetTagForSelection(selectedIds, tag, add);
+                    else if (add)
                     {
                         tagMode = true;
                         SelectTag(tag);
