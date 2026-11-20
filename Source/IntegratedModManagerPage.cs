@@ -234,26 +234,32 @@ nextInstalledModRefreshTime =
 
         private void DrawSearchField(Rect rect)
         {
-            const float labelWidth = 48f;
-            const float clearButtonWidth = 28f;
-            const float gap = 4f;
+            const float labelWidth = 42f;
+            const float clearButtonWidth = 24f;
+            const float gap = 3f;
             const float checkboxHeight = 28f;
 
             Widgets.Label(new Rect(rect.x, rect.y, labelWidth, checkboxHeight),
                 ManagerTranslation.Get("LMM_0021"));
 
+            // 각 항목에 반복되던 "필터:" 접두사를 제거해 체크 필터에 더 많은 공간을 확보한다.
+            string ShortFilterLabel(string label) => label
+                .Replace("필터: ", string.Empty)
+                .Replace("Filter: ", string.Empty);
+
             string[] filterLabels =
             {
-                ManagerTranslation.Get("LMM_0115"),
-                ManagerTranslation.Get("LMM_0112"),
-                ManagerTranslation.Get("LMM_0110"),
-                ManagerTranslation.Get("LMM_0114"),
-                ManagerTranslation.Get("LMM_0111"),
-                "선후행 오류", "필수 모드 누락", "버전 불일치",
-                "로컬 모드", "워크샵 모드", "공식 모드", "폴더 미할당"
+                ShortFilterLabel(ManagerTranslation.Get("LMM_0115")),
+                ShortFilterLabel(ManagerTranslation.Get("LMM_0112")),
+                ShortFilterLabel(ManagerTranslation.Get("LMM_0110")),
+                ShortFilterLabel(ManagerTranslation.Get("LMM_0114")),
+                ShortFilterLabel(ManagerTranslation.Get("LMM_0111")),
+                "선후행", "필수 누락", "버전",
+                "로컬", "워크샵", "공식", "폴더 없음"
             };
+            // CheckboxLabeled의 체크 표시 영역과 텍스트 여백을 충분히 확보한다.
             float[] filterWidths = filterLabels
-                .Select(label => Text.CalcSize(label).x + 22f).ToArray();
+                .Select(label => Text.CalcSize(label).x + 30f).ToArray();
 
             float andWidth = Text.CalcSize(ManagerTranslation.Get("LMM_0140")).x + 18f;
             float orWidth = Text.CalcSize(ManagerTranslation.Get("LMM_0141")).x + 18f;
@@ -261,7 +267,7 @@ nextInstalledModRefreshTime =
                 gap * (filterWidths.Length - 1) + gap + andWidth + orWidth;
             float searchX = rect.x + labelWidth;
             // 검색어 유무와 관계없이 TextField의 Rect를 고정해 IMGUI control ID가 바뀌지 않게 한다.
-            float searchWidth = Mathf.Max(110f,
+            float searchWidth = Mathf.Max(60f,
                 rect.width - labelWidth - clearButtonWidth - gap * 2f - filterGroupWidth);
             GUI.SetNextControlName("LillyIntegratedModManagerSearch");
             string newSearchText = Widgets.TextField(
