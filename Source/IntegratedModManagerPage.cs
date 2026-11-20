@@ -6969,53 +6969,64 @@ private int GetActiveCount(ManagerTagData tag)
             Widgets.Label(new Rect(0f, 80f, inRect.width, 26f),
                 "창작마당 폴더 누락: " + items.Count + "개    |    활성 목록에만 남은 PackageId: " + missingActivePackageIds.Count + "개");
 
-            Rect listRect = new Rect(0f, 110f, inRect.width, inRect.height - 150f);
-            const float rowHeight = 58f;
-            float contentHeight = 30f + items.Count * rowHeight +
-                (missingActivePackageIds.Count > 0 ? 34f + missingActivePackageIds.Count * rowHeight : 0f);
-            Rect viewRect = new Rect(0f, 0f, listRect.width - 18f, Mathf.Max(listRect.height, contentHeight));
-            Widgets.BeginScrollView(listRect, ref scrollPosition, viewRect);
-
-            float y = 0f;
-            Widgets.Label(new Rect(6f, y, viewRect.width - 12f, 26f), "Steam 창작마당 기록에는 있지만 로컬 폴더가 없는 항목");
-            y += 28f;
-            for (int i = 0; i < items.Count; i++)
-            {
-                WorkshopMissingItem item = items[i];
-                Rect row = new Rect(0f, y, viewRect.width, rowHeight - 4f);
-                DrawDiagnosticRowBackground(row, i);
-                Widgets.Label(new Rect(row.x + 8f, row.y + 4f, row.width - 190f, 22f),
-                    (item.Name.NullOrEmpty() ? "이름 확인 필요" : item.Name) + "  [" + item.Id + "]");
-                Widgets.Label(new Rect(row.x + 8f, row.y + 27f, row.width - 190f, 20f),
-                    "로컬 폴더 없음 · 삭제/다운로드 실패/Steam 기록 잔존 가능");
-                if (Widgets.ButtonText(new Rect(row.xMax - 174f, row.y + 12f, 166f, 30f), "창작마당 페이지 열기"))
-                    OpenWorkshopPage(item.Id);
-                y += rowHeight;
-            }
-
-            if (missingActivePackageIds.Count > 0)
-            {
-                y += 4f;
-                Widgets.Label(new Rect(6f, y, viewRect.width - 12f, 26f),
-                    "ModsConfig.xml에는 활성화되어 있지만 설치된 모드에서 찾지 못한 항목");
-                y += 28f;
-                for (int i = 0; i < missingActivePackageIds.Count; i++)
-                {
-                    Rect row = new Rect(0f, y, viewRect.width, rowHeight - 4f);
-                    DrawDiagnosticRowBackground(row, i);
-                    Widgets.Label(new Rect(row.x + 8f, row.y + 5f, row.width - 16f, 22f),
-                        missingActivePackageIds[i]);
-                    Widgets.Label(new Rect(row.x + 8f, row.y + 28f, row.width - 16f, 18f),
-                        "ModsConfig.xml의 activeMods에 남아 있음 · 게임 종료 후 파일 백업 및 수동 정리 대상");
-                    y += rowHeight;
-                }
-            }
-
-            Widgets.EndScrollView();
-
             if (items.Count == 0 && missingActivePackageIds.Count == 0)
-                Widgets.Label(new Rect(0f, 116f, inRect.width, 30f),
+            {
+                // 빈 상태에서는 목록 제목과 안내 문구가 같은 위치에 그려지지 않도록
+                // 스크롤 목록을 생략하고 안내 문구만 표시한다.
+                Widgets.Label(new Rect(6f, 116f, inRect.width - 12f, 44f),
                     "누락 항목이 없거나 Steam 설치 경로/appworkshop 기록 파일을 찾지 못했습니다.");
+            }
+            else
+            {
+                Rect listRect = new Rect(0f, 110f, inRect.width, inRect.height - 150f);
+                const float rowHeight = 58f;
+                float contentHeight = 30f + items.Count * rowHeight +
+                    (missingActivePackageIds.Count > 0 ? 34f + missingActivePackageIds.Count * rowHeight : 0f);
+                Rect viewRect = new Rect(0f, 0f, listRect.width - 18f, Mathf.Max(listRect.height, contentHeight));
+                Widgets.BeginScrollView(listRect, ref scrollPosition, viewRect);
+
+                float y = 0f;
+                if (items.Count > 0)
+                {
+                    Widgets.Label(new Rect(6f, y, viewRect.width - 12f, 26f),
+                        "Steam 창작마당 기록에는 있지만 로컬 폴더가 없는 항목");
+                    y += 28f;
+                    for (int i = 0; i < items.Count; i++)
+                    {
+                        WorkshopMissingItem item = items[i];
+                        Rect row = new Rect(0f, y, viewRect.width, rowHeight - 4f);
+                        DrawDiagnosticRowBackground(row, i);
+                        Widgets.Label(new Rect(row.x + 8f, row.y + 4f, row.width - 190f, 22f),
+                            (item.Name.NullOrEmpty() ? "이름 확인 필요" : item.Name) + "  [" + item.Id + "]");
+                        Widgets.Label(new Rect(row.x + 8f, row.y + 27f, row.width - 190f, 20f),
+                            "로컬 폴더 없음 · 삭제/다운로드 실패/Steam 기록 잔존 가능");
+                        if (Widgets.ButtonText(new Rect(row.xMax - 174f, row.y + 12f, 166f, 30f), "창작마당 페이지 열기"))
+                            OpenWorkshopPage(item.Id);
+                        y += rowHeight;
+                    }
+                }
+
+                if (missingActivePackageIds.Count > 0)
+                {
+                    if (items.Count > 0)
+                        y += 4f;
+                    Widgets.Label(new Rect(6f, y, viewRect.width - 12f, 26f),
+                        "ModsConfig.xml에는 활성화되어 있지만 설치된 모드에서 찾지 못한 항목");
+                    y += 28f;
+                    for (int i = 0; i < missingActivePackageIds.Count; i++)
+                    {
+                        Rect row = new Rect(0f, y, viewRect.width, rowHeight - 4f);
+                        DrawDiagnosticRowBackground(row, i);
+                        Widgets.Label(new Rect(row.x + 8f, row.y + 5f, row.width - 16f, 22f),
+                            missingActivePackageIds[i]);
+                        Widgets.Label(new Rect(row.x + 8f, row.y + 28f, row.width - 16f, 18f),
+                            "ModsConfig.xml의 activeMods에 남아 있음 · 게임 종료 후 파일 백업 및 수동 정리 대상");
+                        y += rowHeight;
+                    }
+                }
+
+                Widgets.EndScrollView();
+            }
 
             if (Widgets.ButtonText(new Rect(0f, inRect.height - 32f, 150f, 30f), "다시 검사"))
             {
