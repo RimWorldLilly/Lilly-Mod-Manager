@@ -267,8 +267,8 @@ nextInstalledModRefreshTime =
                 gap * (filterWidths.Length - 1) + gap + andWidth + orWidth;
             float searchX = rect.x + labelWidth;
             // 검색어 유무와 관계없이 TextField의 Rect를 고정해 IMGUI control ID가 바뀌지 않게 한다.
-            float searchWidth = Mathf.Max(60f,
-                rect.width - labelWidth - clearButtonWidth - gap * 2f - filterGroupWidth);
+            float searchWidth = Mathf.Min(300f, Mathf.Max(60f,
+                rect.width - labelWidth - clearButtonWidth - gap * 2f - filterGroupWidth));
             GUI.SetNextControlName("LillyIntegratedModManagerSearch");
             string newSearchText = Widgets.TextField(
                 new Rect(searchX, rect.y, searchWidth, checkboxHeight), searchText);
