@@ -5793,9 +5793,12 @@ private void SavePreset(string name, ManagerPresetData existingPreset)
                 normalCategory.Folders.Insert(0, unfiled);
             }
 
-            foreach (ModMetaData mod in modsByPackageId.Values)
+            // Dictionary의 Values 열거 순서는 게임의 원본 모드/DLC 순서를 보장하지 않는다.
+            // RimWorld가 제공하는 AllInstalledMods 순서를 기준으로 누락 항목을 추가한다.
+            foreach (ModMetaData mod in ModLister.AllInstalledMods)
             {
-                if (excluded.Contains(mod.PackageId))
+                if (mod == null || mod.PackageId.NullOrEmpty() ||
+                    excluded.Contains(mod.PackageId))
                     continue;
                 if (FindModState(mod.PackageId) == null)
                     modStates.Add(new ManagerModData(mod.PackageId, mod.Active));
