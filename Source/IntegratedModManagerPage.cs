@@ -67,6 +67,15 @@ private float nextInstalledModRefreshTime;
         private int lastSelectedIndex = -1;
         private string currentFolderId;
         private string searchText = "";
+        private enum ModSearchScope
+        {
+            All,
+            Title,
+            Description,
+            Author,
+            PackageId
+        }
+        private ModSearchScope searchScope = ModSearchScope.All;
         private bool filterActive;
         private bool filterInactive;
         private bool filterSubscribed;
@@ -234,13 +243,18 @@ nextInstalledModRefreshTime =
 
         private void DrawSearchField(Rect rect)
         {
-            const float labelWidth = 42f;
+            const float labelWidth = 38f;
+            const float scopeWidth = 76f;
             const float clearButtonWidth = 24f;
             const float gap = 3f;
             const float checkboxHeight = 28f;
 
             Widgets.Label(new Rect(rect.x, rect.y, labelWidth, checkboxHeight),
                 ManagerTranslation.Get("LMM_0021"));
+
+            Rect scopeRect = new Rect(rect.x + labelWidth, rect.y, scopeWidth, checkboxHeight);
+            if (Widgets.ButtonText(scopeRect, GetSearchScopeLabel() + " ▼"))
+                OpenSearchScopeMenu();
 
             // 각 항목에 반복되던 "필터:" 접두사를 제거해 체크 필터에 더 많은 공간을 확보한다.
             string ShortFilterLabel(string label) => label
@@ -265,10 +279,11 @@ nextInstalledModRefreshTime =
             float orWidth = Text.CalcSize(ManagerTranslation.Get("LMM_0141")).x + 18f;
             float filterGroupWidth = filterWidths.Sum() +
                 gap * (filterWidths.Length - 1) + gap + andWidth + orWidth;
-            float searchX = rect.x + labelWidth;
+            float searchX = rect.x + labelWidth + scopeWidth + gap;
             // 검색어 유무와 관계없이 TextField의 Rect를 고정해 IMGUI control ID가 바뀌지 않게 한다.
             float searchWidth = Mathf.Min(300f, Mathf.Max(60f,
-                rect.width - labelWidth - clearButtonWidth - gap * 2f - filterGroupWidth));
+                rect.width - labelWidth - scopeWidth - gap -
+                clearButtonWidth - gap * 2f - filterGroupWidth));
             GUI.SetNextControlName("LillyIntegratedModManagerSearch");
             string newSearchText = Widgets.TextField(
                 new Rect(searchX, rect.y, searchWidth, checkboxHeight), searchText);
@@ -352,6 +367,59 @@ nextInstalledModRefreshTime =
                     filterActive = false;
                 RefreshVisibleMods();
             }
+        }
+
+        private string GetSearchScopeLabel()
+        {
+            switch (searchScope)
+            {
+                case ModSearchScope.Title: return "제목";
+                case ModSearchScope.Description: return "내용";
+                case ModSearchScope.Author: return "제작자";
+                case ModSearchScope.PackageId: return "PackageId";
+                default: return "전체";
+            }
+        }
+
+        private void OpenSearchScopeMenu()
+        {
+            List<FloatMenuOption> options = new List<FloatMenuOption>();
+            AddSearchScopeOption(options, ModSearchScope.All, "전체");
+            AddSearchScopeOption(options, ModSearchScope.Title, "제목만");
+            AddSearchScopeOption(options, ModSearchScope.Description, "내용만");
+            AddSearchScopeOption(options, ModSearchScope.Author, "제작자만");
+            AddSearchScopeOption(options, ModSearchScope.PackageId, "PackageId만");
+            Find.WindowStack.Add(new FloatMenu(options));
+        }
+
+        private void AddSearchScopeOption(
+            List<FloatMenuOption> options,
+            ModSearchScope scope,
+            string label)
+        {
+            options.Add(new FloatMenuOption(
+                searchScope == scope ? "✓ " + label : label,
+                () =>
+                {
+                    if (searchScope == scope)
+                        return;
+                    searchScope = scope;
+                    selectedPackageIds.Clear();
+                    primarySelectedPackageId = null;
+                    lastSelectedIndex = -1;
+                    RefreshVisibleMods();
+                }));
+        }
+
+        private static Color GetReadableTextColor(Color background)
+        {
+            // 상대 휘도를 기준으로 어두운 배경에는 밝은 글자, 밝은 배경에는 어두운 글자를 사용한다.
+            float luminance = background.r * 0.2126f +
+                background.g * 0.7152f +
+                background.b * 0.0722f;
+            return luminance >= 0.48f
+                ? new Color(0.08f, 0.08f, 0.08f, 1f)
+                : Color.white;
         }
 
         private static bool DrawFilterCheckbox(ref bool value, string label, Rect rect)
@@ -458,26 +526,27 @@ Widgets.DrawBoxSolid(rowRect, categoryRowColor);
     GetInstalledCount(category) + ")";
 
 
-Color previousLabelColor = GUI.color;
+Color previousContentColor = GUI.contentColor;
+GUI.contentColor = GetReadableTextColor(categoryRowColor);
 
-// 선후행 오류가 있으면 빨간색 유지
+// 선후행 오류가 있으면 배경과 관계없이 오류 표시 색상을 유지
 if (HasCategoryLoadOrderIssue(category))
-{
-    GUI.color = new Color(1f, 0.28f, 0.28f, 1f);
-}
+    GUI.contentColor = new Color(1f, 0.28f, 0.28f, 1f);
 
 Widgets.Label(labelRect, label);
-
-GUI.color = previousLabelColor;
+GUI.contentColor = previousContentColor;
 
 
                 TooltipHandler.TipRegion(labelRect, label);
                 HandleCategoryTabReorder(category, labelRect);
+                previousContentColor = GUI.contentColor;
+                GUI.contentColor = GetReadableTextColor(categoryRowColor);
                 if (Widgets.ButtonText(editRect, "E"))
                     OpenRenameCategoryDialog(category);
                 TooltipHandler.TipRegion(editRect, ManagerTranslation.Get("LMM_0125"));
                 if (Widgets.ButtonText(deleteRect, "×"))
                     ConfirmDeleteCategory(category);
+                GUI.contentColor = previousContentColor;
                 TooltipHandler.TipRegion(deleteRect, ManagerTranslation.Get("LMM_0045"));
 
 // 텍스트 검색 또는 체크 필터가 활성화된 경우,
@@ -495,9 +564,9 @@ if ((!searchText.NullOrEmpty() || HasActiveModFilters()) &&
 }
 
 // 검색 결과 음영보다 위에 선택 테두리를 그려 선택 상태를 유지
-if (category.Id == currentCategoryId)
+if (!allModsView && category.Id == currentCategoryId)
     Widgets.DrawBox(rowRect, 2);
-if (categoryTabsHaveKeyboardFocus && category.Id == currentCategoryId)
+if (!allModsView && categoryTabsHaveKeyboardFocus && category.Id == currentCategoryId)
 {
     Color previousFocusColor = GUI.color;
     GUI.color = Color.white;
@@ -887,6 +956,8 @@ Widgets.DrawBoxSolid(rowRect, tagRowColor);
                     EndModDrag();
                     Event.current.Use();
                 }
+                Color previousTagContentColor = GUI.contentColor;
+                GUI.contentColor = GetReadableTextColor(tagRowColor);
                 Rect stateRect = new Rect(rowRect.x + 3f, rowRect.y + 4f, 26f, 22f);
                 if (Widgets.ButtonText(stateRect, GetTagStateLabel(tag)))
                     ToggleTagEnabled(tag);
@@ -905,7 +976,7 @@ Widgets.DrawBoxSolid(rowRect, tagRowColor);
     GetInstalledCount(tag) + ")";
 
 Widgets.Label(labelRect, label);
-
+GUI.contentColor = previousTagContentColor;
 
                 TooltipHandler.TipRegion(labelRect, label);
 
@@ -917,11 +988,14 @@ Widgets.Label(labelRect, label);
                 else
                 {
                     HandleTagTabReorder(tag, labelRect);
+                    previousTagContentColor = GUI.contentColor;
+                    GUI.contentColor = GetReadableTextColor(tagRowColor);
                     if (Widgets.ButtonText(editRect, "E"))
                         OpenRenameTagDialog(tag);
                     TooltipHandler.TipRegion(editRect, ManagerTranslation.Get("LMM_0126"));
                     if (Widgets.ButtonText(deleteRect, "×"))
                         ConfirmDeleteTag(tag);
+                    GUI.contentColor = previousTagContentColor;
                     TooltipHandler.TipRegion(deleteRect, ManagerTranslation.Get("LMM_0045"));
                 }
                 rowIndex++;
@@ -936,7 +1010,7 @@ if (!searchText.NullOrEmpty() &&
 }
 
 // 검색 결과 음영보다 위에 선택 테두리를 그려 선택 상태를 유지
-if (tag.Id == currentTagId)
+if (!allModsView && tag.Id == currentTagId)
     Widgets.DrawBox(rowRect, 2);
 
             }
@@ -6301,8 +6375,30 @@ private int GetActiveCount(ManagerTagData tag)
 
             ManagerModData state = FindModState(mod.PackageId);
             string customName = state != null ? state.DisplayName : null;
-            string displayName = GetDisplayName(mod);
 
+            switch (searchScope)
+            {
+                case ModSearchScope.Title:
+                    return GetDisplayName(mod).IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0 ||
+                        (mod.Name != null && mod.Name.IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0) ||
+                        (!customName.NullOrEmpty() &&
+                            customName.IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0);
+
+                case ModSearchScope.Description:
+                    return !mod.Description.NullOrEmpty() &&
+                        mod.Description.IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0;
+
+                case ModSearchScope.Author:
+                    return mod.AuthorsString != null &&
+                        mod.AuthorsString.IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0;
+
+                case ModSearchScope.PackageId:
+                    return mod.PackageId != null &&
+                        mod.PackageId.IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0;
+            }
+
+            // 전체 검색: 기존 검색 대상과 검색 결과를 그대로 유지한다.
+            string displayName = GetDisplayName(mod);
             if (displayName.IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0)
                 return true;
             if (mod.Name != null && mod.Name.IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0)
