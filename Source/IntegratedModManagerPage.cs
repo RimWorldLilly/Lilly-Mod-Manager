@@ -6807,37 +6807,17 @@ private int GetActiveCount(ManagerTagData tag)
             if (mod == null)
                 return string.Empty;
 
-            // ModMetaData의 About.xml supportedVersions 멤버는 게임 버전에 따라
-            // 소문자 필드 또는 대문자 프로퍼티로 노출될 수 있다.
-            string[] candidateNames =
-            {
-                "supportedVersions", "SupportedVersions", "GameVersion", "VersionString"
-            };
-            foreach (string propertyName in candidateNames)
-            {
-                object value = ReadMetadataValue(mod, propertyName);
-                if (value == null)
-                    continue;
+            // RimWorld는 About.xml의 supportedVersions를 내부 메타데이터에서
+            // Version 목록으로 파싱해 SupportedVersionsReadOnly로 공개한다.
+            // supportedVersions 원본 필드는 ModMetaData가 아니라 내부 meta 객체에 있다.
+            List<Version> supportedVersions = mod.SupportedVersionsReadOnly;
+            if (supportedVersions == null || supportedVersions.Count == 0)
+                return string.Empty;
 
-                if (value is IEnumerable enumerable && !(value is string))
-                {
-                    List<string> values = new List<string>();
-                    foreach (object item in enumerable)
-                    {
-                        if (item != null)
-                            values.Add(item.ToString());
-                    }
-                    string joined = string.Join(", ", values);
-                    if (!joined.NullOrEmpty())
-                        return joined;
-                }
-
-                string text = value.ToString();
-                if (!text.NullOrEmpty())
-                    return text;
-            }
-
-            return string.Empty;
+            return string.Join(", ", supportedVersions
+                .Where(version => version != null)
+                .Select(version => version.ToString())
+                .ToArray());
         }
 
         private static string GetDependencyText(ModMetaData mod)
