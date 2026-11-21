@@ -491,6 +491,13 @@ nextInstalledModRefreshTime =
 
         private void DrawCategoryTabs(Rect rect)
         {
+            if (Event.current.type == EventType.MouseDown &&
+                rect.Contains(Event.current.mousePosition))
+            {
+                categoryTabsHaveKeyboardFocus = true;
+                modListHasKeyboardFocus = false;
+            }
+
             if (tagMode)
             {
                 DrawTagTabs(rect);
@@ -964,6 +971,13 @@ private bool MatchesTagSearch(ManagerTagData tag)
 
         private void DrawTagTabs(Rect rect)
         {
+            if (Event.current.type == EventType.MouseDown &&
+                rect.Contains(Event.current.mousePosition))
+            {
+                categoryTabsHaveKeyboardFocus = true;
+                modListHasKeyboardFocus = false;
+            }
+
             Widgets.DrawBox(rect);
             Text.Font = GameFont.Medium;
             Widgets.Label(new Rect(rect.x + 8f, rect.y + 2f, rect.width - 44f, 28f),
@@ -2855,7 +2869,7 @@ Widgets.DrawBoxSolid(rowRect, finalRowColor);
                     int selectedIndex = tags.FindIndex(tag => tag != null &&
                         string.Equals(tag.Id, currentTagId,
                             StringComparison.OrdinalIgnoreCase));
-                    currentSlot = Mathf.Max(1, selectedIndex);
+                    currentSlot = selectedIndex < 0 ? 0 : selectedIndex + 1;
                 }
                 else
                 {
@@ -2894,14 +2908,11 @@ Widgets.DrawBoxSolid(rowRect, finalRowColor);
                 {
                     if (nextSlot == 0)
                     {
-                        if (!tagMode)
-                            SelectAllModsView();
-                        else if (tags.Count > 0 && tags[0] != null)
-                            SelectTag(tags[0]);
+                        SelectAllModsView();
                     }
                     else if (tagMode)
                     {
-                        ManagerTagData nextTag = tags[nextSlot];
+                        ManagerTagData nextTag = tags[nextSlot - 1];
                         if (nextTag != null)
                             SelectTag(nextTag);
                     }
@@ -2926,7 +2937,7 @@ Widgets.DrawBoxSolid(rowRect, finalRowColor);
                         categoryTabScroll.y = rowY + rowHeight - viewportHeight;
                     categoryTabScroll.y = Mathf.Max(0f, categoryTabScroll.y);
                     if (tagMode)
-                        tagTabScroll = categoryTabScroll;
+                        tagTabScroll.y = categoryTabScroll.y;
                 }
 
                 current.Use();
