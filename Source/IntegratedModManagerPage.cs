@@ -2712,7 +2712,7 @@ Widgets.DrawBoxSolid(rowRect, finalRowColor);
         private void DrawBottomButtons(Rect rect)
         {
             float gap = 5f;
-            float buttonWidth = (rect.width - gap * 10f) / 11f;
+            float buttonWidth = (rect.width - gap * 11f) / 12f;
             float x = rect.x;
             string modeLabel = tagMode ? ManagerTranslation.Get("LMM_0075") : ManagerTranslation.Get("LMM_0080");
             if (Widgets.ButtonText(new Rect(x, rect.y, buttonWidth, rect.height), modeLabel))
@@ -2755,6 +2755,10 @@ Widgets.DrawBoxSolid(rowRect, finalRowColor);
 
             if (Widgets.ButtonText(new Rect(x, rect.y, buttonWidth, rect.height), "폴더 열기"))
                 OpenPresetFolder();
+            x += buttonWidth + gap;
+
+            if (Widgets.ButtonText(new Rect(x, rect.y, buttonWidth, rect.height), "모드 옵션"))
+                Find.WindowStack.Add(new ManagerOptionsWindow(settings));
             x += buttonWidth + gap;
 
             if (Widgets.ButtonText(new Rect(x, rect.y, buttonWidth, rect.height), ManagerTranslation.Get("LMM_0044")))
@@ -6044,8 +6048,9 @@ private void SavePreset(string name, ManagerPresetData existingPreset)
                 MessageTypeDefOf.PositiveEvent);
         }
 
-        private void AddInstalledModsMissingFromPreset()
+        private bool AddInstalledModsMissingFromPreset()
         {
+            bool changed = false;
             HashSet<string> excluded = new HashSet<string>(settings.ExcludedPackageIds,
                 StringComparer.OrdinalIgnoreCase);
             for (int i = 0; i < categories.Count; i++)
@@ -6064,7 +6069,9 @@ private void SavePreset(string name, ManagerPresetData existingPreset)
                     for (int j = 0; j < tags[i].Folders.Count; j++)
                         if (tags[i].Folders[j] != null && tags[i].Folders[j].ModIds != null)
                             tags[i].Folders[j].ModIds.RemoveAll(excluded.Contains);
+            int previousStateCount = modStates.Count;
             modStates.RemoveAll(state => state == null || excluded.Contains(state.PackageId));
+            changed |= previousStateCount != modStates.Count;
 
             ManagerCategoryData normalCategory = categories.FirstOrDefault(category =>
                 string.Equals(category.Id, "normal", StringComparison.OrdinalIgnoreCase));
@@ -6072,6 +6079,7 @@ private void SavePreset(string name, ManagerPresetData existingPreset)
             {
                 normalCategory = new ManagerCategoryData("normal", ManagerTranslation.Get("LMM_0065"));
                 categories.Add(normalCategory);
+                changed = true;
             }
 
             ManagerFolderData unfiled = FindFolder(normalCategory, "uncategorized");
@@ -6079,16 +6087,46 @@ private void SavePreset(string name, ManagerPresetData existingPreset)
             {
                 unfiled = new ManagerFolderData("uncategorized", ManagerTranslation.Get("LMM_0040"));
                 normalCategory.Folders.Insert(0, unfiled);
+                changed = true;
             }
 
-            // ModsConfig.xml의 활성 모드 순서를 먼저 유지하고, 비활성 설치 모드는 뒤에 보충한다.
+            // 활성 모드 순서를 먼저 유지하고, 비활성 설치 모드는 뒤에 보충한다.
             foreach (ModMetaData mod in ModsConfig.ActiveModsInLoadOrder.Concat(ModLister.AllInstalledMods))
             {
                 if (mod == null || mod.PackageId.NullOrEmpty() ||
                     excluded.Contains(mod.PackageId))
                     continue;
-                if (FindModState(mod.PackageId) == null)
-                    modStates.Add(new ManagerModData(mod.PackageId, mod.Active));
+
+                ManagerModData state = FindModState(mod.PackageId);
+                bool isNewMod = state == null;
+                if (isNewMod)
+                {
+                    state = new ManagerModData(mod.PackageId, mod.Active);
+                    modStates.Add(state);
+                    changed = true;
+                    if (settings.AutoTagNewMods)
+                        changed |= AddAutomaticTag(state, "auto-new", "신규");
+                }
+
+                string currentVersion = GetModVersionText(mod);
+                if (!currentVersion.NullOrEmpty())
+                {
+                    if (!state.InstalledVersion.NullOrEmpty() &&
+                        !string.Equals(state.InstalledVersion, currentVersion,
+                            StringComparison.OrdinalIgnoreCase))
+                    {
+                        if (settings.AutoTagUpdatedMods)
+                            changed |= AddAutomaticTag(state, "auto-updated", "변경됨");
+                        changed = true;
+                    }
+
+                    if (!string.Equals(state.InstalledVersion, currentVersion,
+                        StringComparison.OrdinalIgnoreCase))
+                    {
+                        state.InstalledVersion = currentVersion;
+                        changed = true;
+                    }
+                }
 
                 if (categories.Any(category => category.ModIds != null &&
                     category.ModIds.Any(packageId => string.Equals(
@@ -6110,7 +6148,38 @@ private void SavePreset(string name, ManagerPresetData existingPreset)
                 }
                 destination.ModIds.Add(mod.PackageId);
                 destinationFolder.ModIds.Add(mod.PackageId);
+                changed = true;
             }
+
+            return changed;
+        }
+
+        private bool AddAutomaticTag(ManagerModData state, string tagId, string tagName)
+        {
+            if (state == null)
+                return false;
+
+            if (state.TagIds == null)
+                state.TagIds = new List<string>();
+
+            ManagerTagData tag = tags.FirstOrDefault(candidate => candidate != null &&
+                string.Equals(candidate.Id, tagId, StringComparison.OrdinalIgnoreCase));
+            if (tag == null)
+            {
+                tag = tags.FirstOrDefault(candidate => candidate != null &&
+                    string.Equals(candidate.Name, tagName, StringComparison.OrdinalIgnoreCase));
+            }
+            if (tag == null)
+            {
+                tag = new ManagerTagData(tagId, tagName);
+                tags.Add(tag);
+            }
+
+            if (state.TagIds.Contains(tag.Id))
+                return false;
+
+            state.TagIds.Add(tag.Id);
+            return true;
         }
 
 
@@ -6238,12 +6307,10 @@ private void RefreshInstalledModsIfNeeded()
             newModFound = true;
     }
 
-    // 신규 모드가 없다면 종료
-    if (!newModFound)
+    // 신규 설치와 기존 모드의 버전 변경을 모두 확인한다.
+    bool dataChanged = AddInstalledModsMissingFromPreset();
+    if (!newModFound && !dataChanged)
         return;
-
-    // 신규 모드를 카테고리와 모드 데이터에 등록
-    AddInstalledModsMissingFromPreset();
 
     // 데이터 저장
     PersistCategoryData();
@@ -6252,9 +6319,12 @@ private void RefreshInstalledModsIfNeeded()
     // 현재 화면 갱신
     RefreshVisibleMods();
 
-    Messages.Message(
-        "새로운 모드가 목록에 추가되었습니다.",
-        MessageTypeDefOf.PositiveEvent);
+    if (newModFound)
+    {
+        Messages.Message(
+            "새로운 모드가 목록에 추가되었습니다.",
+            MessageTypeDefOf.PositiveEvent);
+    }
 }
         private void RefreshVisibleMods()
         {
@@ -7218,6 +7288,51 @@ private int GetActiveCount(ManagerTagData tag)
                 Messages.Message(ManagerTranslation.Get("LMM_0011"), MessageTypeDefOf.RejectInput);
             }
         }
+
+
+    internal sealed class ManagerOptionsWindow : Window
+    {
+        private readonly IntegratedModManagerSettings settings;
+
+        public ManagerOptionsWindow(IntegratedModManagerSettings settings)
+        {
+            this.settings = settings;
+            doCloseX = true;
+            doCloseButton = true;
+            closeOnClickedOutside = true;
+            absorbInputAroundWindow = true;
+        }
+
+        public override Vector2 InitialSize
+        {
+            get { return new Vector2(460f, 190f); }
+        }
+
+        public override void DoWindowContents(Rect inRect)
+        {
+            Text.Font = GameFont.Medium;
+            Widgets.Label(new Rect(0f, 0f, inRect.width, 32f), "모드 옵션");
+            Text.Font = GameFont.Small;
+
+            bool oldAutoTagNewMods = settings.AutoTagNewMods;
+            bool oldAutoTagUpdatedMods = settings.AutoTagUpdatedMods;
+
+            Widgets.CheckboxLabeled(
+                new Rect(0f, 46f, inRect.width, 30f),
+                "새로 추가된 모드에 '신규' 태그 자동 추가",
+                ref settings.AutoTagNewMods);
+            Widgets.CheckboxLabeled(
+                new Rect(0f, 82f, inRect.width, 30f),
+                "버전이 변경된 모드에 '변경됨' 태그 자동 추가",
+                ref settings.AutoTagUpdatedMods);
+
+            if (oldAutoTagNewMods != settings.AutoTagNewMods ||
+                oldAutoTagUpdatedMods != settings.AutoTagUpdatedMods)
+            {
+                IntegratedModManagerMod.Instance.WriteSettings();
+            }
+        }
     }
 
+}
 }
