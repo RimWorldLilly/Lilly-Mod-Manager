@@ -2754,7 +2754,14 @@ Widgets.DrawBoxSolid(rowRect, finalRowColor);
                 OpenPresetMenu();
             x += buttonWidth + gap;
 
-            if (Widgets.ButtonText(new Rect(x, rect.y, buttonWidth, rect.height), "폴더 열기"))
+            // 앞선 목록/폴더 렌더링에서 GUI.enabled 상태가 남더라도
+            // 하단의 폴더 바로가기 버튼은 항상 클릭할 수 있도록 독립적으로 그린다.
+            bool previousGuiEnabled = GUI.enabled;
+            GUI.enabled = true;
+            bool openPresetFolder = Widgets.ButtonText(
+                new Rect(x, rect.y, buttonWidth, rect.height), "폴더 열기");
+            GUI.enabled = previousGuiEnabled;
+            if (openPresetFolder)
                 OpenPresetFolder();
             x += buttonWidth + gap;
 
@@ -5974,9 +5981,13 @@ private void SavePreset(string name, ManagerPresetData existingPreset)
             try
             {
                 Directory.CreateDirectory(presetDirectory);
-                Process.Start(new ProcessStartInfo(presetDirectory)
+                // Windows 탐색기를 직접 실행해 Unity/Mono의 기본 폴더 연결 처리에
+                // 의존하지 않고 항상 프리셋 폴더를 연다.
+                Process.Start(new ProcessStartInfo
                 {
-                    UseShellExecute = true
+                    FileName = "explorer.exe",
+                    Arguments = "\"" + presetDirectory + "\"",
+                    UseShellExecute = false
                 });
             }
             catch (Exception exception)
