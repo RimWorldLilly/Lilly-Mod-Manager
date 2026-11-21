@@ -1820,9 +1820,11 @@ Widgets.DrawBoxSolid(rowRect, finalRowColor);
             ModRowIssue rowIssue = rowIsVisible ? GetModRowIssue(mod) : ModRowIssue.None;
             bool outdatedForGameVersion = rowIsVisible &&
                 IsModActiveInManager(mod) && IsModOutdatedForCurrentGameVersion(mod);
-            if (rowIssue == ModRowIssue.RequiredMod)
+            if (outdatedForGameVersion)
+                GUI.color = new Color(1f, 0.82f, 0.2f, 1f);
+            else if (rowIssue == ModRowIssue.RequiredMod)
                 GUI.color = new Color(1f, 0.28f, 0.28f, 1f);
-            else if (outdatedForGameVersion || rowIssue == ModRowIssue.Version)
+            else if (rowIssue == ModRowIssue.Version)
                 GUI.color = new Color(1f, 0.82f, 0.2f, 1f);
             else if (rowIssue == ModRowIssue.LoadOrder)
                 GUI.color = new Color(1f, 0.55f, 0.16f, 1f);
