@@ -37,8 +37,10 @@ internal static bool RefreshModList()
         MethodInfo rebuildWorkshopMethod =
             workshopItemsType == null
                 ? null
-                : workshopItemsType.GetMethod(
-                    "RebuildItemsList", flags);
+                : Array.Find(
+                    workshopItemsType.GetMethods(flags),
+                    method => method.Name == "RebuildItemsList" &&
+                        method.GetParameters().Length == 0);
 
         if (rebuildWorkshopMethod != null)
         {
@@ -48,8 +50,10 @@ internal static bool RefreshModList()
 
         // 2. 림월드의 실제 설치 모드 목록 갱신
         MethodInfo rebuildModMethod =
-            typeof(ModLister).GetMethod(
-                "RebuildModList", flags);
+            Array.Find(
+                typeof(ModLister).GetMethods(flags),
+                method => method.Name == "RebuildModList" &&
+                    method.GetParameters().Length == 0);
 
         if (rebuildModMethod != null)
         {
