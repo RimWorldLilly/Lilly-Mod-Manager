@@ -95,7 +95,7 @@
   <LMM_0091>Delete this tag and remove it from all mods?</LMM_0091>
   <LMM_0092>Expand</LMM_0092>
   <LMM_0093>Select all mods in folder</LMM_0093>
-  <LMM_0094>Quick folder move</LMM_0094>
+  <LMM_0094>Quick folder shortcut</LMM_0094>
   <LMM_0095>Disable folder</LMM_0095>
   <LMM_0096>Delete folder</LMM_0096>
   <LMM_0097>No folder</LMM_0097>
@@ -190,4 +190,5 @@
   <LMM_0187>Mod options</LMM_0187>
   <LMM_0188>Automatically add the 'New' tag to newly added mods</LMM_0188>
   <LMM_0189>Automatically add the 'Updated' tag when a mod version changes</LMM_0189>
+  <LMM_0190>All</LMM_0190>
 </LanguageData>
