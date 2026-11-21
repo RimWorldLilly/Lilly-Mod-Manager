@@ -6807,13 +6807,31 @@ private int GetActiveCount(ManagerTagData tag)
             if (mod == null || name.NullOrEmpty())
                 return null;
 
-            Type type = mod.GetType();
-            PropertyInfo property = type.GetProperty(name, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
-            if (property != null)
-                return property.GetValue(mod, null);
+            try
+            {
+                const BindingFlags flags =
+                    BindingFlags.Instance |
+                    BindingFlags.Public |
+                    BindingFlags.NonPublic;
 
-            FieldInfo field = type.GetField(name, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
-            return field != null ? field.GetValue(mod) : null;
+                Type type = mod.GetType();
+                PropertyInfo property = type.GetProperties(flags)
+                    .FirstOrDefault(candidate =>
+                        string.Equals(candidate.Name, name, StringComparison.Ordinal) &&
+                        candidate.GetIndexParameters().Length == 0 &&
+                        candidate.GetGetMethod(true) != null);
+                if (property != null)
+                    return property.GetValue(mod, null);
+
+                FieldInfo field = type.GetField(name, flags);
+                return field != null ? field.GetValue(mod) : null;
+            }
+            catch (Exception)
+            {
+                // 게임 버전이나 모드별 메타데이터 구현 차이로 Reflection이 실패해도
+                // 모드 관리자 화면 전체가 중단되지 않도록 해당 값만 사용할 수 없는 것으로 처리한다.
+                return null;
+            }
         }
 
         private static void OpenUrl(string url)
