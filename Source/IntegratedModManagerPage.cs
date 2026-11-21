@@ -362,65 +362,6 @@ nextInstalledModRefreshTime =
         }
 
 
-// 대각선 그라데이션 텍스처 캐시
-private static readonly Dictionary<string, Texture2D>
-    diagonalGradientCache = new Dictionary<string, Texture2D>();
-
-// 좌상단 기본색 → 우하단 사용자 지정색
-private static void DrawDiagonalGradient(
-    Rect rect,
-    Color startColor,
-    Color endColor)
-{
-    Color32 start = startColor;
-    Color32 end = endColor;
-
-    string key =
-        start.r + "_" + start.g + "_" + start.b + "_" +
-        end.r + "_" + end.g + "_" + end.b;
-
-    if (!diagonalGradientCache.TryGetValue(key, out Texture2D texture))
-    {
-        const int size = 64;
-
-        texture = new Texture2D(
-            size,
-            size,
-            TextureFormat.RGBA32,
-            false);
-
-        texture.name = "LillyModManager_DiagonalGradient";
-        texture.filterMode = FilterMode.Bilinear;
-        texture.wrapMode = TextureWrapMode.Clamp;
-        texture.hideFlags = HideFlags.HideAndDontSave;
-
-        for (int y = 0; y < size; y++)
-        {
-            for (int x = 0; x < size; x++)
-            {
-                // 좌상단은 0, 우하단은 1
-                float t = (x + (size - 1 - y)) /
-                    (float)(2 * (size - 1));
-
-                texture.SetPixel(
-                    x,
-                    y,
-                    Color.Lerp(startColor, endColor, t));
-            }
-        }
-
-        texture.Apply(false, true);
-        diagonalGradientCache.Add(key, texture);
-    }
-
-    GUI.DrawTexture(
-        rect,
-        texture,
-        ScaleMode.StretchToFill,
-        false);
-}
-
-
         private void DrawCategoryTabs(Rect rect)
         {
             if (tagMode)
@@ -456,34 +397,15 @@ Color baseRowColor = i % 2 == 0
     ? new Color(0.09f, 0.09f, 0.09f, 1f)
     : new Color(0.055f, 0.055f, 0.055f, 1f);
 
-// 사용자 지정색이 있으면 대각선 그라데이션
-if (ManagerTagColors.IsValidHex(category.ColorHex))
-{
-    DrawDiagonalGradient(
-        rowRect,
-        baseRowColor,
-        ManagerTagColors.Background(category.ColorHex));
-}
-else
-{
-    Widgets.DrawBoxSolid(rowRect, baseRowColor);
-}
+// 사용자 지정색은 그라데이션 없이 단일 배경색으로 표시
+Color categoryRowColor = ManagerTagColors.IsValidHex(category.ColorHex)
+    ? ManagerTagColors.Background(category.ColorHex)
+    : baseRowColor;
+Widgets.DrawBoxSolid(rowRect, categoryRowColor);
 
-// 선택된 카테고리 강조
+// 선택 상태는 배경을 덮지 않고 전체 행 테두리로만 표시
 if (category.Id == currentCategoryId)
-{
-    Rect selectedRect = new Rect(
-        rowRect.x,
-        rowRect.y,
-        rowRect.width * 2f / 3f,
-        rowRect.height);
-
-    Widgets.DrawBoxSolid(
-        selectedRect,
-        new Color(0.18f, 0.30f, 0.48f, 0.85f));
-
-    Widgets.DrawBox(selectedRect, 2);
-}
+    Widgets.DrawBox(rowRect, 2);
 if (categoryTabsHaveKeyboardFocus && category.Id == currentCategoryId)
 {
     Color previousFocusColor = GUI.color;
@@ -939,34 +861,15 @@ Color baseRowColor = rowIndex % 2 == 0
     ? new Color(0.09f, 0.09f, 0.09f, 1f)
     : new Color(0.055f, 0.055f, 0.055f, 1f);
 
-// 사용자 지정색이 있으면 대각선 그라데이션
-if (ManagerTagColors.IsValidHex(tag.ColorHex))
-{
-    DrawDiagonalGradient(
-        rowRect,
-        baseRowColor,
-        ManagerTagColors.Background(tag.ColorHex));
-}
-else
-{
-    Widgets.DrawBoxSolid(rowRect, baseRowColor);
-}
+// 사용자 지정색은 그라데이션 없이 단일 배경색으로 표시
+Color tagRowColor = ManagerTagColors.IsValidHex(tag.ColorHex)
+    ? ManagerTagColors.Background(tag.ColorHex)
+    : baseRowColor;
+Widgets.DrawBoxSolid(rowRect, tagRowColor);
 
-// 선택된 태그 강조
+// 선택 상태는 배경을 덮지 않고 전체 행 테두리로만 표시
 if (tag.Id == currentTagId)
-{
-    Rect selectedRect = new Rect(
-        rowRect.x,
-        rowRect.y,
-        rowRect.width * 2f / 3f,
-        rowRect.height);
-
-    Widgets.DrawBoxSolid(
-        selectedRect,
-        new Color(0.18f, 0.30f, 0.48f, 0.85f));
-
-    Widgets.DrawBox(selectedRect, 2);
-}
+    Widgets.DrawBox(rowRect, 2);
 
 
 
