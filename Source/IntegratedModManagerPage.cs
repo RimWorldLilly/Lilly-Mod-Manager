@@ -508,17 +508,17 @@ nextInstalledModRefreshTime =
 
             Rect listRect = new Rect(rect.x + 4f, rect.y + 32f,
                 rect.width - 8f, rect.height - 36f);
-            float contentHeight = Mathf.Max(listRect.height, (categories.Count + 1) * 34f);
+            float contentHeight = Mathf.Max(listRect.height, (categories.Count + 1) * 32f);
             float scrollbarWidth = contentHeight > listRect.height
                 ? ManagerUiMetrics.VerticalScrollbarWidth : 0f;
             Rect viewRect = new Rect(0f, 0f, listRect.width - scrollbarWidth, contentHeight);
             Widgets.BeginScrollView(listRect, ref categoryTabScroll, viewRect);
-            DrawAllModsTab(new Rect(0f, 0f, viewRect.width, 30f), 0);
+            DrawAllModsTab(new Rect(0f, 2f, viewRect.width, 28f), 0);
             for (int i = 0; i < categories.Count; i++)
             {
                 ManagerCategoryData category = categories[i];
                 // 오른쪽 5px는 선택 강조 막대 영역으로 남겨 둔다.
-                Rect rowRect = new Rect(0f, (i + 1) * 30f, Mathf.Max(0f, viewRect.width - 5f), 30f);
+                Rect rowRect = new Rect(0f, (i + 1) * 32f + 2f, Mathf.Max(0f, viewRect.width - 5f), 28f);
 
 // 기존 검정/회색 교차 배경색
 Color baseRowColor = i % 2 == 0
@@ -567,7 +567,7 @@ Widgets.DrawBoxSolid(rowRect, categoryRowColor);
                     EndModDrag();
                     Event.current.Use();
                 }
-                Rect enabledRect = new Rect(rowRect.x + 3f, rowRect.y + 4f, 22f, 22f);
+                Rect enabledRect = new Rect(rowRect.x + 5f, rowRect.y + 3f, 22f, 22f);
                 bool enabled = category.Enabled;
                 Widgets.Checkbox(enabledRect.position, ref enabled);
                 if (enabled != category.Enabled)
@@ -577,10 +577,10 @@ Widgets.DrawBoxSolid(rowRect, categoryRowColor);
                     RefreshVisibleMods();
                 }
 
-                Rect editRect = new Rect(rowRect.xMax - 52f, rowRect.y + 3f, 22f, 24f);
-                Rect deleteRect = new Rect(rowRect.xMax - 27f, rowRect.y + 3f, 22f, 24f);
+                Rect editRect = new Rect(rowRect.xMax - 52f, rowRect.y + 2f, 22f, 24f);
+                Rect deleteRect = new Rect(rowRect.xMax - 27f, rowRect.y + 2f, 22f, 24f);
                 Rect labelRect = new Rect(enabledRect.xMax + 4f, rowRect.y,
-                    Mathf.Max(24f, editRect.x - enabledRect.xMax - 7f), 32f);
+                    Mathf.Max(24f, editRect.x - enabledRect.xMax - 7f), 24f);
                 string label = category.Name + " (" +
     GetActiveCount(category) + "/" +
     GetInstalledCount(category) + ")";
@@ -925,7 +925,7 @@ private bool MatchesTagSearch(ManagerTagData tag)
             if (allModsView)
             {
                 Rect selectedRect = new Rect(rowRect.x, rowRect.y,
-                    rowRect.width * 2f / 3f, rowRect.height);
+                    Mathf.Max(0f, rowRect.width * 2f / 3f - 2f), rowRect.height);
                 Widgets.DrawBoxSolid(selectedRect, new Color(0.18f, 0.30f, 0.48f, 0.85f));
                 Widgets.DrawBox(selectedRect, 2);
             }
@@ -933,7 +933,7 @@ private bool MatchesTagSearch(ManagerTagData tag)
                 Widgets.DrawBox(rowRect, 2);
 
             string label = "전체 목록 (" + GetAllInstalledModCount() + ")";
-            Rect labelRect = new Rect(rowRect.x + 8f, rowRect.y, rowRect.width - 16f, rowRect.height);
+            Rect labelRect = new Rect(rowRect.x + 10f, rowRect.y, rowRect.width - 20f, rowRect.height);
             Widgets.Label(labelRect, label);
             TooltipHandler.TipRegion(rowRect, "카테고리와 태그 구분 없이 설치된 모든 모드 보기");
 
@@ -975,12 +975,12 @@ private bool MatchesTagSearch(ManagerTagData tag)
 
             Rect listRect = new Rect(rect.x + 4f, rect.y + 32f,
                 rect.width - 8f, rect.height - 36f);
-            float contentHeight = Mathf.Max(listRect.height, (tags.Count + 1) * 34f);
+            float contentHeight = Mathf.Max(listRect.height, (tags.Count + 1) * 32f);
             float scrollbarWidth = contentHeight > listRect.height
                 ? ManagerUiMetrics.VerticalScrollbarWidth : 0f;
             Rect viewRect = new Rect(0f, 0f, listRect.width - scrollbarWidth, contentHeight);
             Widgets.BeginScrollView(listRect, ref tagTabScroll, viewRect);
-            DrawAllModsTab(new Rect(0f, 0f, viewRect.width, 30f), 0);
+            DrawAllModsTab(new Rect(0f, 2f, viewRect.width, 28f), 0);
             int rowIndex = 1;
             for (int i = 0; i < tags.Count; i++)
             {
@@ -988,7 +988,7 @@ private bool MatchesTagSearch(ManagerTagData tag)
                 if (tag == null)
                     continue;
                 // 오른쪽 5px는 선택 강조 막대 영역으로 남겨 둔다.
-                Rect rowRect = new Rect(0f, rowIndex * 30f, Mathf.Max(0f, viewRect.width - 5f), 30f);
+                Rect rowRect = new Rect(0f, rowIndex * 32f + 2f, Mathf.Max(0f, viewRect.width - 5f), 28f);
 
 
 // 기존 검정/회색 교차 배경색
@@ -1025,19 +1025,19 @@ Widgets.DrawBoxSolid(rowRect, tagRowColor);
                 }
                 Color previousTagContentColor = GUI.contentColor;
                 GUI.contentColor = Color.white;
-                Rect stateRect = new Rect(rowRect.x + 3f, rowRect.y + 4f, 26f, 22f);
+                Rect stateRect = new Rect(rowRect.x + 5f, rowRect.y + 3f, 26f, 22f);
                 if (Widgets.ButtonText(stateRect, GetTagStateLabel(tag)))
                     ToggleTagEnabled(tag);
 
-                Rect editRect = new Rect(rowRect.xMax - 52f, rowRect.y + 3f, 22f, 24f);
-                Rect deleteRect = new Rect(rowRect.xMax - 27f, rowRect.y + 3f, 22f, 24f);
+                Rect editRect = new Rect(rowRect.xMax - 52f, rowRect.y + 2f, 22f, 24f);
+                Rect deleteRect = new Rect(rowRect.xMax - 27f, rowRect.y + 2f, 22f, 24f);
                 if (tag.IsSystem)
                 {
-                    editRect = new Rect(rowRect.xMax - 27f, rowRect.y + 3f, 22f, 24f);
-                    deleteRect = new Rect(rowRect.xMax + 2f, rowRect.y + 3f, 0f, 24f);
+                    editRect = new Rect(rowRect.xMax - 27f, rowRect.y + 2f, 22f, 24f);
+                    deleteRect = new Rect(rowRect.xMax + 2f, rowRect.y + 2f, 0f, 24f);
                 }
                 Rect labelRect = new Rect(stateRect.xMax + 4f, rowRect.y,
-                    Mathf.Max(24f, editRect.x - stateRect.xMax - 7f), 32f);
+                    Mathf.Max(24f, editRect.x - stateRect.xMax - 7f), 24f);
                 string label = tag.Name + " (" +
     GetActiveCount(tag) + "/" +
     GetInstalledCount(tag) + ")";
