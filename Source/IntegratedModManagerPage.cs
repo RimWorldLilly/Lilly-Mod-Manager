@@ -3299,20 +3299,29 @@ Widgets.DrawBoxSolid(rowRect, finalRowColor);
                 }
             }
 
-            bool mixed = enabledCount > 0 && enabledCount < eligibleCount;
-            bool checkboxValue = eligibleCount == 0 || enabledCount == eligibleCount;
-            bool previousValue = checkboxValue;
-            Widgets.Checkbox(new Vector2(rect.x + 3f, rect.y + 1f),
-                ref checkboxValue, 20f, eligibleCount == 0);
-            if (checkboxValue != previousValue)
-                SetFolderEnabled(packageIds, checkboxValue);
+            MultiCheckboxState checkboxState;
+            if (eligibleCount == 0)
+                checkboxState = MultiCheckboxState.Off;
+            else if (enabledCount == 0)
+                checkboxState = MultiCheckboxState.Off;
+            else if (enabledCount == eligibleCount)
+                checkboxState = MultiCheckboxState.On;
+            else
+                checkboxState = MultiCheckboxState.Partial;
 
-            if (mixed)
+            if (eligibleCount == 0)
             {
-                // 기본 체크박스 위에 가로선을 얹어 혼합 상태를 표현한다.
-                Rect mixedMark = new Rect(rect.x + 9f, rect.y + 10f, 8f, 2f);
-                Widgets.DrawBoxSolid(mixedMark, new Color(0.12f, 0.12f, 0.12f, 1f));
+                // 변경 가능한 모드가 없으면 기존과 동일하게 비활성 체크박스로 표시한다.
+                bool disabledValue = false;
+                Widgets.Checkbox(new Vector2(rect.x + 3f, rect.y + 1f),
+                    ref disabledValue, 20f, true);
+                return;
             }
+
+            MultiCheckboxState newState = Widgets.CheckboxMulti(
+                new Rect(rect.x + 3f, rect.y + 1f, 20f, 20f), checkboxState);
+            if (newState != checkboxState)
+                SetFolderEnabled(packageIds, newState == MultiCheckboxState.On);
         }
 
         private string GetFolderStateLabel(IEnumerable<string> packageIds)
