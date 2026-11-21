@@ -1685,7 +1685,7 @@ Widgets.DrawBoxSolid(rowRect, finalRowColor);
             {
                 Rect markerRect = new Rect(rowRect.xMax + 1f, rowRect.y + 3f,
                     3f, rowRect.height - 6f);
-                Widgets.DrawBoxSolid(markerRect, new Color(0f, 0.75f, 0.8f, 1f));
+                Widgets.DrawBoxSolid(markerRect, new Color(0f, 0.38f, 0.43f, 1f));
             }
 
             if (!allModsView && isDraggingMod && !dragPackageId.NullOrEmpty() &&
