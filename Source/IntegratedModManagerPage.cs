@@ -288,6 +288,7 @@ nextInstalledModRefreshTime =
 
             DrawModList(listRect);
             DrawDetails(detailsRect);
+            DrawPaneFocusBorders(categoryRect, listRect);
             DrawModDragPreview(inRect);
             DrawSidebarDragPreview(inRect);
             DrawFolderDragPreview(inRect);
@@ -1046,12 +1047,12 @@ Widgets.DrawBoxSolid(rowRect, tagRowColor);
                     EndModDrag();
                     Event.current.Use();
                 }
-                Color previousTagContentColor = GUI.contentColor;
-                // 태그 배경색의 상대 휘도에 맞춰 태그 이름 글자색을 자동 선택한다.
-                GUI.contentColor = GetReadableTextColor(tagRowColor);
                 Rect stateRect = new Rect(rowRect.x + 5f, rowRect.y + 3f, 26f, 22f);
-                if (Widgets.ButtonText(stateRect, GetTagStateLabel(tag)))
-                    ToggleTagEnabled(tag);
+                Color previousTagContentColor = GUI.contentColor;
+                // 왼쪽 상태 체크박스 글자는 배경색과 관계없이 흰색으로 고정한다.
+                GUI.contentColor = Color.white;
+                DrawTagEnabledCheckbox(stateRect, tag);
+                GUI.contentColor = previousTagContentColor;
 
                 Rect editRect = new Rect(rowRect.xMax - 52f, rowRect.y + 2f, 22f, 24f);
                 Rect deleteRect = new Rect(rowRect.xMax - 27f, rowRect.y + 2f, 22f, 24f);
@@ -1509,9 +1510,8 @@ if (!allModsView && tag.Id == currentTagId)
                     RefreshVisibleMods();
                 }
 
-                if (Widgets.ButtonText(new Rect(headerRect.x + 32f, y + 2f, 30f, 23f),
-                    GetFolderStateLabel(folder.ModIds)))
-                    SetFolderEnabled(folder.ModIds, GetFolderStateLabel(folder.ModIds) != "●");
+                DrawFolderEnabledCheckbox(
+                    new Rect(headerRect.x + 32f, y + 2f, 26f, 23f), folder.ModIds);
                 Rect titleRect = new Rect(headerRect.x + 66f, y + 2f,
                     Mathf.Max(30f, headerRect.width - 259f), 26f);
                 HandleFolderReorder(folder, titleRect, category.Folders, false);
@@ -1630,9 +1630,8 @@ if (!allModsView && tag.Id == currentTagId)
                 }
 
                 List<string> tagFolderIds = GetTagFolderModIds(tag, folder);
-                if (Widgets.ButtonText(new Rect(headerRect.x + 32f, y + 2f, 30f, 23f),
-                    GetFolderStateLabel(tagFolderIds)))
-                    SetFolderEnabled(tagFolderIds, GetFolderStateLabel(tagFolderIds) != "●");
+                DrawFolderEnabledCheckbox(
+                    new Rect(headerRect.x + 32f, y + 2f, 26f, 23f), tagFolderIds);
                 Rect titleRect = new Rect(headerRect.x + 66f, y + 2f,
                     Mathf.Max(30f, headerRect.width - 259f), 26f);
                 HandleFolderReorder(folder, titleRect, tag.Folders, true);
@@ -1713,10 +1712,7 @@ private void OpenMoveToCategoryMenu()
             Color previousGuiColor = GUI.color;
             GUI.color = Color.white;
 
-            // 오른쪽 선택 표시를 위한 5px 공간을 확보하고 행 본체 폭을 줄인다.
-            const float selectionMarkerGutter = 5f;
-            Rect rowRect = new Rect(0f, y,
-                Mathf.Max(0f, width - selectionMarkerGutter), RowHeight);
+            Rect rowRect = new Rect(0f, y, Mathf.Max(0f, width), RowHeight);
             bool rowIsVisible = y + RowHeight >= modListScroll.y &&
                 y <= modListScroll.y + modListViewportHeight;
             Rect checkboxHitRect = new Rect(rowRect.x, rowRect.y, 32f, rowRect.height);
@@ -1751,23 +1747,18 @@ Widgets.DrawBoxSolid(rowRect, finalRowColor);
             bool isPrimarySelection = isSelected &&
                 string.Equals(primarySelectedPackageId, mod.PackageId,
                     StringComparison.OrdinalIgnoreCase);
-            if (isSelected)
-                Widgets.DrawHighlight(rowRect);
-            else
+            if (!isSelected)
                 Widgets.DrawHighlightIfMouseover(rowRect);
 
-            // 현재 선택은 밝은 청록색 5px, 나머지 다중 선택은 어두운 청록색 3px로 구분한다.
-            if (isPrimarySelection)
+            // 선택된 모드는 배경 강조나 두꺼운 막대 없이 1px 테두리만 표시한다.
+            if (isSelected)
             {
-                Rect markerRect = new Rect(rowRect.xMax, rowRect.y + 1f,
-                    5f, rowRect.height - 2f);
-                Widgets.DrawBoxSolid(markerRect, new Color(0f, 0.9f, 1f, 1f));
-            }
-            else if (isSelected)
-            {
-                Rect markerRect = new Rect(rowRect.xMax + 1f, rowRect.y + 3f,
-                    3f, rowRect.height - 6f);
-                Widgets.DrawBoxSolid(markerRect, new Color(0f, 0.38f, 0.43f, 1f));
+                Color previousSelectionColor = GUI.color;
+                GUI.color = isPrimarySelection
+                    ? new Color(0f, 0.9f, 1f, 1f)
+                    : new Color(0.62f, 0.72f, 0.75f, 1f);
+                Widgets.DrawBox(rowRect, 1);
+                GUI.color = previousSelectionColor;
             }
 
             if (!allModsView && isDraggingMod && !dragPackageId.NullOrEmpty() &&
@@ -3239,6 +3230,67 @@ Widgets.DrawBoxSolid(rowRect, finalRowColor);
                 ManagerModData state = FindModState(packageId);
                 if (mod != null && state != null && !IsProtected(mod))
                     state.Enabled = enabled;
+            }
+        }
+
+        private void DrawPaneFocusBorders(Rect categoryRect, Rect modListRect)
+        {
+            Color previousColor = GUI.color;
+            GUI.color = categoryTabsHaveKeyboardFocus
+                ? Color.white
+                : new Color(0.72f, 0.72f, 0.72f, 1f);
+            Widgets.DrawBox(categoryRect, 1);
+            GUI.color = modListHasKeyboardFocus
+                ? Color.white
+                : new Color(0.72f, 0.72f, 0.72f, 1f);
+            Widgets.DrawBox(modListRect, 1);
+            GUI.color = previousColor;
+        }
+
+        private void DrawTagEnabledCheckbox(Rect rect, ManagerTagData tag)
+        {
+            if (tag == null)
+                return;
+            List<string> packageIds = tag.Folders == null
+                ? new List<string>()
+                : tag.Folders.Where(folder => folder != null)
+                    .SelectMany(folder => GetTagFolderModIds(tag, folder))
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .ToList();
+            DrawFolderEnabledCheckbox(rect, packageIds);
+        }
+
+        private void DrawFolderEnabledCheckbox(Rect rect, IEnumerable<string> packageIds)
+        {
+            int enabledCount = 0;
+            int eligibleCount = 0;
+            if (packageIds != null)
+            {
+                foreach (string packageId in packageIds)
+                {
+                    ModMetaData mod = FindMod(packageId);
+                    ManagerModData state = FindModState(packageId);
+                    if (mod == null || state == null || IsProtected(mod))
+                        continue;
+                    eligibleCount++;
+                    if (state.Enabled)
+                        enabledCount++;
+                }
+            }
+
+            bool mixed = enabledCount > 0 && enabledCount < eligibleCount;
+            bool checkboxValue = eligibleCount == 0 || enabledCount == eligibleCount;
+            bool previousValue = checkboxValue;
+            Widgets.Checkbox(new Vector2(rect.x + 3f, rect.y + 1f),
+                ref checkboxValue, 20f, eligibleCount == 0);
+            if (checkboxValue != previousValue)
+                SetFolderEnabled(packageIds, checkboxValue);
+
+            if (mixed)
+            {
+                // 기본 체크박스 위에 가로선을 얹어 혼합 상태를 표현한다.
+                Rect mixedMark = new Rect(rect.x + 9f, rect.y + 10f, 8f, 2f);
+                Widgets.DrawBoxSolid(mixedMark, new Color(0.12f, 0.12f, 0.12f, 1f));
             }
         }
 
