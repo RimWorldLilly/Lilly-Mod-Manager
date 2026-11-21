@@ -188,17 +188,19 @@ nextInstalledModRefreshTime =
 
             Widgets.DrawBoxSolid(inRect, Color.black);
 
+            const string pageTitle = "Lilly - Integrated Mod Manager";
             Text.Font = GameFont.Medium;
-            Widgets.Label(new Rect(20f, 10f, inRect.width - 720f, 36f),
-                "Lilly - Integrated Mod Manager");
+            float titleWidth = Text.CalcSize(pageTitle).x;
+            Widgets.Label(new Rect(20f, 10f, titleWidth + 4f, 36f), pageTitle);
             Text.Font = GameFont.Small;
             string selectionStatus =
-                "활성: " + activeModCount +
+                "  ~  활성: " + activeModCount +
                 "  |  버전 낮음: " + outdatedModCount +
                 "  |  충돌: " + conflictingModCount +
                 "  |  선택: " + selectedPackageIds.Count;
-            Rect statusRect = new Rect(inRect.width - 700f, 12f, 680f, 28f);
-            Text.Anchor = TextAnchor.MiddleRight;
+            Rect statusRect = new Rect(24f + titleWidth, 12f,
+                Mathf.Max(0f, inRect.width - titleWidth - 44f), 28f);
+            Text.Anchor = TextAnchor.MiddleLeft;
             GUI.color = new Color(0.25f, 0.85f, 0.9f, 1f);
             Widgets.Label(statusRect, selectionStatus);
             GUI.color = Color.white;
@@ -1823,30 +1825,27 @@ Widgets.DrawBoxSolid(rowRect, finalRowColor);
             bool outdatedForGameVersion = rowIsVisible &&
                 IsModActiveInManager(mod) && IsModOutdatedForCurrentGameVersion(mod);
 
-            // 강조 우선순위: 충돌 > 필수 모드 누락 > 버전/로드 순서 문제 > 게임 지원 버전 경고.
-            // 구버전 경고는 다른 문제가 없을 때만 표시한다.
-            if (conflictingMod)
-                GUI.color = new Color(1f, 0.12f, 0.58f, 1f);
-            else if (rowIssue == ModRowIssue.RequiredMod)
+            // 강조 우선순위: 필수 모드 누락 > 충돌 > 로드 순서 > 요구 버전 불일치 > 게임 지원 버전 경고.
+            // 게임 지원 버전 경고는 다른 문제가 없을 때만 표시한다.
+            if (rowIssue == ModRowIssue.RequiredMod)
                 GUI.color = new Color(1f, 0.28f, 0.28f, 1f);
-            else if (rowIssue == ModRowIssue.Version)
-                GUI.color = new Color(1f, 0.82f, 0.2f, 1f);
+            else if (conflictingMod)
+                GUI.color = new Color(1f, 0.12f, 0.58f, 1f);
             else if (rowIssue == ModRowIssue.LoadOrder)
                 GUI.color = new Color(1f, 0.55f, 0.16f, 1f);
+            else if (rowIssue == ModRowIssue.Version)
+                GUI.color = new Color(1f, 0.82f, 0.2f, 1f);
             else if (outdatedForGameVersion)
                 GUI.color = new Color(1f, 0.82f, 0.2f, 1f);
 
-            if (conflictingMod)
+            if (rowIssue == ModRowIssue.RequiredMod)
+                TooltipHandler.TipRegion(nameRect, ManagerTranslation.Get("LMM_0145"));
+            else if (conflictingMod)
                 TooltipHandler.TipRegion(nameRect, "활성 모드와 충돌하는 모드입니다.");
-            else if (rowIssue != ModRowIssue.None)
-            {
-                string tooltipKey = rowIssue == ModRowIssue.RequiredMod
-                    ? "LMM_0145"
-                    : rowIssue == ModRowIssue.Version
-                        ? "LMM_0146"
-                        : "LMM_0143";
-                TooltipHandler.TipRegion(nameRect, ManagerTranslation.Get(tooltipKey));
-            }
+            else if (rowIssue == ModRowIssue.LoadOrder)
+                TooltipHandler.TipRegion(nameRect, ManagerTranslation.Get("LMM_0143"));
+            else if (rowIssue == ModRowIssue.Version)
+                TooltipHandler.TipRegion(nameRect, ManagerTranslation.Get("LMM_0146"));
             else if (outdatedForGameVersion)
                 TooltipHandler.TipRegion(nameRect,
                     "이 모드는 현재 게임 버전보다 낮은 버전만 지원합니다. 지원 버전: " +
