@@ -188,7 +188,9 @@ namespace Lilly.IntegratedModManager
                 }
             }
 
-            foreach (ModMetaData mod in ModLister.AllInstalledMods)
+            // ModsConfig.ActiveModsInLoadOrder는 ModsConfig.xml에 기록된 활성 모드 순서를 유지한다.
+            // 최초 목록 생성 시 이 순서를 먼저 반영하고, 나머지 설치 모드는 뒤에 보충한다.
+            foreach (ModMetaData mod in ModsConfig.ActiveModsInLoadOrder.Concat(ModLister.AllInstalledMods))
             {
                 if (mod == null || mod.PackageId.NullOrEmpty())
                     continue;
