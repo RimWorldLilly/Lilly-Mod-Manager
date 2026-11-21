@@ -1739,7 +1739,7 @@ Color finalRowColor = ManagerTagColors.IsValidHex(rowColorHex)
 Widgets.DrawBoxSolid(rowRect, finalRowColor);
 
 // 행 전체에 배경색 적용
-Widgets.DrawBoxSolid(rowRect, finalRowColor);
+
 
 
 
