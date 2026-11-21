@@ -1631,7 +1631,10 @@ private void OpenMoveToCategoryMenu()
             Color previousGuiColor = GUI.color;
             GUI.color = Color.white;
 
-            Rect rowRect = new Rect(0f, y, width, RowHeight);
+            // 오른쪽 선택 표시를 위한 5px 공간을 확보하고 행 본체 폭을 줄인다.
+            const float selectionMarkerGutter = 5f;
+            Rect rowRect = new Rect(0f, y,
+                Mathf.Max(0f, width - selectionMarkerGutter), RowHeight);
             bool rowIsVisible = y + RowHeight >= modListScroll.y &&
                 y <= modListScroll.y + modListViewportHeight;
             Rect checkboxHitRect = new Rect(rowRect.x, rowRect.y, 32f, rowRect.height);
@@ -1662,10 +1665,28 @@ Widgets.DrawBoxSolid(rowRect, finalRowColor);
 
 
 
-            if (selectedPackageIds.Contains(mod.PackageId))
+            bool isSelected = selectedPackageIds.Contains(mod.PackageId);
+            bool isPrimarySelection = isSelected &&
+                string.Equals(primarySelectedPackageId, mod.PackageId,
+                    StringComparison.OrdinalIgnoreCase);
+            if (isSelected)
                 Widgets.DrawHighlight(rowRect);
             else
                 Widgets.DrawHighlightIfMouseover(rowRect);
+
+            // 현재 선택은 밝은 청록색 5px, 나머지 다중 선택은 어두운 청록색 3px로 구분한다.
+            if (isPrimarySelection)
+            {
+                Rect markerRect = new Rect(rowRect.xMax + 1f, rowRect.y + 1f,
+                    4f, rowRect.height - 2f);
+                Widgets.DrawBoxSolid(markerRect, new Color(0f, 0.9f, 1f, 1f));
+            }
+            else if (isSelected)
+            {
+                Rect markerRect = new Rect(rowRect.xMax + 2f, rowRect.y + 3f,
+                    3f, rowRect.height - 6f);
+                Widgets.DrawBoxSolid(markerRect, new Color(0f, 0.75f, 0.8f, 1f));
+            }
 
             if (!allModsView && isDraggingMod && !dragPackageId.NullOrEmpty() &&
                 !string.Equals(dragPackageId, mod.PackageId, StringComparison.OrdinalIgnoreCase) &&
