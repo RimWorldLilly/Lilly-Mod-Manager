@@ -1038,7 +1038,8 @@ Widgets.DrawBoxSolid(rowRect, tagRowColor);
                     Event.current.Use();
                 }
                 Color previousTagContentColor = GUI.contentColor;
-                GUI.contentColor = Color.white;
+                // 태그 배경색의 상대 휘도에 맞춰 태그 이름 글자색을 자동 선택한다.
+                GUI.contentColor = GetReadableTextColor(tagRowColor);
                 Rect stateRect = new Rect(rowRect.x + 5f, rowRect.y + 3f, 26f, 22f);
                 if (Widgets.ButtonText(stateRect, GetTagStateLabel(tag)))
                     ToggleTagEnabled(tag);
