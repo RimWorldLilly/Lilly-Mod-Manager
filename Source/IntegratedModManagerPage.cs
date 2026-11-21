@@ -646,7 +646,7 @@ if (!allModsView && category.Id == currentCategoryId)
     // 선택 테두리 바깥쪽의 별도 여백에 표시해 배경색과 겹치지 않게 한다.
     Widgets.DrawBox(rowRect, 2);
     Widgets.DrawBoxSolid(
-        new Rect(rowRect.xMax + 1f, rowRect.y + 2f, 4f, rowRect.height - 4f),
+        new Rect(rowRect.xMax + 1f, rowRect.y + 2.5f, 4f, 25f),
         new Color(0f, 0.9f, 1f, 1f));
 }
 if (!allModsView && categoryTabsHaveKeyboardFocus && category.Id == currentCategoryId)
@@ -1712,7 +1712,8 @@ private void OpenMoveToCategoryMenu()
             Color previousGuiColor = GUI.color;
             GUI.color = Color.white;
 
-            Rect rowRect = new Rect(0f, y, Mathf.Max(0f, width), RowHeight);
+            // 오른쪽 4px는 카테고리/태그 목록과 같은 위치의 선택 표시 막대 공간으로 남긴다.
+            Rect rowRect = new Rect(0f, y, Mathf.Max(0f, width - 5f), RowHeight);
             bool rowIsVisible = y + RowHeight >= modListScroll.y &&
                 y <= modListScroll.y + modListViewportHeight;
             Rect checkboxHitRect = new Rect(rowRect.x, rowRect.y, 32f, rowRect.height);
@@ -1754,10 +1755,18 @@ Widgets.DrawBoxSolid(rowRect, finalRowColor);
 
             if (isPrimarySelection)
             {
-                // 주 선택 항목의 기존 오른쪽 청록색 강조 막대를 유지한다.
-                Rect markerRect = new Rect(rowRect.xMax - 5f, rowRect.y + 1f,
-                    5f, rowRect.height - 2f);
+                // 카테고리/태그 목록과 같은 위치 및 크기(4x25px)로 청록색 막대를 표시한다.
+                Rect markerRect = new Rect(rowRect.xMax + 1f, rowRect.y + 2.5f,
+                    4f, 25f);
                 Widgets.DrawBoxSolid(markerRect, new Color(0f, 0.9f, 1f, 1f));
+
+                // 주 선택 모드의 테두리는 현재 키보드 포커스 위치에 따라 구분한다.
+                Color previousSelectionColor = GUI.color;
+                GUI.color = modListHasKeyboardFocus
+                    ? Color.white
+                    : new Color(0.28f, 0.32f, 0.34f, 1f);
+                Widgets.DrawBox(rowRect, 1);
+                GUI.color = previousSelectionColor;
             }
             else if (isSelected)
             {
