@@ -1747,18 +1747,25 @@ Widgets.DrawBoxSolid(rowRect, finalRowColor);
             bool isPrimarySelection = isSelected &&
                 string.Equals(primarySelectedPackageId, mod.PackageId,
                     StringComparison.OrdinalIgnoreCase);
-            if (!isSelected)
-                Widgets.DrawHighlightIfMouseover(rowRect);
-
-            // 선택된 모드는 배경 강조나 두꺼운 막대 없이 1px 테두리만 표시한다.
-            if (isSelected)
+            if (isPrimarySelection)
             {
+                // 주 선택 항목은 기존 배경 강조와 오른쪽 강조 막대를 유지한다.
+                Widgets.DrawHighlight(rowRect);
+                Rect markerRect = new Rect(rowRect.xMax - 5f, rowRect.y + 1f,
+                    5f, rowRect.height - 2f);
+                Widgets.DrawBoxSolid(markerRect, new Color(0f, 0.9f, 1f, 1f));
+            }
+            else if (isSelected)
+            {
+                // 주 선택 외 다중 선택 항목은 배경을 덮지 않고 어두운 1px 테두리만 표시한다.
                 Color previousSelectionColor = GUI.color;
-                GUI.color = isPrimarySelection
-                    ? new Color(0f, 0.9f, 1f, 1f)
-                    : new Color(0.62f, 0.72f, 0.75f, 1f);
+                GUI.color = new Color(0.28f, 0.32f, 0.34f, 1f);
                 Widgets.DrawBox(rowRect, 1);
                 GUI.color = previousSelectionColor;
+            }
+            else
+            {
+                Widgets.DrawHighlightIfMouseover(rowRect);
             }
 
             if (!allModsView && isDraggingMod && !dragPackageId.NullOrEmpty() &&
