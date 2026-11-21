@@ -6257,6 +6257,7 @@ private void SavePresetsToSettings()
                     ? new List<string>()
                     : new List<string>(workingState.TagIds);
                 savedState.DisplayName = workingState.DisplayName;
+                savedState.InstalledVersion = workingState.InstalledVersion;
             }
 
             IntegratedModManagerMod.Instance.WriteSettings();
