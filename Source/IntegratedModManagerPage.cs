@@ -189,6 +189,13 @@ nextInstalledModRefreshTime =
             Widgets.Label(new Rect(20f, 10f, inRect.width - 470f, 36f),
                 "Lilly - Integrated Mod Manager");
             Text.Font = GameFont.Small;
+            string selectionStatus = "선택: " + selectedPackageIds.Count + "개";
+            Rect statusRect = new Rect(inRect.width - 230f, 12f, 210f, 28f);
+            Text.Anchor = TextAnchor.MiddleRight;
+            GUI.color = new Color(0.25f, 0.85f, 0.9f, 1f);
+            Widgets.Label(statusRect, selectionStatus);
+            GUI.color = Color.white;
+            Text.Anchor = TextAnchor.UpperLeft;
             float contentBottom = inRect.height - BottomHeight - 20f;
             float sidebarWidth = inRect.width * 0.25f;
             float mainX = 20f + sidebarWidth + 12f;
@@ -2085,12 +2092,10 @@ Widgets.DrawBoxSolid(rowRect, finalRowColor);
             }
 
             string supportedVersions = GetSupportedGameVersionText(mod);
-            if (!supportedVersions.NullOrEmpty())
-            {
-                Widgets.Label(new Rect(inner.x, y, inner.width, 24f),
-                    ManagerTranslation.Get("LMM_0073") + supportedVersions);
-                y += 26f;
-            }
+            Widgets.Label(new Rect(inner.x, y, inner.width, 24f),
+                ManagerTranslation.Get("LMM_0073") +
+                (supportedVersions.NullOrEmpty() ? "확인할 수 없음" : supportedVersions));
+            y += 26f;
 
             ulong workshopIdForUpdate = GetCachedWorkshopId(mod);
             DateTime lastUpdated;
@@ -2350,8 +2355,7 @@ Widgets.DrawBoxSolid(rowRect, finalRowColor);
                 y += 26f;
             if (!GetModVersionText(mod).NullOrEmpty())
                 y += 26f;
-            if (!GetSupportedGameVersionText(mod).NullOrEmpty())
-                y += 26f;
+            y += 26f;
             DateTime lastUpdated;
             if (mod.OnSteamWorkshop &&
                 WorkshopPreviewGallery.TryGetLastUpdatedDate(workshopId, out lastUpdated))
@@ -2628,7 +2632,7 @@ Widgets.DrawBoxSolid(rowRect, finalRowColor);
         private void DrawBottomButtons(Rect rect)
         {
             float gap = 5f;
-            float buttonWidth = (rect.width - gap * 9f) / 10f;
+            float buttonWidth = (rect.width - gap * 10f) / 11f;
             float x = rect.x;
             string modeLabel = tagMode ? ManagerTranslation.Get("LMM_0075") : ManagerTranslation.Get("LMM_0080");
             if (Widgets.ButtonText(new Rect(x, rect.y, buttonWidth, rect.height), modeLabel))
@@ -2667,6 +2671,10 @@ Widgets.DrawBoxSolid(rowRect, finalRowColor);
 
             if (Widgets.ButtonText(new Rect(x, rect.y, buttonWidth, rect.height), ManagerTranslation.Get("LMM_0038")))
                 OpenPresetMenu();
+            x += buttonWidth + gap;
+
+            if (Widgets.ButtonText(new Rect(x, rect.y, buttonWidth, rect.height), "폴더 열기"))
+                OpenPresetFolder();
             x += buttonWidth + gap;
 
             if (Widgets.ButtonText(new Rect(x, rect.y, buttonWidth, rect.height), ManagerTranslation.Get("LMM_0044")))
@@ -5726,6 +5734,26 @@ private void SavePreset(string name, ManagerPresetData existingPreset)
             }
             Find.WindowStack.Add(new ManagerPresetLoadDialog(
                 presets, LoadPreset, ConfirmDeletePreset, ImportVanillaModList));
+        }
+        
+        private static void OpenPresetFolder()
+        {
+            // 프리셋 XML 파일이 저장되는 사용자 설정 폴더를 연다.
+            string presetDirectory = Path.Combine(
+                GenFilePaths.ConfigFolderPath, "LillyModManager", "Presets");
+            try
+            {
+                Directory.CreateDirectory(presetDirectory);
+                Process.Start(new ProcessStartInfo(presetDirectory)
+                {
+                    UseShellExecute = true
+                });
+            }
+            catch (Exception exception)
+            {
+                Log.Error("[Lilly Mod Manager] Could not open preset folder: " + exception);
+                Messages.Message("프리셋 폴더를 열지 못했습니다.", MessageTypeDefOf.RejectInput);
+            }
         }
 
         private void ImportVanillaModList(IList<string> activePackageIds)
