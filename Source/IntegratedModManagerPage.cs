@@ -6807,7 +6807,12 @@ private int GetActiveCount(ManagerTagData tag)
             if (mod == null)
                 return string.Empty;
 
-            string[] candidateNames = { "SupportedVersions", "GameVersion", "VersionString" };
+            // ModMetaData의 About.xml supportedVersions 멤버는 게임 버전에 따라
+            // 소문자 필드 또는 대문자 프로퍼티로 노출될 수 있다.
+            string[] candidateNames =
+            {
+                "supportedVersions", "SupportedVersions", "GameVersion", "VersionString"
+            };
             foreach (string propertyName in candidateNames)
             {
                 object value = ReadMetadataValue(mod, propertyName);
@@ -6974,13 +6979,13 @@ private int GetActiveCount(ManagerTagData tag)
                 Type type = mod.GetType();
                 PropertyInfo property = type.GetProperties(flags)
                     .FirstOrDefault(candidate =>
-                        string.Equals(candidate.Name, name, StringComparison.Ordinal) &&
+                        string.Equals(candidate.Name, name, StringComparison.OrdinalIgnoreCase) &&
                         candidate.GetIndexParameters().Length == 0 &&
                         candidate.GetGetMethod(true) != null);
                 if (property != null)
                     return property.GetValue(mod, null);
 
-                FieldInfo field = type.GetField(name, flags);
+                FieldInfo field = type.GetField(name, flags | BindingFlags.IgnoreCase);
                 return field != null ? field.GetValue(mod) : null;
             }
             catch (Exception)
