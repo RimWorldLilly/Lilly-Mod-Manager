@@ -1677,13 +1677,13 @@ Widgets.DrawBoxSolid(rowRect, finalRowColor);
             // 현재 선택은 밝은 청록색 5px, 나머지 다중 선택은 어두운 청록색 3px로 구분한다.
             if (isPrimarySelection)
             {
-                Rect markerRect = new Rect(rowRect.xMax + 1f, rowRect.y + 1f,
-                    4f, rowRect.height - 2f);
+                Rect markerRect = new Rect(rowRect.xMax, rowRect.y + 1f,
+                    5f, rowRect.height - 2f);
                 Widgets.DrawBoxSolid(markerRect, new Color(0f, 0.9f, 1f, 1f));
             }
             else if (isSelected)
             {
-                Rect markerRect = new Rect(rowRect.xMax + 2f, rowRect.y + 3f,
+                Rect markerRect = new Rect(rowRect.xMax + 1f, rowRect.y + 3f,
                     3f, rowRect.height - 6f);
                 Widgets.DrawBoxSolid(markerRect, new Color(0f, 0.75f, 0.8f, 1f));
             }
