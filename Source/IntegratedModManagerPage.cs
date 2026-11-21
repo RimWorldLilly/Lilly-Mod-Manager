@@ -1830,11 +1830,11 @@ Widgets.DrawBoxSolid(rowRect, finalRowColor);
             if (rowIssue == ModRowIssue.RequiredMod)
                 GUI.color = new Color(1f, 0.28f, 0.28f, 1f);
             else if (conflictingMod)
-                GUI.color = new Color(1f, 0.12f, 0.58f, 1f);
+                GUI.color = new Color(1f, 0.415f, 0.26f, 1f);
             else if (rowIssue == ModRowIssue.LoadOrder)
-                GUI.color = new Color(1f, 0.55f, 0.16f, 1f);
+                GUI.color = new Color(1f, 0.55f, 0.24f, 1f);
             else if (rowIssue == ModRowIssue.Version)
-                GUI.color = new Color(1f, 0.82f, 0.2f, 1f);
+                GUI.color = new Color(1f, 0.685f, 0.22f, 1f);
             else if (outdatedForGameVersion)
                 GUI.color = new Color(1f, 0.82f, 0.2f, 1f);
 
