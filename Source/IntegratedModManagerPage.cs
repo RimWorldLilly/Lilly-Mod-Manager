@@ -513,12 +513,12 @@ nextInstalledModRefreshTime =
                 ? ManagerUiMetrics.VerticalScrollbarWidth : 0f;
             Rect viewRect = new Rect(0f, 0f, listRect.width - scrollbarWidth, contentHeight);
             Widgets.BeginScrollView(listRect, ref categoryTabScroll, viewRect);
-            DrawAllModsTab(new Rect(0f, 2f, viewRect.width, 28f), 0);
+            DrawAllModsTab(new Rect(0f, 2f, viewRect.width, 30f), 0);
             for (int i = 0; i < categories.Count; i++)
             {
                 ManagerCategoryData category = categories[i];
                 // 오른쪽 5px는 선택 강조 막대 영역으로 남겨 둔다.
-                Rect rowRect = new Rect(0f, (i + 1) * 32f + 2f, Mathf.Max(0f, viewRect.width - 5f), 28f);
+                Rect rowRect = new Rect(0f, (i + 1) * 32f + 2f, Mathf.Max(0f, viewRect.width - 5f), 30f);
 
 // 기존 검정/회색 교차 배경색
 Color baseRowColor = i % 2 == 0
@@ -580,7 +580,7 @@ Widgets.DrawBoxSolid(rowRect, categoryRowColor);
                 Rect editRect = new Rect(rowRect.xMax - 52f, rowRect.y + 2f, 22f, 24f);
                 Rect deleteRect = new Rect(rowRect.xMax - 27f, rowRect.y + 2f, 22f, 24f);
                 Rect labelRect = new Rect(enabledRect.xMax + 4f, rowRect.y,
-                    Mathf.Max(24f, editRect.x - enabledRect.xMax - 7f), 24f);
+                    Mathf.Max(24f, editRect.x - enabledRect.xMax - 7f), 26f);
                 string label = category.Name + " (" +
     GetActiveCount(category) + "/" +
     GetInstalledCount(category) + ")";
@@ -933,7 +933,7 @@ private bool MatchesTagSearch(ManagerTagData tag)
                 Widgets.DrawBox(rowRect, 2);
 
             string label = "전체 목록 (" + GetAllInstalledModCount() + ")";
-            Rect labelRect = new Rect(rowRect.x + 10f, rowRect.y, rowRect.width - 20f, rowRect.height);
+            Rect labelRect = new Rect(rowRect.x + 10f, rowRect.y + 2f, rowRect.width - 20f, rowRect.height - 4f);
             Widgets.Label(labelRect, label);
             TooltipHandler.TipRegion(rowRect, "카테고리와 태그 구분 없이 설치된 모든 모드 보기");
 
@@ -980,7 +980,7 @@ private bool MatchesTagSearch(ManagerTagData tag)
                 ? ManagerUiMetrics.VerticalScrollbarWidth : 0f;
             Rect viewRect = new Rect(0f, 0f, listRect.width - scrollbarWidth, contentHeight);
             Widgets.BeginScrollView(listRect, ref tagTabScroll, viewRect);
-            DrawAllModsTab(new Rect(0f, 2f, viewRect.width, 28f), 0);
+            DrawAllModsTab(new Rect(0f, 2f, viewRect.width, 30f), 0);
             int rowIndex = 1;
             for (int i = 0; i < tags.Count; i++)
             {
@@ -988,7 +988,7 @@ private bool MatchesTagSearch(ManagerTagData tag)
                 if (tag == null)
                     continue;
                 // 오른쪽 5px는 선택 강조 막대 영역으로 남겨 둔다.
-                Rect rowRect = new Rect(0f, rowIndex * 32f + 2f, Mathf.Max(0f, viewRect.width - 5f), 28f);
+                Rect rowRect = new Rect(0f, rowIndex * 32f + 2f, Mathf.Max(0f, viewRect.width - 5f), 30f);
 
 
 // 기존 검정/회색 교차 배경색
@@ -1037,7 +1037,7 @@ Widgets.DrawBoxSolid(rowRect, tagRowColor);
                     deleteRect = new Rect(rowRect.xMax + 2f, rowRect.y + 2f, 0f, 24f);
                 }
                 Rect labelRect = new Rect(stateRect.xMax + 4f, rowRect.y,
-                    Mathf.Max(24f, editRect.x - stateRect.xMax - 7f), 24f);
+                    Mathf.Max(24f, editRect.x - stateRect.xMax - 7f), 26f);
                 string label = tag.Name + " (" +
     GetActiveCount(tag) + "/" +
     GetInstalledCount(tag) + ")";
