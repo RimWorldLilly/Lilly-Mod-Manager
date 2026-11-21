@@ -63,8 +63,11 @@ namespace Lilly.IntegratedModManager
         private readonly Dictionary<string, List<string>> modLoadFolderIssuesCache =
             new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
         private int activeModCount;
-        private int outdatedModCount;
+        private int requiredModIssueCount;
         private int conflictingModCount;
+        private int loadOrderIssueCount;
+        private int versionIssueCount;
+        private int outdatedModCount;
 
         private string currentCategoryId;
         private string currentTagId;
@@ -188,21 +191,26 @@ nextInstalledModRefreshTime =
 
             Widgets.DrawBoxSolid(inRect, Color.black);
 
-            const string pageTitle = "Lilly - Integrated Mod Manager";
+            const string pageTitle = "Lilly - Mod Manager";
             Text.Font = GameFont.Medium;
-            float titleWidth = Text.CalcSize(pageTitle).x;
-            Widgets.Label(new Rect(20f, 10f, titleWidth + 4f, 36f), pageTitle);
-            Text.Font = GameFont.Small;
-            string selectionStatus =
-                "  ~  활성: " + activeModCount +
-                "  |  버전 낮음: " + outdatedModCount +
-                "  |  충돌: " + conflictingModCount +
-                "  |  선택: " + selectedPackageIds.Count;
-            Rect statusRect = new Rect(24f + titleWidth, 12f,
-                Mathf.Max(0f, inRect.width - titleWidth - 44f), 28f);
             Text.Anchor = TextAnchor.MiddleLeft;
+            Widgets.Label(new Rect(20f, 10f, 260f, 36f), pageTitle);
+
+            Text.Font = GameFont.Small;
+            string statusText =
+                "1 필수 누락: " + requiredModIssueCount +
+                "  |  2 충돌: " + conflictingModCount +
+                "  |  3 로드 순서: " + loadOrderIssueCount +
+                "  |  4 버전 불일치: " + versionIssueCount +
+                "  |  5 게임 버전 낮음: " + outdatedModCount +
+                "     |     활성: " + activeModCount +
+                "  |  선택: " + selectedPackageIds.Count;
+            float statusWidth = Text.CalcSize(statusText).x;
+            Rect statusRect = new Rect(Mathf.Max(280f, inRect.width - statusWidth - 20f),
+                12f, Mathf.Min(statusWidth, inRect.width - 300f), 28f);
+            Text.Anchor = TextAnchor.MiddleRight;
             GUI.color = new Color(0.25f, 0.85f, 0.9f, 1f);
-            Widgets.Label(statusRect, selectionStatus);
+            Widgets.Label(statusRect, statusText);
             GUI.color = Color.white;
             Text.Anchor = TextAnchor.UpperLeft;
             float contentBottom = inRect.height - BottomHeight - 20f;
@@ -5394,18 +5402,29 @@ Find.WindowStack.Add(new ManagerFolderNameDialog(
 
             // 상단 상태 표시줄용 통계는 목록 필터와 관계없이 전체 설치 모드를 기준으로 계산한다.
             activeModCount = 0;
-            outdatedModCount = 0;
+            requiredModIssueCount = 0;
             conflictingModCount = 0;
+            loadOrderIssueCount = 0;
+            versionIssueCount = 0;
+            outdatedModCount = 0;
             foreach (ModMetaData mod in modsByPackageId.Values)
             {
                 if (mod == null || !IsModActiveInManager(mod))
                     continue;
 
                 activeModCount++;
-                if (IsModOutdatedForCurrentGameVersion(mod))
-                    outdatedModCount++;
+                ModRowIssue issue = GetModRowIssue(mod);
+                if (issue == ModRowIssue.RequiredMod)
+                    requiredModIssueCount++;
+                else if (issue == ModRowIssue.LoadOrder)
+                    loadOrderIssueCount++;
+                else if (issue == ModRowIssue.Version)
+                    versionIssueCount++;
+
                 if (HasActiveIncompatibility(mod))
                     conflictingModCount++;
+                if (IsModOutdatedForCurrentGameVersion(mod))
+                    outdatedModCount++;
             }
         }
 
