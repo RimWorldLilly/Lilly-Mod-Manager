@@ -3005,14 +3005,18 @@ Widgets.DrawBoxSolid(rowRect, finalRowColor);
 
         private void SetSelectedEnabled(bool enabled)
         {
-            for (int i = 0; i < selectedPackageIds.Count; i++)
+            List<string> targets = selectedPackageIds.ToList();
+            for (int i = 0; i < targets.Count; i++)
             {
-                string packageId = selectedPackageIds.ElementAt(i);
+                string packageId = targets[i];
                 ModMetaData mod = FindMod(packageId);
                 ManagerModData state = FindModState(packageId);
                 if (mod != null && state != null && !IsProtected(mod))
                     state.Enabled = enabled;
             }
+
+            // 일괄 활성화/비활성화 직후 오류 및 상태표시줄 집계를 즉시 다시 계산한다.
+            RefreshVisibleMods();
         }
 
         private void OpenFolderContextMenu(ManagerCategoryData category, ManagerFolderData folder)
