@@ -403,18 +403,6 @@ Color categoryRowColor = ManagerTagColors.IsValidHex(category.ColorHex)
     : baseRowColor;
 Widgets.DrawBoxSolid(rowRect, categoryRowColor);
 
-// 선택 상태는 배경을 덮지 않고 전체 행 테두리로만 표시
-if (category.Id == currentCategoryId)
-    Widgets.DrawBox(rowRect, 2);
-if (categoryTabsHaveKeyboardFocus && category.Id == currentCategoryId)
-{
-    Color previousFocusColor = GUI.color;
-    GUI.color = Color.white;
-    Widgets.DrawBox(rowRect, 2);
-    GUI.color = previousFocusColor;
-}
-
-
                 bool isDragTarget = !dragCategoryId.NullOrEmpty() &&
                     rowRect.Contains(Event.current.mousePosition);
                 if (dragCategoryId == category.Id)
@@ -504,6 +492,17 @@ if ((!searchText.NullOrEmpty() || HasActiveModFilters()) &&
     Widgets.DrawBoxSolid(
         rowRect,
         new Color(0.45f, 0.45f, 0.45f, 0.55f));
+}
+
+// 검색 결과 음영보다 위에 선택 테두리를 그려 선택 상태를 유지
+if (category.Id == currentCategoryId)
+    Widgets.DrawBox(rowRect, 2);
+if (categoryTabsHaveKeyboardFocus && category.Id == currentCategoryId)
+{
+    Color previousFocusColor = GUI.color;
+    GUI.color = Color.white;
+    Widgets.DrawBox(rowRect, 2);
+    GUI.color = previousFocusColor;
 }
 
             }
@@ -867,12 +866,6 @@ Color tagRowColor = ManagerTagColors.IsValidHex(tag.ColorHex)
     : baseRowColor;
 Widgets.DrawBoxSolid(rowRect, tagRowColor);
 
-// 선택 상태는 배경을 덮지 않고 전체 행 테두리로만 표시
-if (tag.Id == currentTagId)
-    Widgets.DrawBox(rowRect, 2);
-
-
-
                 bool isDragTarget = !dragTagId.NullOrEmpty() && !tag.IsSystem &&
                     rowRect.Contains(Event.current.mousePosition);
                 if (dragTagId == tag.Id)
@@ -941,6 +934,10 @@ if (!searchText.NullOrEmpty() &&
         rowRect,
         new Color(0.45f, 0.45f, 0.45f, 0.55f));
 }
+
+// 검색 결과 음영보다 위에 선택 테두리를 그려 선택 상태를 유지
+if (tag.Id == currentTagId)
+    Widgets.DrawBox(rowRect, 2);
 
             }
             Widgets.EndScrollView();
