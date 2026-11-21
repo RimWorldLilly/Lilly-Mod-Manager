@@ -24,6 +24,15 @@ namespace Lilly.IntegratedModManager
             LoadOrder
         }
 
+        private enum SearchScope
+        {
+            All,
+            Name,
+            Description,
+            Author,
+            PackageId
+        }
+
         private const float RowHeight = 27f;
         private const float BottomHeight = 30f;
         private const float DetailsPreviewMaxHeight = 320f;
@@ -67,6 +76,7 @@ private float nextInstalledModRefreshTime;
         private int lastSelectedIndex = -1;
         private string currentFolderId;
         private string searchText = "";
+        private SearchScope searchScope = SearchScope.All;
         private bool filterActive;
         private bool filterInactive;
         private bool filterSubscribed;
@@ -236,6 +246,7 @@ nextInstalledModRefreshTime =
         {
             const float labelWidth = 42f;
             const float clearButtonWidth = 24f;
+            const float searchScopeWidth = 82f;
             const float gap = 3f;
             const float checkboxHeight = 28f;
 
@@ -268,7 +279,8 @@ nextInstalledModRefreshTime =
             float searchX = rect.x + labelWidth;
             // 검색어 유무와 관계없이 TextField의 Rect를 고정해 IMGUI control ID가 바뀌지 않게 한다.
             float searchWidth = Mathf.Min(300f, Mathf.Max(60f,
-                rect.width - labelWidth - clearButtonWidth - gap * 2f - filterGroupWidth));
+                rect.width - labelWidth - clearButtonWidth - searchScopeWidth -
+                gap * 3f - filterGroupWidth));
             GUI.SetNextControlName("LillyIntegratedModManagerSearch");
             string newSearchText = Widgets.TextField(
                 new Rect(searchX, rect.y, searchWidth, checkboxHeight), searchText);
@@ -293,7 +305,12 @@ nextInstalledModRefreshTime =
                 GUI.FocusControl("LillyIntegratedModManagerSearch");
             }
 
-            float filterX = clearX + clearButtonWidth + gap;
+            float scopeX = clearX + clearButtonWidth + gap;
+            if (Widgets.ButtonText(new Rect(scopeX, rect.y, searchScopeWidth, checkboxHeight),
+                GetSearchScopeLabel(searchScope) + " ▼"))
+                OpenSearchScopeMenu();
+            
+            float filterX = scopeX + searchScopeWidth + gap;
             bool filtersChanged = false;
             bool activeChanged = DrawFilterCheckbox(ref filterActive, filterLabels[0],
                 new Rect(filterX, rect.y, filterWidths[0], checkboxHeight));
@@ -352,6 +369,47 @@ nextInstalledModRefreshTime =
                     filterActive = false;
                 RefreshVisibleMods();
             }
+        }
+
+        private static string GetSearchScopeLabel(SearchScope scope)
+        {
+            switch (scope)
+            {
+                case SearchScope.Name: return "제목";
+                case SearchScope.Description: return "내용";
+                case SearchScope.Author: return "제작자";
+                case SearchScope.PackageId: return "PackageId";
+                default: return "전체";
+            }
+        }
+
+        private void OpenSearchScopeMenu()
+        {
+            SearchScope[] scopes =
+            {
+                SearchScope.All,
+                SearchScope.Name,
+                SearchScope.Description,
+                SearchScope.Author,
+                SearchScope.PackageId
+            };
+            List<FloatMenuOption> options = new List<FloatMenuOption>();
+            for (int i = 0; i < scopes.Length; i++)
+            {
+                SearchScope scope = scopes[i];
+                options.Add(new FloatMenuOption(GetSearchScopeLabel(scope),
+                    () =>
+                    {
+                        if (searchScope == scope)
+                            return;
+                        searchScope = scope;
+                        selectedPackageIds.Clear();
+                        primarySelectedPackageId = null;
+                        lastSelectedIndex = -1;
+                        RefreshVisibleMods();
+                    }));
+            }
+            Find.WindowStack.Add(new FloatMenu(options));
         }
 
         private static Color GetReadableTextColor(Color background)
@@ -6316,25 +6374,45 @@ private int GetActiveCount(ManagerTagData tag)
             if (query.Length == 0)
                 return true;
 
-            ManagerModData state = FindModState(mod.PackageId);
-            string customName = state != null ? state.DisplayName : null;
             string displayName = GetDisplayName(mod);
+            switch (searchScope)
+            {
+                case SearchScope.Name:
+                    return ContainsSearchText(displayName, query) ||
+                        ContainsSearchText(mod.Name, query);
 
-            if (displayName.IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0)
-                return true;
-            if (mod.Name != null && mod.Name.IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0)
-                return true;
-            if (mod.PackageId != null && mod.PackageId.IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0)
-                return true;
-            if (mod.AuthorsString != null && mod.AuthorsString.IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0)
-                return true;
-            if (!customName.NullOrEmpty() && customName.IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0)
-                return true;
-            if (!mod.Description.NullOrEmpty() && mod.Description.IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0)
-                return true;
-            if (GetModVersionText(mod).IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0 ||
-                GetSupportedGameVersionText(mod).IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0 ||
-                GetDependencyText(mod).IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0)
+                case SearchScope.Description:
+                    return ContainsSearchText(mod.Description, query);
+
+                case SearchScope.Author:
+                    return ContainsSearchText(mod.AuthorsString, query);
+
+                case SearchScope.PackageId:
+                    return ContainsSearchText(mod.PackageId, query);
+
+                default:
+                    return MatchesAllSearchFields(mod, query);
+            }
+        }
+
+        private static bool ContainsSearchText(string value, string query)
+        {
+            return !value.NullOrEmpty() &&
+                value.IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0;
+        }
+
+        private bool MatchesAllSearchFields(ModMetaData mod, string query)
+        {
+            ManagerModData state = FindModState(mod.PackageId);
+            if (ContainsSearchText(GetDisplayName(mod), query) ||
+                ContainsSearchText(mod.Name, query) ||
+                ContainsSearchText(mod.PackageId, query) ||
+                ContainsSearchText(mod.AuthorsString, query) ||
+                ContainsSearchText(state != null ? state.DisplayName : null, query) ||
+                ContainsSearchText(mod.Description, query) ||
+                ContainsSearchText(GetModVersionText(mod), query) ||
+                ContainsSearchText(GetSupportedGameVersionText(mod), query) ||
+                ContainsSearchText(GetDependencyText(mod), query))
                 return true;
 
             if (state != null && state.TagIds != null)
@@ -6342,7 +6420,7 @@ private int GetActiveCount(ManagerTagData tag)
                 for (int i = 0; i < state.TagIds.Count; i++)
                 {
                     ManagerTagData tag = FindTag(state.TagIds[i]);
-                    if (tag != null && tag.Name.IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0)
+                    if (tag != null && ContainsSearchText(tag.Name, query))
                         return true;
                 }
             }
@@ -6352,8 +6430,9 @@ private int GetActiveCount(ManagerTagData tag)
                 ManagerCategoryData category = categories[i];
                 if (category == null || category.ModIds == null)
                     continue;
-                if (category.Name.IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0 &&
-                    category.ModIds.Any(id => string.Equals(id, mod.PackageId, StringComparison.OrdinalIgnoreCase)))
+                if (ContainsSearchText(category.Name, query) &&
+                    category.ModIds.Any(id => string.Equals(id, mod.PackageId,
+                        StringComparison.OrdinalIgnoreCase)))
                     return true;
             }
 
