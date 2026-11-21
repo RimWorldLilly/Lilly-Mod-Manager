@@ -446,7 +446,7 @@ nextInstalledModRefreshTime =
                 case SearchScope.Description: return ManagerTranslation.Get("LMM_0183");
                 case SearchScope.Author: return ManagerTranslation.Get("LMM_0184");
                 case SearchScope.PackageId: return "PackageId";
-                default: return "전체";
+                default: return ManagerTranslation.Get("LMM_0190");
             }
         }
 
