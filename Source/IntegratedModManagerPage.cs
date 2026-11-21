@@ -2771,15 +2771,18 @@ Widgets.DrawBoxSolid(rowRect, finalRowColor);
                 OpenPresetMenu();
             x += buttonWidth + gap;
 
-            // 앞선 목록/폴더 렌더링에서 GUI.enabled 상태가 남더라도
-            // 하단의 폴더 바로가기 버튼은 항상 클릭할 수 있도록 독립적으로 그린다.
-            bool previousGuiEnabled = GUI.enabled;
-            GUI.enabled = true;
-            bool openPresetFolder = Widgets.ButtonText(
+            // '폴더 열기'는 선택된 모드의 실제 폴더가 있을 때만 활성화한다.
+            ModMetaData selectedModForFolder = FindMod(primarySelectedPackageId);
+            bool canOpenSelectedModFolder = selectedModForFolder != null
+                && selectedModForFolder.RootDir != null
+                && !selectedModForFolder.Official;
+            bool previousOpenFolderGuiEnabled = GUI.enabled;
+            GUI.enabled = previousOpenFolderGuiEnabled && canOpenSelectedModFolder;
+            bool openSelectedModFolder = Widgets.ButtonText(
                 new Rect(x, rect.y, buttonWidth, rect.height), ManagerTranslation.Get("LMM_0186"));
-            GUI.enabled = previousGuiEnabled;
-            if (openPresetFolder)
-                OpenPresetFolder();
+            GUI.enabled = previousOpenFolderGuiEnabled;
+            if (openSelectedModFolder)
+                OpenModFolder(selectedModForFolder);
             x += buttonWidth + gap;
 
             if (Widgets.ButtonText(new Rect(x, rect.y, buttonWidth, rect.height), ManagerTranslation.Get("LMM_0187")))
