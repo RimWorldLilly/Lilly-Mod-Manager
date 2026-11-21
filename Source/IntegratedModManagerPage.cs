@@ -198,11 +198,11 @@ nextInstalledModRefreshTime =
 
             Text.Font = GameFont.Small;
             string statusText =
-                "1 필수 누락: " + requiredModIssueCount +
-                "  |  2 충돌: " + conflictingModCount +
-                "  |  3 로드 순서: " + loadOrderIssueCount +
-                "  |  4 버전 불일치: " + versionIssueCount +
-                "  |  5 게임 버전 낮음: " + outdatedModCount +
+                "필수 누락: " + requiredModIssueCount +
+                "  |  충돌: " + conflictingModCount +
+                "  |  로드 순서: " + loadOrderIssueCount +
+                "  |  버전 불일치: " + versionIssueCount +
+                "  |  게임 버전 낮음: " + outdatedModCount +
                 "     |     활성: " + activeModCount +
                 "  |  선택: " + selectedPackageIds.Count;
             float statusWidth = Text.CalcSize(statusText).x;
