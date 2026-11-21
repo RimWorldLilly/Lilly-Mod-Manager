@@ -269,6 +269,11 @@ nextInstalledModRefreshTime =
             Rect detailsRect = new Rect(mainX + listWidth + 10f, contentTop,
                 mainWidth - listWidth - 10f, contentHeight);
 
+            // 하단 고정 버튼은 모드 상세 정보처럼 프레임마다 컨트롤 수가 달라지는
+            // 동적 UI보다 먼저 그려 컨트롤 ID가 선택 상태에 따라 바뀌지 않게 한다.
+            DrawBottomButtons(new Rect(20f, inRect.height - BottomHeight - 8f,
+                inRect.width - 40f, BottomHeight));
+
             if (Event.current.type == EventType.MouseDown &&
                 listRect.Contains(Event.current.mousePosition))
             {
@@ -286,8 +291,6 @@ nextInstalledModRefreshTime =
             DrawSidebarDragPreview(inRect);
             DrawFolderDragPreview(inRect);
             HandleModListNavigation(categoryRect, listRect);
-            DrawBottomButtons(new Rect(20f, inRect.height - BottomHeight - 8f,
-                inRect.width - 40f, BottomHeight));
             HandleSelectAll();
             if (Event.current.type == EventType.MouseUp)
             {
@@ -2759,7 +2762,7 @@ Widgets.DrawBoxSolid(rowRect, finalRowColor);
             bool previousGuiEnabled = GUI.enabled;
             GUI.enabled = true;
             bool openPresetFolder = Widgets.ButtonText(
-                new Rect(x, rect.y, buttonWidth, rect.height), "폴더 열기");
+                new Rect(x, rect.y, buttonWidth, rect.height), "폴더 바로가기");
             GUI.enabled = previousGuiEnabled;
             if (openPresetFolder)
                 OpenPresetFolder();
