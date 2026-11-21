@@ -1818,20 +1818,26 @@ Widgets.DrawBoxSolid(rowRect, finalRowColor);
             string name = GetDisplayName(mod);
             // Color previousTextColor = GUI.color;
             ModRowIssue rowIssue = rowIsVisible ? GetModRowIssue(mod) : ModRowIssue.None;
+            bool conflictingMod = rowIsVisible &&
+                IsModActiveInManager(mod) && HasActiveIncompatibility(mod);
             bool outdatedForGameVersion = rowIsVisible &&
                 IsModActiveInManager(mod) && IsModOutdatedForCurrentGameVersion(mod);
-            if (outdatedForGameVersion)
-                GUI.color = new Color(1f, 0.82f, 0.2f, 1f);
+
+            // 강조 우선순위: 충돌 > 필수 모드 누락 > 버전/로드 순서 문제 > 게임 지원 버전 경고.
+            // 구버전 경고는 다른 문제가 없을 때만 표시한다.
+            if (conflictingMod)
+                GUI.color = new Color(1f, 0.12f, 0.58f, 1f);
             else if (rowIssue == ModRowIssue.RequiredMod)
                 GUI.color = new Color(1f, 0.28f, 0.28f, 1f);
             else if (rowIssue == ModRowIssue.Version)
                 GUI.color = new Color(1f, 0.82f, 0.2f, 1f);
             else if (rowIssue == ModRowIssue.LoadOrder)
                 GUI.color = new Color(1f, 0.55f, 0.16f, 1f);
-            if (outdatedForGameVersion)
-                TooltipHandler.TipRegion(nameRect,
-                    "이 모드는 현재 게임 버전보다 낮은 버전만 지원합니다. 지원 버전: " +
-                    GetSupportedGameVersionText(mod));
+            else if (outdatedForGameVersion)
+                GUI.color = new Color(1f, 0.82f, 0.2f, 1f);
+
+            if (conflictingMod)
+                TooltipHandler.TipRegion(nameRect, "활성 모드와 충돌하는 모드입니다.");
             else if (rowIssue != ModRowIssue.None)
             {
                 string tooltipKey = rowIssue == ModRowIssue.RequiredMod
@@ -1841,6 +1847,10 @@ Widgets.DrawBoxSolid(rowRect, finalRowColor);
                         : "LMM_0143";
                 TooltipHandler.TipRegion(nameRect, ManagerTranslation.Get(tooltipKey));
             }
+            else if (outdatedForGameVersion)
+                TooltipHandler.TipRegion(nameRect,
+                    "이 모드는 현재 게임 버전보다 낮은 버전만 지원합니다. 지원 버전: " +
+                    GetSupportedGameVersionText(mod));
             string rowName = protectedMod ? name + ManagerTranslation.Get("LMM_0001") : name;
             Widgets.Label(nameRect, rowName);
             bool workshopItemMissing = false;
