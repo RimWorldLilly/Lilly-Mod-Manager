@@ -354,6 +354,17 @@ nextInstalledModRefreshTime =
             }
         }
 
+        private static Color GetReadableTextColor(Color background)
+        {
+            // 상대 휘도를 기준으로 어두운 배경에는 밝은 글자, 밝은 배경에는 어두운 글자를 사용한다.
+            float luminance = background.r * 0.2126f +
+                background.g * 0.7152f +
+                background.b * 0.0722f;
+            return luminance >= 0.48f
+                ? new Color(0.08f, 0.08f, 0.08f, 1f)
+                : Color.white;
+        }
+
         private static bool DrawFilterCheckbox(ref bool value, string label, Rect rect)
         {
             bool previous = value;
