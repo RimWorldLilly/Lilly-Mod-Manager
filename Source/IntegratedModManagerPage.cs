@@ -459,7 +459,8 @@ nextInstalledModRefreshTime =
             for (int i = 0; i < categories.Count; i++)
             {
                 ManagerCategoryData category = categories[i];
-                Rect rowRect = new Rect(0f, (i + 1) * 30f, viewRect.width, 30f);
+                // 오른쪽 5px는 선택 강조 막대 영역으로 남겨 둔다.
+                Rect rowRect = new Rect(0f, (i + 1) * 30f, Mathf.Max(0f, viewRect.width - 5f), 30f);
 
 // 기존 검정/회색 교차 배경색
 Color baseRowColor = i % 2 == 0
@@ -541,7 +542,7 @@ GUI.contentColor = previousContentColor;
                 TooltipHandler.TipRegion(labelRect, label);
                 HandleCategoryTabReorder(category, labelRect);
                 previousContentColor = GUI.contentColor;
-                GUI.contentColor = GetReadableTextColor(categoryRowColor);
+                GUI.contentColor = Color.white;
                 if (Widgets.ButtonText(editRect, "E"))
                     OpenRenameCategoryDialog(category);
                 TooltipHandler.TipRegion(editRect, ManagerTranslation.Get("LMM_0125"));
@@ -566,7 +567,13 @@ if ((!searchText.NullOrEmpty() || HasActiveModFilters()) &&
 
 // 검색 결과 음영보다 위에 선택 테두리를 그려 선택 상태를 유지
 if (!allModsView && category.Id == currentCategoryId)
+{
+    // 선택 테두리 바깥쪽의 별도 여백에 표시해 배경색과 겹치지 않게 한다.
     Widgets.DrawBox(rowRect, 2);
+    Widgets.DrawBoxSolid(
+        new Rect(rowRect.xMax + 1f, rowRect.y + 2f, 4f, rowRect.height - 4f),
+        new Color(0f, 0.9f, 1f, 1f));
+}
 if (!allModsView && categoryTabsHaveKeyboardFocus && category.Id == currentCategoryId)
 {
     Color previousFocusColor = GUI.color;
@@ -922,7 +929,8 @@ private bool MatchesTagSearch(ManagerTagData tag)
                 ManagerTagData tag = tags[i];
                 if (tag == null)
                     continue;
-                Rect rowRect = new Rect(0f, rowIndex * 30f, viewRect.width, 30f);
+                // 오른쪽 5px는 선택 강조 막대 영역으로 남겨 둔다.
+                Rect rowRect = new Rect(0f, rowIndex * 30f, Mathf.Max(0f, viewRect.width - 5f), 30f);
 
 
 // 기존 검정/회색 교차 배경색
@@ -958,7 +966,7 @@ Widgets.DrawBoxSolid(rowRect, tagRowColor);
                     Event.current.Use();
                 }
                 Color previousTagContentColor = GUI.contentColor;
-                GUI.contentColor = GetReadableTextColor(tagRowColor);
+                GUI.contentColor = Color.white;
                 Rect stateRect = new Rect(rowRect.x + 3f, rowRect.y + 4f, 26f, 22f);
                 if (Widgets.ButtonText(stateRect, GetTagStateLabel(tag)))
                     ToggleTagEnabled(tag);
@@ -990,7 +998,7 @@ GUI.contentColor = previousTagContentColor;
                 {
                     HandleTagTabReorder(tag, labelRect);
                     previousTagContentColor = GUI.contentColor;
-                    GUI.contentColor = GetReadableTextColor(tagRowColor);
+                    GUI.contentColor = Color.white;
                     if (Widgets.ButtonText(editRect, "E"))
                         OpenRenameTagDialog(tag);
                     TooltipHandler.TipRegion(editRect, ManagerTranslation.Get("LMM_0126"));
@@ -1012,7 +1020,13 @@ if (!searchText.NullOrEmpty() &&
 
 // 검색 결과 음영보다 위에 선택 테두리를 그려 선택 상태를 유지
 if (!allModsView && tag.Id == currentTagId)
+{
+    // 선택 테두리 바깥쪽의 별도 여백에 표시해 배경색과 겹치지 않게 한다.
     Widgets.DrawBox(rowRect, 2);
+    Widgets.DrawBoxSolid(
+        new Rect(rowRect.xMax + 1f, rowRect.y + 2f, 4f, rowRect.height - 4f),
+        new Color(0f, 0.9f, 1f, 1f));
+}
 
             }
             Widgets.EndScrollView();
