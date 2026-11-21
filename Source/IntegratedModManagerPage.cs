@@ -62,6 +62,9 @@ namespace Lilly.IntegratedModManager
             new Dictionary<string, ModRowIssue>(StringComparer.OrdinalIgnoreCase);
         private readonly Dictionary<string, List<string>> modLoadFolderIssuesCache =
             new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
+        private int activeModCount;
+        private int outdatedModCount;
+        private int conflictingModCount;
 
         private string currentCategoryId;
         private string currentTagId;
@@ -186,11 +189,15 @@ nextInstalledModRefreshTime =
             Widgets.DrawBoxSolid(inRect, Color.black);
 
             Text.Font = GameFont.Medium;
-            Widgets.Label(new Rect(20f, 10f, inRect.width - 470f, 36f),
+            Widgets.Label(new Rect(20f, 10f, inRect.width - 720f, 36f),
                 "Lilly - Integrated Mod Manager");
             Text.Font = GameFont.Small;
-            string selectionStatus = "선택: " + selectedPackageIds.Count + "개";
-            Rect statusRect = new Rect(inRect.width - 230f, 12f, 210f, 28f);
+            string selectionStatus =
+                "활성: " + activeModCount +
+                "  |  버전 낮음: " + outdatedModCount +
+                "  |  충돌: " + conflictingModCount +
+                "  |  선택: " + selectedPackageIds.Count;
+            Rect statusRect = new Rect(inRect.width - 700f, 12f, 680f, 28f);
             Text.Anchor = TextAnchor.MiddleRight;
             GUI.color = new Color(0.25f, 0.85f, 0.9f, 1f);
             Widgets.Label(statusRect, selectionStatus);
@@ -1811,13 +1818,19 @@ Widgets.DrawBoxSolid(rowRect, finalRowColor);
             string name = GetDisplayName(mod);
             // Color previousTextColor = GUI.color;
             ModRowIssue rowIssue = rowIsVisible ? GetModRowIssue(mod) : ModRowIssue.None;
+            bool outdatedForGameVersion = rowIsVisible &&
+                IsModActiveInManager(mod) && IsModOutdatedForCurrentGameVersion(mod);
             if (rowIssue == ModRowIssue.RequiredMod)
                 GUI.color = new Color(1f, 0.28f, 0.28f, 1f);
-            else if (rowIssue == ModRowIssue.Version)
+            else if (outdatedForGameVersion || rowIssue == ModRowIssue.Version)
                 GUI.color = new Color(1f, 0.82f, 0.2f, 1f);
             else if (rowIssue == ModRowIssue.LoadOrder)
                 GUI.color = new Color(1f, 0.55f, 0.16f, 1f);
-            if (rowIssue != ModRowIssue.None)
+            if (outdatedForGameVersion)
+                TooltipHandler.TipRegion(nameRect,
+                    "이 모드는 현재 게임 버전보다 낮은 버전만 지원합니다. 지원 버전: " +
+                    GetSupportedGameVersionText(mod));
+            else if (rowIssue != ModRowIssue.None)
             {
                 string tooltipKey = rowIssue == ModRowIssue.RequiredMod
                     ? "LMM_0145"
@@ -5367,6 +5380,62 @@ Find.WindowStack.Add(new ManagerFolderNameDialog(
                     }
                 }
             }
+
+            // 상단 상태 표시줄용 통계는 목록 필터와 관계없이 전체 설치 모드를 기준으로 계산한다.
+            activeModCount = 0;
+            outdatedModCount = 0;
+            conflictingModCount = 0;
+            foreach (ModMetaData mod in modsByPackageId.Values)
+            {
+                if (mod == null || !IsModActiveInManager(mod))
+                    continue;
+
+                activeModCount++;
+                if (IsModOutdatedForCurrentGameVersion(mod))
+                    outdatedModCount++;
+                if (HasActiveIncompatibility(mod))
+                    conflictingModCount++;
+            }
+        }
+
+        private bool HasActiveIncompatibility(ModMetaData mod)
+        {
+            if (mod == null)
+                return false;
+
+            try
+            {
+                foreach (ModRequirement requirement in mod.GetRequirements())
+                {
+                    if (requirement is ModIncompatibility &&
+                        !IsRequirementSatisfiedInManager(requirement))
+                        return true;
+                }
+            }
+            catch (Exception)
+            {
+                // 충돌 정보를 읽을 수 없어도 모드 목록 자체는 계속 표시한다.
+            }
+            return false;
+        }
+
+        private static bool IsModOutdatedForCurrentGameVersion(ModMetaData mod)
+        {
+            if (mod == null)
+                return false;
+
+            List<Version> supportedVersions = mod.SupportedVersionsReadOnly;
+            if (supportedVersions == null || supportedVersions.Count == 0)
+                return false;
+
+            int currentMajor = VersionControl.CurrentMajor;
+            int currentMinor = VersionControl.CurrentMinor;
+            bool hasCurrentOrNewerVersion = supportedVersions.Any(version =>
+                version != null &&
+                (version.Major > currentMajor ||
+                 (version.Major == currentMajor && version.Minor >= currentMinor)));
+
+            return !hasCurrentOrNewerVersion;
         }
 
         private static string ReadDependencyPackageId(object dependency)
