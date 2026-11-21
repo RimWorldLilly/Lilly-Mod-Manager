@@ -199,13 +199,13 @@ nextInstalledModRefreshTime =
             Text.Font = GameFont.Small;
             string[] statusItems =
             {
-                "필수 누락: " + requiredModIssueCount,
-                "충돌: " + conflictingModCount,
-                "로드 순서: " + loadOrderIssueCount,
-                "버전 불일치: " + versionIssueCount,
-                "게임 버전 낮음: " + outdatedModCount,
-                "활성: " + activeModCount,
-                "선택: " + selectedPackageIds.Count
+                ManagerTranslation.Get("LMM_0168") + requiredModIssueCount,
+                ManagerTranslation.Get("LMM_0169") + conflictingModCount,
+                ManagerTranslation.Get("LMM_0170") + loadOrderIssueCount,
+                ManagerTranslation.Get("LMM_0171") + versionIssueCount,
+                ManagerTranslation.Get("LMM_0172") + outdatedModCount,
+                ManagerTranslation.Get("LMM_0173") + activeModCount,
+                ManagerTranslation.Get("LMM_0174") + selectedPackageIds.Count
             };
             Color[] statusColors =
             {
@@ -260,7 +260,6 @@ nextInstalledModRefreshTime =
             float sectionTop = searchRect.yMax + 8f;
             Rect categoryRect = new Rect(20f, sectionTop, sidebarWidth,
                 contentBottom - sectionTop);
-            DrawCategoryTabs(categoryRect);
 
             float contentTop = searchRect.yMax + 8f;
             float contentHeight = Mathf.Max(100f, contentBottom - contentTop);
@@ -269,10 +268,12 @@ nextInstalledModRefreshTime =
             Rect detailsRect = new Rect(mainX + listWidth + 10f, contentTop,
                 mainWidth - listWidth - 10f, contentHeight);
 
-            // 하단 고정 버튼은 모드 상세 정보처럼 프레임마다 컨트롤 수가 달라지는
-            // 동적 UI보다 먼저 그려 컨트롤 ID가 선택 상태에 따라 바뀌지 않게 한다.
+            // 하단 버튼을 사이드바/모드 목록보다 먼저 그려 IMGUI 컨트롤 ID와
+            // 마우스 입력 처리가 목록의 선택 상태에 영향을 받지 않게 한다.
             DrawBottomButtons(new Rect(20f, inRect.height - BottomHeight - 8f,
                 inRect.width - 40f, BottomHeight));
+
+            DrawCategoryTabs(categoryRect);
 
             if (Event.current.type == EventType.MouseDown &&
                 listRect.Contains(Event.current.mousePosition))
@@ -326,8 +327,13 @@ nextInstalledModRefreshTime =
                 ShortFilterLabel(ManagerTranslation.Get("LMM_0110")),
                 ShortFilterLabel(ManagerTranslation.Get("LMM_0114")),
                 ShortFilterLabel(ManagerTranslation.Get("LMM_0111")),
-                "선후행", "필수 누락", "버전",
-                "로컬", "워크샵", "공식", "폴더 없음"
+                ManagerTranslation.Get("LMM_0175"),
+                ManagerTranslation.Get("LMM_0176"),
+                ManagerTranslation.Get("LMM_0177"),
+                ManagerTranslation.Get("LMM_0178"),
+                ManagerTranslation.Get("LMM_0179"),
+                ManagerTranslation.Get("LMM_0180"),
+                ManagerTranslation.Get("LMM_0181")
             };
             // CheckboxLabeled의 체크 표시 영역과 텍스트 여백을 충분히 확보한다.
             float[] filterWidths = filterLabels
@@ -436,9 +442,9 @@ nextInstalledModRefreshTime =
         {
             switch (scope)
             {
-                case SearchScope.Name: return "제목";
-                case SearchScope.Description: return "내용";
-                case SearchScope.Author: return "제작자";
+                case SearchScope.Name: return ManagerTranslation.Get("LMM_0182");
+                case SearchScope.Description: return ManagerTranslation.Get("LMM_0183");
+                case SearchScope.Author: return ManagerTranslation.Get("LMM_0184");
                 case SearchScope.PackageId: return "PackageId";
                 default: return "전체";
             }
@@ -2741,7 +2747,7 @@ Widgets.DrawBoxSolid(rowRect, finalRowColor);
                 ConfirmUnsubscribeSelected();
             x += buttonWidth + gap;
 
-            if (Widgets.ButtonText(new Rect(x, rect.y, buttonWidth, rect.height), "누락 검사"))
+            if (Widgets.ButtonText(new Rect(x, rect.y, buttonWidth, rect.height), ManagerTranslation.Get("LMM_0185")))
                 Find.WindowStack.Add(new WorkshopMissingItemsWindow());
             x += buttonWidth + gap;
 
@@ -2770,13 +2776,13 @@ Widgets.DrawBoxSolid(rowRect, finalRowColor);
             bool previousGuiEnabled = GUI.enabled;
             GUI.enabled = true;
             bool openPresetFolder = Widgets.ButtonText(
-                new Rect(x, rect.y, buttonWidth, rect.height), "폴더 열기");
+                new Rect(x, rect.y, buttonWidth, rect.height), ManagerTranslation.Get("LMM_0186"));
             GUI.enabled = previousGuiEnabled;
             if (openPresetFolder)
                 OpenPresetFolder();
             x += buttonWidth + gap;
 
-            if (Widgets.ButtonText(new Rect(x, rect.y, buttonWidth, rect.height), "모드 옵션"))
+            if (Widgets.ButtonText(new Rect(x, rect.y, buttonWidth, rect.height), ManagerTranslation.Get("LMM_0187")))
                 Find.WindowStack.Add(new ManagerOptionsWindow(settings));
             x += buttonWidth + gap;
 
@@ -3467,10 +3473,6 @@ Widgets.DrawBoxSolid(rowRect, finalRowColor);
 
         private void OpenFastFolderMoveDialog()
         {
-            // 모드가 선택되지 않은 상태에서도 폴더 바로가기 창을 열 수 있다.
-            // 모드가 선택되어 있으면 기존처럼 선택한 모드를 대상 폴더로 이동한다.
-            bool hasSelectedMods = selectedPackageIds.Count > 0;
-
             List<List<FastFolderMoveDialog.FolderMoveTarget>> columns =
                 new List<List<FastFolderMoveDialog.FolderMoveTarget>>();
 
@@ -3543,44 +3545,14 @@ Widgets.DrawBoxSolid(rowRect, finalRowColor);
                         if (target.Tag == null)
                             return;
 
-                        if (hasSelectedMods)
-                        {
-                            MoveSelectionToTagFolder(target.Tag, target.Folder);
-                        }
-                        else
-                        {
-                            // 선택된 모드가 없으면 이동 대신 해당 태그/폴더로 바로 이동한다.
-                            allModsView = false;
-                            currentTagId = target.Tag.Id;
-                            currentFolderId = target.Folder.Id;
-                            target.Folder.Collapsed = false;
-                            selectedPackageIds.Clear();
-                            primarySelectedPackageId = null;
-                            lastSelectedIndex = -1;
-                            RefreshVisibleMods();
-                        }
+                        MoveSelectionToTagFolder(target.Tag, target.Folder);
                         return;
                     }
 
                     if (target.Category == null)
                         return;
 
-                    if (hasSelectedMods)
-                    {
-                        MoveSelectionToFolder(target.Category, target.Folder);
-                    }
-                    else
-                    {
-                        // 선택된 모드가 없으면 이동 대신 해당 카테고리/폴더로 바로 이동한다.
-                        allModsView = false;
-                        currentCategoryId = target.Category.Id;
-                        currentFolderId = target.Folder.Id;
-                        target.Folder.Collapsed = false;
-                        selectedPackageIds.Clear();
-                        primarySelectedPackageId = null;
-                        lastSelectedIndex = -1;
-                        RefreshVisibleMods();
-                    }
+                    MoveSelectionToFolder(target.Category, target.Folder);
                 }));
         }
 
@@ -7373,7 +7345,8 @@ private int GetActiveCount(ManagerTagData tag)
         public override void DoWindowContents(Rect inRect)
         {
             Text.Font = GameFont.Medium;
-            Widgets.Label(new Rect(0f, 0f, inRect.width, 32f), "모드 옵션");
+            Widgets.Label(new Rect(0f, 0f, inRect.width, 32f),
+                ManagerTranslation.Get("LMM_0187"));
             Text.Font = GameFont.Small;
 
             bool oldAutoTagNewMods = settings.AutoTagNewMods;
@@ -7381,11 +7354,11 @@ private int GetActiveCount(ManagerTagData tag)
 
             Widgets.CheckboxLabeled(
                 new Rect(0f, 46f, inRect.width, 30f),
-                "새로 추가된 모드에 '신규' 태그 자동 추가",
+                ManagerTranslation.Get("LMM_0188"),
                 ref settings.AutoTagNewMods);
             Widgets.CheckboxLabeled(
                 new Rect(0f, 82f, inRect.width, 30f),
-                "버전이 변경된 모드에 '변경됨' 태그 자동 추가",
+                ManagerTranslation.Get("LMM_0189"),
                 ref settings.AutoTagUpdatedMods);
 
             if (oldAutoTagNewMods != settings.AutoTagNewMods ||
