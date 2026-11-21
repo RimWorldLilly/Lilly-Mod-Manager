@@ -197,20 +197,54 @@ nextInstalledModRefreshTime =
             Widgets.Label(new Rect(20f, 10f, 260f, 36f), pageTitle);
 
             Text.Font = GameFont.Small;
-            string statusText =
-                "필수 누락: " + requiredModIssueCount +
-                "  |  충돌: " + conflictingModCount +
-                "  |  로드 순서: " + loadOrderIssueCount +
-                "  |  버전 불일치: " + versionIssueCount +
-                "  |  게임 버전 낮음: " + outdatedModCount +
-                "     |     활성: " + activeModCount +
-                "  |  선택: " + selectedPackageIds.Count;
-            float statusWidth = Text.CalcSize(statusText).x;
-            Rect statusRect = new Rect(Mathf.Max(280f, inRect.width - statusWidth - 20f),
-                12f, Mathf.Min(statusWidth, inRect.width - 300f), 28f);
-            Text.Anchor = TextAnchor.MiddleRight;
-            GUI.color = new Color(0.25f, 0.85f, 0.9f, 1f);
-            Widgets.Label(statusRect, statusText);
+            string[] statusItems =
+            {
+                "필수 누락: " + requiredModIssueCount,
+                "충돌: " + conflictingModCount,
+                "로드 순서: " + loadOrderIssueCount,
+                "버전 불일치: " + versionIssueCount,
+                "게임 버전 낮음: " + outdatedModCount,
+                "활성: " + activeModCount,
+                "선택: " + selectedPackageIds.Count
+            };
+            Color[] statusColors =
+            {
+                new Color(1f, 0.28f, 0.28f, 1f),
+                new Color(1f, 0.415f, 0.26f, 1f),
+                new Color(1f, 0.55f, 0.24f, 1f),
+                new Color(1f, 0.685f, 0.22f, 1f),
+                new Color(1f, 0.82f, 0.2f, 1f),
+                new Color(0.25f, 0.85f, 0.9f, 1f),
+                new Color(0.25f, 0.85f, 0.9f, 1f)
+            };
+            const string statusSeparator = "  |  ";
+            float statusWidth = 0f;
+            for (int i = 0; i < statusItems.Length; i++)
+            {
+                statusWidth += Text.CalcSize(statusItems[i]).x;
+                if (i > 0)
+                    statusWidth += Text.CalcSize(statusSeparator).x;
+            }
+
+            float statusX = Mathf.Max(280f, inRect.width - statusWidth - 20f);
+            Text.Anchor = TextAnchor.MiddleLeft;
+            for (int i = 0; i < statusItems.Length; i++)
+            {
+                if (i > 0)
+                {
+                    float separatorWidth = Text.CalcSize(statusSeparator).x;
+                    GUI.color = new Color(0.55f, 0.55f, 0.55f, 1f);
+                    Widgets.Label(new Rect(statusX, 12f, separatorWidth, 28f),
+                        statusSeparator);
+                    statusX += separatorWidth;
+                }
+
+                float itemWidth = Text.CalcSize(statusItems[i]).x;
+                GUI.color = statusColors[i];
+                Widgets.Label(new Rect(statusX, 12f, itemWidth, 28f), statusItems[i]);
+                statusX += itemWidth;
+            }
+
             GUI.color = Color.white;
             Text.Anchor = TextAnchor.UpperLeft;
             float contentBottom = inRect.height - BottomHeight - 20f;
