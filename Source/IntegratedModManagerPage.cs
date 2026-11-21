@@ -1756,7 +1756,7 @@ Widgets.DrawBoxSolid(rowRect, finalRowColor);
             if (isPrimarySelection)
             {
                 // 카테고리/태그 목록과 같은 위치 및 크기(4x25px)로 청록색 막대를 표시한다.
-                Rect markerRect = new Rect(rowRect.xMax + 1f, rowRect.y + 2.5f,
+                Rect markerRect = new Rect(rowRect.xMax + 1f, rowRect.y + 1f,
                     4f, 25f);
                 Widgets.DrawBoxSolid(markerRect, new Color(0f, 0.9f, 1f, 1f));
 
