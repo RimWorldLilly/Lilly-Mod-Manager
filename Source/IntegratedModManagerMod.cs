@@ -32,10 +32,14 @@ namespace Lilly.IntegratedModManager
         public List<string> FavoriteFolderKeys = new List<string>();
         public List<string> RecentFolderKeys = new List<string>();
         public List<string> ExcludedPackageIds = new List<string>();
+        public bool AutoTagNewMods = true;
+        public bool AutoTagUpdatedMods = true;
 
         public override void ExposeData()
         {
             base.ExposeData();
+            Scribe_Values.Look(ref AutoTagNewMods, "autoTagNewMods", true);
+            Scribe_Values.Look(ref AutoTagUpdatedMods, "autoTagUpdatedMods", true);
             Scribe_Collections.Look(ref Categories, "categories", LookMode.Deep);
             Scribe_Collections.Look(ref Tags, "tags", LookMode.Deep);
             Scribe_Collections.Look(ref Mods, "mods", LookMode.Deep);
@@ -512,7 +516,8 @@ namespace Lilly.IntegratedModManager
         public string PackageId;
         public bool Enabled = true;
         public string DisplayName;
-public string ColorHex;
+        public string ColorHex;
+        public string InstalledVersion;
         public List<string> TagIds = new List<string>();
 
         public ManagerModData()
@@ -531,6 +536,7 @@ public string ColorHex;
             Scribe_Values.Look(ref Enabled, "enabled", true);
             Scribe_Values.Look(ref DisplayName, "displayName", null);
             Scribe_Values.Look(ref ColorHex, "colorHex", null);
+            Scribe_Values.Look(ref InstalledVersion, "installedVersion", null);
             Scribe_Collections.Look(ref TagIds, "tags", LookMode.Value);
             if (Scribe.mode == LoadSaveMode.PostLoadInit && TagIds == null)
                 TagIds = new List<string>();
@@ -541,6 +547,7 @@ public string ColorHex;
             ManagerModData copy = new ManagerModData(PackageId, Enabled);
             copy.DisplayName = DisplayName;
             copy.ColorHex = ColorHex;
+            copy.InstalledVersion = InstalledVersion;
             copy.TagIds = TagIds == null ? new List<string>() : new List<string>(TagIds);
             return copy;
         }
