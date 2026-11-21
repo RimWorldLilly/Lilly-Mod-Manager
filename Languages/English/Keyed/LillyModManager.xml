@@ -168,4 +168,26 @@
   <LMM_0165>Vanilla mod list deleted: </LMM_0165>
   <LMM_0166>Failed to delete the vanilla mod list.</LMM_0166>
   <LMM_0167>Load-order checks only apply to active mods: </LMM_0167>
+  <LMM_0168>Missing required: </LMM_0168>
+  <LMM_0169>Conflicts: </LMM_0169>
+  <LMM_0170>Load order: </LMM_0170>
+  <LMM_0171>Version mismatch: </LMM_0171>
+  <LMM_0172>Outdated game version: </LMM_0172>
+  <LMM_0173>Active: </LMM_0173>
+  <LMM_0174>Selected: </LMM_0174>
+  <LMM_0175>Load order</LMM_0175>
+  <LMM_0176>Required missing</LMM_0176>
+  <LMM_0177>Version</LMM_0177>
+  <LMM_0178>Local</LMM_0178>
+  <LMM_0179>Workshop</LMM_0179>
+  <LMM_0180>Official</LMM_0180>
+  <LMM_0181>No folder</LMM_0181>
+  <LMM_0182>Name</LMM_0182>
+  <LMM_0183>Description</LMM_0183>
+  <LMM_0184>Author</LMM_0184>
+  <LMM_0185>Check missing items</LMM_0185>
+  <LMM_0186>Open folder</LMM_0186>
+  <LMM_0187>Mod options</LMM_0187>
+  <LMM_0188>Automatically add the 'New' tag to newly added mods</LMM_0188>
+  <LMM_0189>Automatically add the 'Updated' tag when a mod version changes</LMM_0189>
 </LanguageData>
