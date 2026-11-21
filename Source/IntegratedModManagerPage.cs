@@ -1770,9 +1770,10 @@ Widgets.DrawBoxSolid(rowRect, finalRowColor);
             }
             else if (isSelected)
             {
-                // 추가 선택 항목의 기존 오른쪽 표시를 유지하고 어두운 1px 테두리를 덧붙인다.
-                Rect markerRect = new Rect(rowRect.xMax - 3f, rowRect.y + 3f,
-                    3f, rowRect.height - 6f);
+                // 추가 선택 항목도 주 선택 항목과 같은 위치 및 크기(4x25px)를 사용한다.
+                // 색상만 기존 어두운 청록색으로 유지한다.
+                Rect markerRect = new Rect(rowRect.xMax + 1f, rowRect.y + 1f,
+                    4f, 25f);
                 Widgets.DrawBoxSolid(markerRect, new Color(0f, 0.38f, 0.43f, 1f));
 
                 Color previousSelectionColor = GUI.color;
