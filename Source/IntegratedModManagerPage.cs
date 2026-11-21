@@ -2745,7 +2745,15 @@ Widgets.DrawBoxSolid(rowRect, finalRowColor);
                 Find.WindowStack.Add(new WorkshopMissingItemsWindow());
             x += buttonWidth + gap;
 
-            if (Widgets.ButtonText(new Rect(x, rect.y, buttonWidth, rect.height), ManagerTranslation.Get("LMM_0094")))
+            // 이전 사이드바 렌더링의 GUI.enabled 상태와 무관하게
+            // 빠른 폴더 이동/바로가기 버튼은 첫 화면부터 입력을 받는다.
+            bool previousFastMoveGuiEnabled = GUI.enabled;
+            GUI.enabled = true;
+            bool openFastFolderMove = Widgets.ButtonText(
+                new Rect(x, rect.y, buttonWidth, rect.height),
+                ManagerTranslation.Get("LMM_0094"));
+            GUI.enabled = previousFastMoveGuiEnabled;
+            if (openFastFolderMove)
                 OpenFastFolderMoveDialog();
             x += buttonWidth + gap;
 
@@ -2762,7 +2770,7 @@ Widgets.DrawBoxSolid(rowRect, finalRowColor);
             bool previousGuiEnabled = GUI.enabled;
             GUI.enabled = true;
             bool openPresetFolder = Widgets.ButtonText(
-                new Rect(x, rect.y, buttonWidth, rect.height), "폴더 바로가기");
+                new Rect(x, rect.y, buttonWidth, rect.height), "폴더 열기");
             GUI.enabled = previousGuiEnabled;
             if (openPresetFolder)
                 OpenPresetFolder();
@@ -3459,8 +3467,9 @@ Widgets.DrawBoxSolid(rowRect, finalRowColor);
 
         private void OpenFastFolderMoveDialog()
         {
-            if (selectedPackageIds.Count == 0)
-                return;
+            // 모드가 선택되지 않은 상태에서도 폴더 바로가기 창을 열 수 있다.
+            // 모드가 선택되어 있으면 기존처럼 선택한 모드를 대상 폴더로 이동한다.
+            bool hasSelectedMods = selectedPackageIds.Count > 0;
 
             List<List<FastFolderMoveDialog.FolderMoveTarget>> columns =
                 new List<List<FastFolderMoveDialog.FolderMoveTarget>>();
@@ -3526,15 +3535,52 @@ Widgets.DrawBoxSolid(rowRect, finalRowColor);
             Find.WindowStack.Add(new FastFolderMoveDialog(columns,
                 target =>
                 {
+                    if (target == null || target.Folder == null)
+                        return;
+
                     if (tagMode)
                     {
-                        if (target != null && target.Tag != null && target.Folder != null)
+                        if (target.Tag == null)
+                            return;
+
+                        if (hasSelectedMods)
+                        {
                             MoveSelectionToTagFolder(target.Tag, target.Folder);
+                        }
+                        else
+                        {
+                            // 선택된 모드가 없으면 이동 대신 해당 태그/폴더로 바로 이동한다.
+                            allModsView = false;
+                            currentTagId = target.Tag.Id;
+                            currentFolderId = target.Folder.Id;
+                            target.Folder.Collapsed = false;
+                            selectedPackageIds.Clear();
+                            primarySelectedPackageId = null;
+                            lastSelectedIndex = -1;
+                            RefreshVisibleMods();
+                        }
                         return;
                     }
 
-                    if (target != null && target.Category != null && target.Folder != null)
+                    if (target.Category == null)
+                        return;
+
+                    if (hasSelectedMods)
+                    {
                         MoveSelectionToFolder(target.Category, target.Folder);
+                    }
+                    else
+                    {
+                        // 선택된 모드가 없으면 이동 대신 해당 카테고리/폴더로 바로 이동한다.
+                        allModsView = false;
+                        currentCategoryId = target.Category.Id;
+                        currentFolderId = target.Folder.Id;
+                        target.Folder.Collapsed = false;
+                        selectedPackageIds.Clear();
+                        primarySelectedPackageId = null;
+                        lastSelectedIndex = -1;
+                        RefreshVisibleMods();
+                    }
                 }));
         }
 
