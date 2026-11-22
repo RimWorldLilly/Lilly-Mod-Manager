@@ -204,9 +204,10 @@ namespace Lilly.IntegratedModManager
 
         private bool TryParseRgb(out int red, out int green, out int blue)
         {
-            return int.TryParse(redInput, out red) &&
-                int.TryParse(greenInput, out green) &&
-                int.TryParse(blueInput, out blue) &&
+            bool parsedRed = int.TryParse(redInput, out red);
+            bool parsedGreen = int.TryParse(greenInput, out green);
+            bool parsedBlue = int.TryParse(blueInput, out blue);
+            return parsedRed && parsedGreen && parsedBlue &&
                 red >= 0 && red <= 255 &&
                 green >= 0 && green <= 255 &&
                 blue >= 0 && blue <= 255;
@@ -250,6 +251,7 @@ namespace Lilly.IntegratedModManager
             string trimmed = value == null
                 ? string.Empty
                 : value.Trim().TrimStart('#');
+            color = Color.clear;
             return ManagerTagColors.IsValidHex(trimmed) &&
                 ColorUtility.TryParseHtmlString("#" + trimmed, out color);
         }
