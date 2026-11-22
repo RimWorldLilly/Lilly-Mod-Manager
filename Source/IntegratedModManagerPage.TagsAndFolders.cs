@@ -358,8 +358,16 @@ namespace Lilly.IntegratedModManager
                             if (tag == null || tag.IsSystem)
                                 return;
 
-                            // 색상 단축 동작도 별도 팝업을 띄우지 않고 기존 태그 편집창을 사용한다.
-                            OpenRenameTagDialog(tag);
+                            // 태그 이름 입력 없이 기존 편집 창에 포함된 색상 컨트롤만 표시한다.
+                            Find.WindowStack.Add(new ManagerFolderNameDialog(
+                                ManagerTranslation.Get("LMM_0081") + tag.Name,
+                                tag.ColorHex,
+                                colorHex =>
+                                {
+                                    tag.ColorHex = colorHex;
+                                    PersistTagData();
+                                },
+                                true));
                         }
 
         private void ConfirmDeleteTag(ManagerTagData tag)
