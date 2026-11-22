@@ -305,7 +305,9 @@ internal sealed partial class MainForm
 
     private void MainFormKeyDown(object? sender, KeyEventArgs e)
     {
-        if (e.Control && e.KeyCode == Keys.A && modRows.ContainsFocus)
+        if (!modRows.ContainsFocus) return;
+
+        if (e.Control && e.KeyCode == Keys.A)
         {
             grid.ClearSelection();
             foreach (DataGridViewRow row in grid.Rows) row.Selected = true;
@@ -315,6 +317,34 @@ internal sealed partial class MainForm
             UpdateModRowSelection();
             UpdateDetails();
             e.Handled = true;
+            return;
+        }
+
+        if (e.KeyCode == Keys.Up || e.KeyCode == Keys.Down || e.KeyCode == Keys.Home || e.KeyCode == Keys.End)
+        {
+            if (grid.Rows.Count == 0) return;
+            int current = grid.Rows.Cast<DataGridViewRow>().ToList()
+                .FindIndex(row => (row.Tag as ModEntry)?.PackageId.Equals(
+                    primarySelectedPackageId, StringComparison.OrdinalIgnoreCase) == true);
+            if (current < 0) current = 0;
+            int target = e.KeyCode switch
+            {
+                Keys.Home => 0,
+                Keys.End => grid.Rows.Count - 1,
+                Keys.Up => Math.Max(0, current - 1),
+                _ => Math.Min(grid.Rows.Count - 1, current + 1)
+            };
+            if (grid.Rows[target].Tag is ModEntry mod)
+            {
+                SelectModRow(mod, new MouseEventArgs(MouseButtons.Left, 1, 0, 0, 0));
+                Control? rowControl = modRows.Controls.Cast<Control>()
+                    .FirstOrDefault(control => control is Panel panel &&
+                        panel.Tag is ModEntry item &&
+                        item.PackageId.Equals(mod.PackageId, StringComparison.OrdinalIgnoreCase));
+                if (rowControl != null) modRows.ScrollControlIntoView(rowControl);
+            }
+            e.Handled = true;
+            e.SuppressKeyPress = true;
         }
     }
 
