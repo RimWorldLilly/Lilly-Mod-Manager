@@ -276,6 +276,7 @@ internal sealed partial class MainForm
         activeFilter.SelectedIndexChanged += (_, _) => { RefreshSidebar(); RefreshGameLikeList(); };
         sourceFilter.SelectedIndexChanged += (_, _) => { RefreshSidebar(); RefreshGameLikeList(); };
         modRows.SizeChanged += (_, _) => ResizeModRows();
+        sidebarItems.SizeChanged += (_, _) => ResizeSidebarRows();
         KeyPreview = true;
         KeyDown += MainFormKeyDown;
         Shown += (_, _) =>
@@ -362,6 +363,7 @@ internal sealed partial class MainForm
             if (rebuildingNavigation) return;
             SetCategoryEnabled(category, enabled.Checked);
         };
+        select.ForeColor = ColorForBackground(null, row.BackColor);
         row.Controls.Add(enabled);
         row.Controls.Add(select);
         row.ContextMenuStrip = CreateCategoryContextMenu(category);
@@ -397,6 +399,7 @@ internal sealed partial class MainForm
         select.Width = Math.Max(90, sidebarItems.ClientSize.Width - 48);
         select.Click += (_, _) => SelectTagView(tag);
         enabled.Click += (_, _) => SetTagEnabled(tag, enabled.CheckState != CheckState.Checked);
+        select.ForeColor = ColorForBackground(null, row.BackColor);
         row.Controls.Add(enabled);
         row.Controls.Add(select);
         if (!tag.IsSystem)
@@ -461,6 +464,7 @@ internal sealed partial class MainForm
         button.Left = 7;
         button.Width = Math.Max(140, sidebarItems.ClientSize.Width - 22);
         button.Click += (_, _) => onClick();
+        button.ForeColor = ColorForBackground(null, row.BackColor);
         row.Controls.Add(button);
         AddNavigationRowControl(row);
     }
@@ -469,6 +473,17 @@ internal sealed partial class MainForm
     {
         row.Width = Math.Max(170, sidebarItems.ClientSize.Width - 12);
         sidebarItems.Controls.Add(row);
+    }
+
+    private void ResizeSidebarRows()
+    {
+        int width = Math.Max(170, sidebarItems.ClientSize.Width - SystemInformation.VerticalScrollBarWidth - 12);
+        foreach (Control control in sidebarItems.Controls)
+        {
+            control.Width = width;
+            foreach (Control child in control.Controls)
+                if (child is Button) child.Width = Math.Max(90, width - child.Left - 6);
+        }
     }
 
     private ContextMenuStrip CreateCategoryContextMenu(CategoryData category)
@@ -616,27 +631,9 @@ internal sealed partial class MainForm
         modRows.SuspendLayout();
         modRows.Controls.Clear();
 
-        foreach (ModEntry mod in filtered)
-        {
-            CategoryData? cat = store.Categories.FirstOrDefault(c => c.ModIds.Contains(mod.PackageId, StringComparer.OrdinalIgnoreCase));
-            ModState state = store.GetState(mod.PackageId);
-            string tagNames = string.Join(", ", state.TagIds.Select(id => store.Tags.FirstOrDefault(t => t.Id == id)?.Name).Where(n => !string.IsNullOrWhiteSpace(n)));
-            string folderName = cat?.Folders.FirstOrDefault(f => f.ModIds.Contains(mod.PackageId, StringComparer.OrdinalIgnoreCase))?.Name ?? "미분류";
-            grid.Rows.Add(mod.Active || mod.Official,
-                string.IsNullOrWhiteSpace(state.DisplayName) ? mod.Name : state.DisplayName,
-                cat?.Name ?? "미분류", folderName, tagNames, mod.Version,
-                mod.Official ? "공식" : mod.Workshop ? "창작마당" : "로컬", mod.Issue, mod.PackageId);
-            grid.Rows[grid.Rows.Count - 1].Tag = mod;
-        }
-
         modListHeading.Text = sidebarTagMode
             ? $"태그 모드 목록 · {currentTag?.Name ?? "태그"} ({filtered.Count})"
             : currentCategory == null ? $"전체 모드 ({filtered.Count})" : $"{currentCategory.Name} ({filtered.Count})";
-
-        var visibleIds = new HashSet<string>(filtered.Select(m => m.PackageId), StringComparer.OrdinalIgnoreCase);
-        var nextSelection = preserveSelection.Where(visibleIds.Contains).ToHashSet(StringComparer.OrdinalIgnoreCase);
-        if (primarySelectedPackageId != null && !visibleIds.Contains(primarySelectedPackageId))
-            primarySelectedPackageId = null;
 
         if (!sidebarTagMode && currentCategory != null)
         {
@@ -655,14 +652,23 @@ internal sealed partial class MainForm
         if (filtered.Count == 0)
             AddMessageRow(query.Length == 0 ? "표시할 모드가 없습니다." : "검색 결과가 없습니다.");
 
+        var visibleIds = grid.Rows.Cast<DataGridViewRow>()
+            .Select(row => (row.Tag as ModEntry)?.PackageId)
+            .Where(id => !string.IsNullOrEmpty(id)).Cast<string>()
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var nextSelection = preserveSelection.Where(visibleIds.Contains).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        if (primarySelectedPackageId != null && !visibleIds.Contains(primarySelectedPackageId))
+            primarySelectedPackageId = null;
         grid.ClearSelection();
         foreach (DataGridViewRow row in grid.Rows)
+            if (row.Tag is ModEntry mod && nextSelection.Contains(mod.PackageId)) row.Selected = true;
+        if (primarySelectedPackageId != null && !nextSelection.Contains(primarySelectedPackageId))
+            primarySelectedPackageId = null;
+        if (primarySelectedPackageId == null && grid.Rows.Count > 0)
         {
-            if (row.Tag is ModEntry mod && nextSelection.Contains(mod.PackageId))
-                row.Selected = true;
+            grid.Rows[0].Selected = true;
+            primarySelectedPackageId = (grid.Rows[0].Tag as ModEntry)?.PackageId;
         }
-        if (primarySelectedPackageId == null && grid.SelectedRows.Count > 0)
-            primarySelectedPackageId = (grid.SelectedRows[0].Tag as ModEntry)?.PackageId;
         modRows.ResumeLayout();
         ResizeModRows();
         UpdateModRowSelection();
@@ -726,21 +732,43 @@ internal sealed partial class MainForm
         row.Controls.Add(fold);
         row.Controls.Add(title);
         var menu = new ContextMenuStrip();
+        menu.Items.Add("선택 모드를 이 폴더로 이동", null, (_, _) =>
+        {
+            List<string> ids = SelectedIds();
+            if (ids.Count == 0 || store == null) return;
+            if (isTagFolder)
+            {
+                TagData? tag = SelectedTag();
+                if (tag != null) store.AssignToTagFolder(ids, tag, folder);
+            }
+            else if (category != null) store.AssignToCategoryFolder(ids, category, folder);
+            RefreshSidebar();
+            RefreshGameLikeList();
+        });
         menu.Items.Add("선택 항목으로 새 폴더 만들기", null, (_, _) =>
         {
-            SelectFolderRepresentative(members);
             if (isTagFolder) CreateTagFolderForSelected(); else CreateFolderForSelected();
         });
         menu.Items.Add("이 폴더 이름 변경", null, (_, _) =>
         {
-            SelectFolderRepresentative(members);
-            if (isTagFolder) RenameSelectedTagFolder(); else RenameSelectedFolder();
+            string? name = Prompt.Show(this, "새 폴더 이름", "폴더 이름 변경");
+            if (string.IsNullOrWhiteSpace(name)) return;
+            folder.Name = name.Trim();
+            RefreshGameLikeList();
         });
         if (folder.Id != "uncategorized")
             menu.Items.Add("이 폴더 삭제", null, (_, _) =>
             {
-                SelectFolderRepresentative(members);
-                if (isTagFolder) DeleteSelectedTagFolder(); else DeleteSelectedFolder();
+                if (MessageBox.Show(this, "폴더를 삭제하고 포함된 모드를 '미분류'로 이동할까요?", "폴더 삭제", MessageBoxButtons.YesNo) != DialogResult.Yes) return;
+                List<FolderData> ownerFolders = isTagFolder
+                    ? store?.Tags.FirstOrDefault(tag => tag.Id == sidebarSelectedTagId)?.Folders ?? new List<FolderData>()
+                    : category?.Folders ?? new List<FolderData>();
+                FolderData? unfiled = ownerFolders.FirstOrDefault(item => item.Id == "uncategorized");
+                if (unfiled == null) { unfiled = new FolderData(); ownerFolders.Insert(0, unfiled); }
+                foreach (string id in folder.ModIds.ToList())
+                    if (!unfiled.ModIds.Contains(id, StringComparer.OrdinalIgnoreCase)) unfiled.ModIds.Add(id);
+                ownerFolders.Remove(folder);
+                RefreshGameLikeList();
             });
         row.ContextMenuStrip = menu;
         title.ContextMenuStrip = menu;
@@ -755,11 +783,16 @@ internal sealed partial class MainForm
 
     private void AddModRow(ModEntry mod)
     {
-        int rowIndex = grid.Rows.Cast<DataGridViewRow>()
-            .ToList().FindIndex(row => (row.Tag as ModEntry)?.PackageId.Equals(mod.PackageId, StringComparison.OrdinalIgnoreCase) == true);
-        if (rowIndex < 0) return;
         ModState state = store!.GetState(mod.PackageId);
         CategoryData? category = store.Categories.FirstOrDefault(c => c.ModIds.Contains(mod.PackageId, StringComparer.OrdinalIgnoreCase));
+        string tagNamesForGrid = string.Join(", ", state.TagIds.Select(id => store.Tags.FirstOrDefault(t => t.Id == id)?.Name).Where(n => !string.IsNullOrWhiteSpace(n)));
+        string folderNameForGrid = category?.Folders.FirstOrDefault(f => f.ModIds.Contains(mod.PackageId, StringComparer.OrdinalIgnoreCase))?.Name ?? "미분류";
+        grid.Rows.Add(mod.Active || mod.Official,
+            string.IsNullOrWhiteSpace(state.DisplayName) ? mod.Name : state.DisplayName,
+            category?.Name ?? "미분류", folderNameForGrid, tagNamesForGrid, mod.Version,
+            mod.Official ? "공식" : mod.Workshop ? "창작마당" : "로컬", mod.Issue, mod.PackageId);
+        int rowIndex = grid.Rows.Count - 1;
+        grid.Rows[rowIndex].Tag = mod;
 
         var row = new Panel
         {
@@ -833,6 +866,7 @@ internal sealed partial class MainForm
         marker.Click += selectHandler;
         name.Click += selectHandler;
         meta.Click += selectHandler;
+        check.MouseDown += (_, e) => SelectModRow(mod, e);
         check.CheckedChanged += (_, _) =>
         {
             if (rebuildingRows || store == null || mod.Official) return;
@@ -841,12 +875,16 @@ internal sealed partial class MainForm
             SetStatus($"{mod.Name}: {(mod.Active ? "활성화" : "비활성화")} 예정 · '적용 / 저장'을 눌러 반영하세요.");
             RefreshSidebar();
         };
-        MouseEventHandler rightClick = (_, e) =>
+        MouseEventHandler rightClick = (source, e) =>
         {
             if (e.Button != MouseButtons.Right) return;
-            SelectModRow(mod, e, false);
+            int selectedIndex = grid.Rows.Cast<DataGridViewRow>().ToList()
+                .FindIndex(item => (item.Tag as ModEntry)?.PackageId.Equals(mod.PackageId, StringComparison.OrdinalIgnoreCase) == true);
+            if (selectedIndex >= 0 && !grid.Rows[selectedIndex].Selected)
+                SelectModRow(mod, e, false);
+            Control sourceControl = source as Control ?? row;
             contextMenuAnchor = row;
-            contextMenuPoint = e.Location;
+            contextMenuPoint = row.PointToClient(sourceControl.PointToScreen(e.Location));
             GridMouseUp(grid, e);
             contextMenuAnchor = null;
         };
