@@ -207,4 +207,9 @@
   <LMM_0206>Load order</LMM_0206>
   <LMM_0207>Version mismatch</LMM_0207>
   <LMM_0208>Outdated game version</LMM_0208>
+
+  <LMM_0209>Create desktop shortcut</LMM_0209>
+  <LMM_0210>Standalone EXE not found. Run build.bat in the mod folder first.</LMM_0210>
+  <LMM_0211>Desktop shortcut created.</LMM_0211>
+  <LMM_0212>Could not create the desktop shortcut. Check the log.</LMM_0212>
 </LanguageData>
