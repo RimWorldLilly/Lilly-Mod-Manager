@@ -162,6 +162,7 @@ internal sealed class ModStore
     public List<string> ExcludedPackageIds { get; private set; } = [];
     public List<string> FavoriteFolderKeys { get; private set; } = [];
     public List<string> RecentFolderKeys { get; private set; } = [];
+    private Dictionary<string, bool> persistedEnabledStates = new(StringComparer.OrdinalIgnoreCase);
     public bool AutoTagNewMods { get; set; } = true;
     public bool AutoTagUpdatedMods { get; set; } = true;
     public bool MetadataChanged { get; private set; }
@@ -325,6 +326,7 @@ internal sealed class ModStore
         ExcludedPackageIds = [];
         FavoriteFolderKeys = [];
         RecentFolderKeys = [];
+        persistedEnabledStates.Clear();
         AutoTagNewMods = true;
         AutoTagUpdatedMods = true;
         MetadataChanged = false;
@@ -379,6 +381,11 @@ internal sealed class ModStore
 
         // An empty state list is the initial baseline, not a batch of newly installed mods.
         // Once at least one saved state exists, missing installed package IDs are genuinely new.
+        States = States
+            .Where(state => !string.IsNullOrWhiteSpace(state.PackageId))
+            .GroupBy(state => state.PackageId, StringComparer.OrdinalIgnoreCase)
+            .Select(group => group.First())
+            .ToList();
         bool hasExistingBaseline = States.Count > 0;
         var stateById = States.ToDictionary(state => state.PackageId, StringComparer.OrdinalIgnoreCase);
         foreach (ModEntry mod in OrderedMods)
@@ -418,6 +425,8 @@ internal sealed class ModStore
             }
         }
         AssignUnclassifiedMods();
+        persistedEnabledStates = States.ToDictionary(
+            state => state.PackageId, state => state.Enabled, StringComparer.OrdinalIgnoreCase);
     }
 
     private void AddAutomaticTag(ModState state, string tagId, string tagName)
@@ -691,7 +700,7 @@ internal sealed class ModStore
                 category.Enabled = true;
         }
         SaveModsConfig();
-        SaveManagerSettings();
+        SaveManagerSettings(persistActivationDraft: true);
     }
 
     private void SaveModsConfig()
@@ -707,11 +716,23 @@ internal sealed class ModStore
 
     public void SaveManagerDataImmediately()
     {
-        SaveManagerSettings();
+        SaveManagerSettings(persistActivationDraft: false);
     }
 
-    private void SaveManagerSettings()
+    private void SaveManagerSettings(bool persistActivationDraft)
     {
+        Dictionary<string, bool>? draftEnabledStates = null;
+        if (!persistActivationDraft)
+        {
+            draftEnabledStates = States.ToDictionary(
+                state => state.PackageId, state => state.Enabled, StringComparer.OrdinalIgnoreCase);
+            foreach (ModState state in States)
+                if (persistedEnabledStates.TryGetValue(state.PackageId, out bool savedEnabled))
+                    state.Enabled = savedEnabled;
+        }
+
+        try
+        {
         Directory.CreateDirectory(System.IO.Path.GetDirectoryName(Paths.ManagerSettings)!);
         XDocument doc = File.Exists(Paths.ManagerSettings) ? XDocument.Load(Paths.ManagerSettings) : new XDocument(new XElement("ModSettings"));
         XElement root = doc.Root ?? throw new InvalidDataException("ModSettings XML root is missing.");
@@ -732,7 +753,19 @@ internal sealed class ModStore
         SetValue(managerSettings, "autoTagUpdatedMods", AutoTagUpdatedMods);
         BackupFile(Paths.ManagerSettings);
         SaveAtomic(doc, Paths.ManagerSettings);
+        persistedEnabledStates = States.ToDictionary(
+            state => state.PackageId, state => state.Enabled, StringComparer.OrdinalIgnoreCase);
         MetadataChanged = false;
+        }
+        finally
+        {
+            if (!persistActivationDraft && draftEnabledStates != null)
+            {
+                foreach (ModState state in States)
+                    if (draftEnabledStates.TryGetValue(state.PackageId, out bool draftEnabled))
+                        state.Enabled = draftEnabled;
+            }
+        }
     }
 
     private static void ReplaceCollection(XElement parent, string name, IEnumerable<XElement> items)
