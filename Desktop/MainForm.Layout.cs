@@ -934,7 +934,18 @@ internal sealed partial class MainForm
         {
             string? name = Prompt.Show(this, "새 폴더 이름", "폴더 이름 변경");
             if (string.IsNullOrWhiteSpace(name)) return;
-            folder.Name = name.Trim();
+            string trimmedName = name.Trim();
+            List<FolderData> ownerFolders = isTagFolder
+                ? store?.Tags.FirstOrDefault(tag => tag.Id == sidebarSelectedTagId)?.Folders ?? new List<FolderData>()
+                : category?.Folders ?? new List<FolderData>();
+            if (ownerFolders.Any(other => other != folder &&
+                other.Name.Equals(trimmedName, StringComparison.CurrentCultureIgnoreCase)))
+            {
+                MessageBox.Show(this, "같은 이름의 폴더가 이미 있습니다.");
+                return;
+            }
+            folder.Name = trimmedName;
+            PersistManagerSettings("폴더 이름 변경");
             RefreshGameLikeList();
         });
         if (folder.Id != "uncategorized")
@@ -949,6 +960,7 @@ internal sealed partial class MainForm
                 foreach (string id in folder.ModIds.ToList())
                     if (!unfiled.ModIds.Contains(id, StringComparer.OrdinalIgnoreCase)) unfiled.ModIds.Add(id);
                 ownerFolders.Remove(folder);
+                PersistManagerSettings("폴더 삭제");
                 RefreshGameLikeList();
             });
         row.ContextMenuStrip = menu;
