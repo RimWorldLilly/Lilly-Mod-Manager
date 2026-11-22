@@ -932,7 +932,7 @@ internal sealed partial class MainForm : Form
 
     private List<string> SelectedIds() => visibleMods.Where(mod => selectedPackageIds.Contains(mod.PackageId)).Select(mod => mod.PackageId).ToList();
 
-    private void GridMouseUp(object? sender, MouseEventArgs e)
+    private void ShowModContextMenu(object? sender, MouseEventArgs e)
     {
         if (e.Button != MouseButtons.Right || store == null) return;
         var menu = new ContextMenuStrip();
