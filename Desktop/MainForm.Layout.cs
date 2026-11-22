@@ -1,0 +1,1006 @@
+using System;
+using System.Collections.Generic;
+using System.Drawing;
+using System.IO;
+using System.Linq;
+using System.Windows.Forms;
+
+namespace Lilly.ModManager.Desktop;
+
+internal sealed partial class MainForm
+{
+    private readonly SplitContainer outerSplit = new()
+    {
+        Dock = DockStyle.Fill,
+        Orientation = Orientation.Vertical,
+        SplitterDistance = 245,
+        Panel1MinSize = 190,
+        Panel2MinSize = 700,
+        BackColor = Color.FromArgb(23, 26, 31)
+    };
+    private readonly SplitContainer contentSplit = new()
+    {
+        Dock = DockStyle.Fill,
+        Orientation = Orientation.Vertical,
+        SplitterDistance = 430,
+        Panel1MinSize = 300,
+        Panel2MinSize = 320,
+        BackColor = Color.FromArgb(23, 26, 31)
+    };
+    private readonly FlowLayoutPanel sidebarItems = new()
+    {
+        Dock = DockStyle.Fill,
+        FlowDirection = FlowDirection.TopDown,
+        WrapContents = false,
+        AutoScroll = true,
+        Padding = new Padding(4),
+        BackColor = Color.FromArgb(27, 30, 36)
+    };
+    private readonly FlowLayoutPanel modRows = new()
+    {
+        Dock = DockStyle.Fill,
+        FlowDirection = FlowDirection.TopDown,
+        WrapContents = false,
+        AutoScroll = true,
+        Padding = new Padding(7),
+        BackColor = Color.FromArgb(25, 28, 34)
+    };
+    private readonly Label sidebarHeading = new()
+    {
+        Text = "카테고리",
+        Dock = DockStyle.Top,
+        Height = 28,
+        TextAlign = ContentAlignment.MiddleLeft,
+        ForeColor = Color.White,
+        Font = new Font("Segoe UI", 10f, FontStyle.Bold),
+        Padding = new Padding(8, 0, 0, 0)
+    };
+    private readonly Label modListHeading = new()
+    {
+        Text = "모드 목록",
+        Dock = DockStyle.Top,
+        Height = 34,
+        TextAlign = ContentAlignment.MiddleLeft,
+        ForeColor = Color.White,
+        Font = new Font("Segoe UI", 10f, FontStyle.Bold),
+        Padding = new Padding(10, 0, 0, 0)
+    };
+    private readonly Label detailHeading = new()
+    {
+        Text = "모드 정보",
+        Dock = DockStyle.Top,
+        Height = 38,
+        TextAlign = ContentAlignment.MiddleLeft,
+        ForeColor = Color.White,
+        Font = new Font("Segoe UI", 11f, FontStyle.Bold),
+        Padding = new Padding(12, 0, 0, 0),
+        BackColor = Color.FromArgb(35, 39, 46)
+    };
+    private readonly Label detailTitle = new()
+    {
+        Text = "모드를 선택하세요",
+        Dock = DockStyle.Top,
+        Height = 32,
+        TextAlign = ContentAlignment.MiddleLeft,
+        ForeColor = Color.Gainsboro,
+        Font = new Font("Segoe UI", 10f, FontStyle.Bold),
+        Padding = new Padding(10, 0, 0, 0),
+        BackColor = Color.FromArgb(29, 33, 40)
+    };
+    private readonly PictureBox previewImage = new()
+    {
+        Dock = DockStyle.Top,
+        Height = 190,
+        SizeMode = PictureBoxSizeMode.Zoom,
+        BackColor = Color.FromArgb(22, 24, 29),
+        BorderStyle = BorderStyle.FixedSingle
+    };
+    private Image? currentPreviewImage;
+    private readonly ToolTip rowToolTip = new()
+    {
+        AutoPopDelay = 12000,
+        InitialDelay = 450,
+        ReshowDelay = 120
+    };
+    private readonly Button categoryModeButton = new() { Text = "카테고리", Width = 94, Height = 28 };
+    private readonly Button tagModeButton = new() { Text = "태그", Width = 70, Height = 28 };
+    private readonly Button navAddButton = new() { Text = "+", Width = 30, Height = 28 };
+    private readonly Button navRenameButton = new() { Text = "이름", Width = 48, Height = 28 };
+    private readonly Button navDeleteButton = new() { Text = "삭제", Width = 48, Height = 28 };
+    private readonly FlowLayoutPanel navActions = new()
+    {
+        Dock = DockStyle.Top,
+        Height = 34,
+        Padding = new Padding(5, 2, 3, 2),
+        WrapContents = false,
+        BackColor = Color.FromArgb(32, 36, 43)
+    };
+    private readonly FlowLayoutPanel navModeTabs = new()
+    {
+        Dock = DockStyle.Top,
+        Height = 34,
+        Padding = new Padding(5, 2, 3, 2),
+        WrapContents = false,
+        BackColor = Color.FromArgb(32, 36, 43)
+    };
+    private bool sidebarTagMode;
+    private bool rebuildingNavigation;
+    private bool rebuildingRows;
+    private string? sidebarSelectedCategoryId;
+    private string? sidebarSelectedTagId;
+    private string? primarySelectedPackageId;
+    private int selectionAnchorRow = -1;
+    private Control? contextMenuAnchor;
+    private Point contextMenuPoint;
+
+    private void BuildGameLikeUi()
+    {
+        Text = "Lilly - Mod Manager";
+        Width = 1500;
+        Height = 920;
+        MinimumSize = new Size(1120, 700);
+        StartPosition = FormStartPosition.CenterScreen;
+        BackColor = Color.FromArgb(23, 26, 31);
+        ForeColor = Color.Gainsboro;
+        Icon = LoadIcon();
+
+        // Hidden model grid is retained only as a selection/data adapter for existing actions.
+        // It is never added to the visible layout.
+        grid.Visible = false;
+        grid.Size = new Size(1, 1);
+        grid.Location = new Point(-10, -10);
+        grid.Columns.Clear();
+        grid.Columns.Add(new DataGridViewCheckBoxColumn { Name = "active", HeaderText = "활성" });
+        grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "name", HeaderText = "이름" });
+        grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "category", HeaderText = "카테고리" });
+        grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "folder", HeaderText = "폴더" });
+        grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "tags", HeaderText = "태그" });
+        grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "version", HeaderText = "버전" });
+        grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "source", HeaderText = "출처" });
+        grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "issue", HeaderText = "검사" });
+        grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "package", HeaderText = "PackageId" });
+        grid.MultiSelect = true;
+        grid.SelectionMode = DataGridViewSelectionMode.FullRowSelect;
+        grid.SelectionChanged += (_, _) => UpdateDetails();
+
+        var top = new FlowLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            FlowDirection = FlowDirection.LeftToRight,
+            WrapContents = false,
+            Padding = new Padding(9, 6, 5, 4),
+            BackColor = Color.FromArgb(35, 39, 46),
+            AutoScroll = true
+        };
+        AddToolbarLabel(top, "검색");
+        search.Width = 390;
+        top.Controls.Add(search);
+        AddToolbarLabel(top, "상태");
+        activeFilter.Width = 95;
+        activeFilter.Items.Clear();
+        activeFilter.Items.AddRange(new object[] { "모두", "활성", "비활성" });
+        activeFilter.SelectedIndex = 0;
+        top.Controls.Add(activeFilter);
+        AddToolbarLabel(top, "설치 위치");
+        sourceFilter.Width = 115;
+        sourceFilter.Items.Clear();
+        sourceFilter.Items.AddRange(new object[] { "전체", "로컬", "창작마당", "공식" });
+        sourceFilter.SelectedIndex = 0;
+        top.Controls.Add(sourceFilter);
+
+        var sidebar = new Panel { Dock = DockStyle.Fill, BackColor = Color.FromArgb(27, 30, 36) };
+        navModeTabs.Controls.Add(categoryModeButton);
+        navModeTabs.Controls.Add(tagModeButton);
+        navActions.Controls.Add(navAddButton);
+        navActions.Controls.Add(navRenameButton);
+        navActions.Controls.Add(navDeleteButton);
+        sidebar.Controls.Add(sidebarItems);
+        sidebar.Controls.Add(navActions);
+        sidebar.Controls.Add(navModeTabs);
+        sidebar.Controls.Add(sidebarHeading);
+
+        var listPanel = new Panel { Dock = DockStyle.Fill, BackColor = Color.FromArgb(25, 28, 34) };
+        listPanel.Controls.Add(modRows);
+        listPanel.Controls.Add(modListHeading);
+
+        var infoPanel = new Panel { Dock = DockStyle.Fill, BackColor = Color.FromArgb(28, 31, 37) };
+        details.Dock = DockStyle.Fill;
+        details.ReadOnly = true;
+        details.BackColor = Color.FromArgb(28, 31, 37);
+        details.ForeColor = Color.Gainsboro;
+        details.BorderStyle = BorderStyle.None;
+        details.Font = new Font("Segoe UI", 9.5f);
+        details.DetectUrls = true;
+        details.WordWrap = true;
+        infoPanel.Controls.Add(details);
+        infoPanel.Controls.Add(previewImage);
+        infoPanel.Controls.Add(detailTitle);
+        infoPanel.Controls.Add(detailHeading);
+
+        contentSplit.Panel1.Controls.Add(listPanel);
+        contentSplit.Panel2.Controls.Add(infoPanel);
+        outerSplit.Panel1.Controls.Add(sidebar);
+        outerSplit.Panel2.Controls.Add(contentSplit);
+
+        var actions = new FlowLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            FlowDirection = FlowDirection.LeftToRight,
+            WrapContents = true,
+            AutoScroll = true,
+            Padding = new Padding(7, 4, 5, 2),
+            BackColor = Color.FromArgb(35, 39, 46)
+        };
+        AddButton(actions, "새로고침", Reload);
+        AddButton(actions, "적용 / 저장", Apply);
+        AddButton(actions, "프리셋 저장", SavePreset);
+        AddButton(actions, "프리셋 불러오기", LoadPreset);
+        AddButton(actions, "자동 정렬", AutoSort);
+        AddButton(actions, "위로", () => MoveSelected(-1));
+        AddButton(actions, "아래로", () => MoveSelected(1));
+        AddButton(actions, "폴더 만들기", CreateFolderForSelected);
+        AddButton(actions, "태그 폴더 만들기", CreateTagFolderForSelected);
+        AddButton(actions, "카테고리 색상", PickCategoryColor);
+        AddButton(actions, "태그 색상", PickTagColor);
+        AddButton(actions, "모드 색상", PickModColor);
+        AddButton(actions, "모드 색상 해제", ClearModColor);
+        AddButton(actions, "경로 설정", ChoosePaths);
+        AddButton(actions, "게임 실행", LaunchGame);
+
+        var root = new TableLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            ColumnCount = 1,
+            RowCount = 3,
+            BackColor = Color.FromArgb(23, 26, 31),
+            Margin = Padding.Empty,
+            Padding = Padding.Empty
+        };
+        root.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f));
+        root.RowStyles.Add(new RowStyle(SizeType.Absolute, 46f));
+        root.RowStyles.Add(new RowStyle(SizeType.Percent, 100f));
+        root.RowStyles.Add(new RowStyle(SizeType.Absolute, 82f));
+        root.Controls.Add(top, 0, 0);
+        root.Controls.Add(outerSplit, 0, 1);
+        root.Controls.Add(actions, 0, 2);
+        status.Dock = DockStyle.Bottom;
+        Controls.Add(root);
+        Controls.Add(status);
+
+        categoryModeButton.Click += (_, _) => { sidebarTagMode = false; RefreshSidebar(); RefreshGameLikeList(); };
+        tagModeButton.Click += (_, _) => { sidebarTagMode = true; if (string.IsNullOrEmpty(sidebarSelectedTagId)) sidebarSelectedTagId = store?.Tags.FirstOrDefault()?.Id; RefreshSidebar(); RefreshGameLikeList(); };
+        navAddButton.Click += (_, _) => { if (sidebarTagMode) AddTag(); else AddCategory(); };
+        navRenameButton.Click += (_, _) => { if (sidebarTagMode) RenameTag(); else RenameCategory(); };
+        navDeleteButton.Click += (_, _) => { if (sidebarTagMode) DeleteTag(); else DeleteCategory(); };
+        search.TextChanged += (_, _) => { RefreshSidebar(); RefreshGameLikeList(); };
+        activeFilter.SelectedIndexChanged += (_, _) => { RefreshSidebar(); RefreshGameLikeList(); };
+        sourceFilter.SelectedIndexChanged += (_, _) => { RefreshSidebar(); RefreshGameLikeList(); };
+        modRows.SizeChanged += (_, _) => ResizeModRows();
+        KeyPreview = true;
+        KeyDown += MainFormKeyDown;
+        Shown += (_, _) =>
+        {
+            try { outerSplit.SplitterDistance = Math.Max(205, (int)(ClientSize.Width * 0.17)); } catch { }
+            try { contentSplit.SplitterDistance = Math.Max(330, (int)(contentSplit.Width * 0.36)); } catch { }
+        };
+        RefreshSidebar();
+    }
+
+    private void MainFormKeyDown(object? sender, KeyEventArgs e)
+    {
+        if (e.Control && e.KeyCode == Keys.A && modRows.ContainsFocus)
+        {
+            grid.ClearSelection();
+            foreach (DataGridViewRow row in grid.Rows) row.Selected = true;
+            primarySelectedPackageId = grid.Rows.Count > 0
+                ? (grid.Rows[0].Tag as ModEntry)?.PackageId
+                : null;
+            UpdateModRowSelection();
+            UpdateDetails();
+            e.Handled = true;
+        }
+    }
+
+    private void RefreshSidebar()
+    {
+        if (store == null || sidebarItems.IsDisposed) return;
+        rebuildingNavigation = true;
+        sidebarItems.SuspendLayout();
+        sidebarItems.Controls.Clear();
+
+        categoryModeButton.BackColor = sidebarTagMode ? Color.FromArgb(48, 54, 63) : Color.FromArgb(65, 91, 107);
+        tagModeButton.BackColor = sidebarTagMode ? Color.FromArgb(65, 91, 107) : Color.FromArgb(48, 54, 63);
+        categoryModeButton.ForeColor = tagModeButton.ForeColor = Color.White;
+        navRenameButton.Enabled = sidebarTagMode
+            ? store.Tags.Any(t => t.Id == sidebarSelectedTagId && !t.IsSystem)
+            : store.Categories.Any(c => c.Id == sidebarSelectedCategoryId);
+        navDeleteButton.Enabled = navRenameButton.Enabled && (sidebarTagMode
+            ? store.Tags.Any(t => t.Id == sidebarSelectedTagId && !t.IsSystem)
+            : store.Categories.Any(c => c.Id == sidebarSelectedCategoryId && !new[] { "before", "core", "normal", "after" }.Contains(c.Id)));
+
+        sidebarHeading.Text = sidebarTagMode ? "태그 목록" : "카테고리 목록";
+        if (!sidebarTagMode)
+        {
+            AddNavigationRow("전체 모드", $"{store.OrderedMods.Count}", null,
+                sidebarSelectedCategoryId == null,
+                () => SelectAllModsView());
+
+            foreach (CategoryData category in store.Categories)
+                AddCategoryNavigationRow(category);
+        }
+        else
+        {
+            foreach (TagData tag in store.Tags)
+                AddTagNavigationRow(tag);
+        }
+
+        sidebarItems.ResumeLayout();
+        rebuildingNavigation = false;
+    }
+
+    private void AddCategoryNavigationRow(CategoryData category)
+    {
+        int total = store!.OrderedMods.Count(m => category.ModIds.Contains(m.PackageId, StringComparer.OrdinalIgnoreCase));
+        int active = store.OrderedMods.Count(m => category.ModIds.Contains(m.PackageId, StringComparer.OrdinalIgnoreCase) && (m.Active || m.Official));
+        Panel row = CreateNavigationPanel(category.Id == sidebarSelectedCategoryId, category.ColorHex);
+        var enabled = new CheckBox
+        {
+            AutoSize = false,
+            Width = 22,
+            Height = 24,
+            Left = 5,
+            Top = 4,
+            Checked = category.Enabled,
+            BackColor = Color.Transparent
+        };
+        var select = CreateNavigationButton($"({active}/{total}) {category.Name}");
+        select.Left = 31;
+        select.Width = Math.Max(90, sidebarItems.ClientSize.Width - 48);
+        select.Click += (_, _) => SelectCategoryView(category);
+        enabled.CheckedChanged += (_, _) =>
+        {
+            if (rebuildingNavigation) return;
+            SetCategoryEnabled(category, enabled.Checked);
+        };
+        row.Controls.Add(enabled);
+        row.Controls.Add(select);
+        row.ContextMenuStrip = CreateCategoryContextMenu(category);
+        select.ContextMenuStrip = row.ContextMenuStrip;
+        AddNavigationRowControl(row);
+    }
+
+    private void AddTagNavigationRow(TagData tag)
+    {
+        List<ModEntry> members = store!.OrderedMods
+            .Where(mod => tag.Id == "untagged"
+                ? store.GetState(mod.PackageId).TagIds.Count == 0
+                : store.GetState(mod.PackageId).TagIds.Contains(tag.Id, StringComparer.OrdinalIgnoreCase))
+            .ToList();
+        int active = members.Count(m => m.Active || m.Official);
+        CheckState state = active == 0 ? CheckState.Unchecked :
+            active == members.Count ? CheckState.Checked : CheckState.Indeterminate;
+
+        Panel row = CreateNavigationPanel(tag.Id == sidebarSelectedTagId, tag.ColorHex);
+        var enabled = new CheckBox
+        {
+            AutoCheck = false,
+            ThreeState = true,
+            CheckState = state,
+            Width = 22,
+            Height = 24,
+            Left = 5,
+            Top = 4,
+            BackColor = Color.Transparent
+        };
+        var select = CreateNavigationButton($"({active}/{members.Count}) {tag.Name}");
+        select.Left = 31;
+        select.Width = Math.Max(90, sidebarItems.ClientSize.Width - 48);
+        select.Click += (_, _) => SelectTagView(tag);
+        enabled.Click += (_, _) => SetTagEnabled(tag, enabled.CheckState != CheckState.Checked);
+        row.Controls.Add(enabled);
+        row.Controls.Add(select);
+        if (!tag.IsSystem)
+        {
+            row.ContextMenuStrip = CreateTagContextMenu(tag);
+            select.ContextMenuStrip = row.ContextMenuStrip;
+        }
+        AddNavigationRowControl(row);
+    }
+
+    private Panel CreateNavigationPanel(bool selected, string? colorHex)
+    {
+        Color back = selected ? Color.FromArgb(45, 78, 96) : Color.FromArgb(31, 35, 42);
+        if (!selected && TryParseColor(colorHex, out Color custom)) back = custom;
+        return new Panel
+        {
+            Width = Math.Max(170, sidebarItems.ClientSize.Width - 12),
+            Height = 32,
+            Margin = new Padding(1, 1, 2, 1),
+            BackColor = back,
+            BorderStyle = selected ? BorderStyle.FixedSingle : BorderStyle.None
+        };
+    }
+
+    private Button CreateNavigationButton(string text)
+    {
+        return new Button
+        {
+            Text = text,
+            TextAlign = ContentAlignment.MiddleLeft,
+            FlatStyle = FlatStyle.Flat,
+            BackColor = Color.Transparent,
+            ForeColor = ColorForBackground((Control?)null, Color.FromArgb(31, 35, 42)),
+            Font = new Font("Segoe UI", 8.8f, FontStyle.Regular),
+            Height = 30,
+            Top = 1,
+            FlatAppearance = { BorderSize = 0, MouseOverBackColor = Color.FromArgb(58, 66, 77) },
+            Padding = new Padding(3, 0, 0, 0)
+        };
+    }
+
+    private static Color ColorForBackground(Control? control, Color fallback)
+    {
+        Color color = fallback;
+        if (control != null) color = control.BackColor;
+        double luminance = (0.2126 * color.R + 0.7152 * color.G + 0.0722 * color.B) / 255.0;
+        return luminance > 0.52 ? Color.Black : Color.White;
+    }
+
+    private static bool TryParseColor(string? hex, out Color color)
+    {
+        color = Color.Empty;
+        if (string.IsNullOrWhiteSpace(hex)) return false;
+        try { color = ColorTranslator.FromHtml(hex); return true; }
+        catch { return false; }
+    }
+
+    private void AddNavigationRow(string title, string count, string? colorHex, bool selected, Action onClick)
+    {
+        Panel row = CreateNavigationPanel(selected, colorHex);
+        var button = CreateNavigationButton($"{title}  ({count})");
+        button.Left = 7;
+        button.Width = Math.Max(140, sidebarItems.ClientSize.Width - 22);
+        button.Click += (_, _) => onClick();
+        row.Controls.Add(button);
+        AddNavigationRowControl(row);
+    }
+
+    private void AddNavigationRowControl(Control row)
+    {
+        row.Width = Math.Max(170, sidebarItems.ClientSize.Width - 12);
+        sidebarItems.Controls.Add(row);
+    }
+
+    private ContextMenuStrip CreateCategoryContextMenu(CategoryData category)
+    {
+        var menu = new ContextMenuStrip();
+        menu.Items.Add("이름 변경", null, (_, _) => { SelectCategoryView(category); RenameCategory(); });
+        menu.Items.Add("색상 변경", null, (_, _) => { SelectCategoryView(category); PickCategoryColor(); });
+        if (!new[] { "before", "core", "normal", "after" }.Contains(category.Id))
+            menu.Items.Add("삭제", null, (_, _) => { SelectCategoryView(category); DeleteCategory(); });
+        return menu;
+    }
+
+    private ContextMenuStrip CreateTagContextMenu(TagData tag)
+    {
+        var menu = new ContextMenuStrip();
+        menu.Items.Add("이름 변경", null, (_, _) => { SelectTagView(tag); RenameTag(); });
+        menu.Items.Add("색상 변경", null, (_, _) => { SelectTagView(tag); PickTagColor(); });
+        menu.Items.Add("삭제", null, (_, _) => { SelectTagView(tag); DeleteTag(); });
+        return menu;
+    }
+
+    private void SelectAllModsView()
+    {
+        sidebarTagMode = false;
+        sidebarSelectedCategoryId = null;
+        categoryFilter.SelectedItem = "전체";
+        sidebarSelectedTagId = null;
+        RefreshSidebar();
+        RefreshGameLikeList();
+    }
+
+    private void SelectCategoryView(CategoryData category)
+    {
+        sidebarTagMode = false;
+        sidebarSelectedCategoryId = category.Id;
+        sidebarSelectedTagId = null;
+        categoryFilter.SelectedItem = category.Name;
+        tagFilter.SelectedItem = "모든 태그";
+        RefreshSidebar();
+        RefreshGameLikeList();
+    }
+
+    private void SelectTagView(TagData tag)
+    {
+        sidebarTagMode = true;
+        sidebarSelectedTagId = tag.Id;
+        tagFilter.SelectedItem = tag.IsSystem ? "모든 태그" : tag.Name;
+        RefreshSidebar();
+        RefreshGameLikeList();
+    }
+
+    private void SetCategoryEnabled(CategoryData category, bool enabled)
+    {
+        if (store == null) return;
+        category.Enabled = enabled;
+        foreach (ModEntry mod in store.OrderedMods.Where(m => category.ModIds.Contains(m.PackageId, StringComparer.OrdinalIgnoreCase)))
+        {
+            if (mod.Official) continue;
+            mod.Active = enabled;
+            store.GetState(mod.PackageId).Enabled = enabled;
+        }
+        RefreshSidebar();
+        RefreshGameLikeList();
+        SetStatus($"'{category.Name}' 카테고리의 모드를 {(enabled ? "활성화" : "비활성화")}할 예정입니다.");
+    }
+
+    private void SetTagEnabled(TagData tag, bool enabled)
+    {
+        if (store == null) return;
+        foreach (ModEntry mod in store.OrderedMods)
+        {
+            ModState state = store.GetState(mod.PackageId);
+            bool belongs = tag.Id == "untagged"
+                ? state.TagIds.Count == 0
+                : state.TagIds.Contains(tag.Id, StringComparer.OrdinalIgnoreCase);
+            if (!belongs || mod.Official) continue;
+            mod.Active = enabled;
+            state.Enabled = enabled;
+        }
+        RefreshSidebar();
+        RefreshGameLikeList();
+        SetStatus($"'{tag.Name}' 태그의 모드를 {(enabled ? "활성화" : "비활성화")}할 예정입니다.");
+    }
+
+    private void RefreshGameLikeList()
+    {
+        if (store == null || modRows.IsDisposed || rebuildingRows) return;
+        rebuildingRows = true;
+        string query = search.Text.Trim();
+        string stateFilter = activeFilter.SelectedItem?.ToString() ?? "모두";
+        string source = sourceFilter.SelectedItem?.ToString() ?? "전체";
+
+        IEnumerable<ModEntry> candidates = store.OrderedMods;
+        CategoryData? currentCategory = null;
+        TagData? currentTag = null;
+        if (sidebarTagMode)
+        {
+            currentTag = store.Tags.FirstOrDefault(t => t.Id == sidebarSelectedTagId);
+            if (currentTag == null)
+            {
+                currentTag = store.Tags.FirstOrDefault();
+                sidebarSelectedTagId = currentTag?.Id;
+            }
+            if (currentTag != null)
+            {
+                TagData selected = currentTag;
+                candidates = candidates.Where(mod =>
+                {
+                    List<string> ids = store.GetState(mod.PackageId).TagIds;
+                    return selected.Id == "untagged"
+                        ? ids.Count == 0
+                        : ids.Contains(selected.Id, StringComparer.OrdinalIgnoreCase);
+                });
+            }
+        }
+        else if (!string.IsNullOrEmpty(sidebarSelectedCategoryId))
+        {
+            currentCategory = store.Categories.FirstOrDefault(c => c.Id == sidebarSelectedCategoryId);
+            if (currentCategory != null)
+            {
+                CategoryData selected = currentCategory;
+                candidates = candidates.Where(mod => selected.ModIds.Contains(mod.PackageId, StringComparer.OrdinalIgnoreCase));
+            }
+        }
+
+        List<ModEntry> filtered = candidates.Where(mod =>
+        {
+            if (stateFilter == "활성" && !mod.Active && !mod.Official) return false;
+            if (stateFilter == "비활성" && (mod.Active || mod.Official)) return false;
+            if (source == "로컬" && (mod.Workshop || mod.Official)) return false;
+            if (source == "창작마당" && (!mod.Workshop || mod.Official)) return false;
+            if (source == "공식" && !mod.Official) return false;
+            if (query.Length == 0) return true;
+            ModState state = store.GetState(mod.PackageId);
+            string tags = string.Join(" ", state.TagIds.Select(id => store.Tags.FirstOrDefault(t => t.Id == id)?.Name));
+            string haystack = string.Join(" ", mod.Name, state.DisplayName, mod.PackageId, mod.Author,
+                mod.Description, mod.Version, currentCategory?.Name, currentTag?.Name, tags);
+            return haystack.Contains(query, StringComparison.CurrentCultureIgnoreCase);
+        }).ToList();
+
+        string[] preserveSelection = grid.SelectedRows.Cast<DataGridViewRow>()
+            .Select(row => (row.Tag as ModEntry)?.PackageId)
+            .Where(id => !string.IsNullOrEmpty(id)).Cast<string>().ToArray();
+        grid.Rows.Clear();
+        modRows.SuspendLayout();
+        modRows.Controls.Clear();
+
+        foreach (ModEntry mod in filtered)
+        {
+            CategoryData? cat = store.Categories.FirstOrDefault(c => c.ModIds.Contains(mod.PackageId, StringComparer.OrdinalIgnoreCase));
+            ModState state = store.GetState(mod.PackageId);
+            string tagNames = string.Join(", ", state.TagIds.Select(id => store.Tags.FirstOrDefault(t => t.Id == id)?.Name).Where(n => !string.IsNullOrWhiteSpace(n)));
+            string folderName = cat?.Folders.FirstOrDefault(f => f.ModIds.Contains(mod.PackageId, StringComparer.OrdinalIgnoreCase))?.Name ?? "미분류";
+            grid.Rows.Add(mod.Active || mod.Official,
+                string.IsNullOrWhiteSpace(state.DisplayName) ? mod.Name : state.DisplayName,
+                cat?.Name ?? "미분류", folderName, tagNames, mod.Version,
+                mod.Official ? "공식" : mod.Workshop ? "창작마당" : "로컬", mod.Issue, mod.PackageId);
+            grid.Rows[grid.Rows.Count - 1].Tag = mod;
+        }
+
+        modListHeading.Text = sidebarTagMode
+            ? $"태그 모드 목록 · {currentTag?.Name ?? "태그"} ({filtered.Count})"
+            : currentCategory == null ? $"전체 모드 ({filtered.Count})" : $"{currentCategory.Name} ({filtered.Count})";
+
+        var visibleIds = new HashSet<string>(filtered.Select(m => m.PackageId), StringComparer.OrdinalIgnoreCase);
+        var nextSelection = preserveSelection.Where(visibleIds.Contains).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        if (primarySelectedPackageId != null && !visibleIds.Contains(primarySelectedPackageId))
+            primarySelectedPackageId = null;
+
+        if (!sidebarTagMode && currentCategory != null)
+        {
+            AddFolderGroups(filtered, currentCategory.Folders, false, currentCategory);
+        }
+        else if (sidebarTagMode && currentTag != null)
+        {
+            AddFolderGroups(filtered, currentTag.Folders, true, null);
+        }
+        else
+        {
+            foreach (ModEntry mod in filtered)
+                AddModRow(mod);
+        }
+
+        if (filtered.Count == 0)
+            AddMessageRow(query.Length == 0 ? "표시할 모드가 없습니다." : "검색 결과가 없습니다.");
+
+        grid.ClearSelection();
+        foreach (DataGridViewRow row in grid.Rows)
+        {
+            if (row.Tag is ModEntry mod && nextSelection.Contains(mod.PackageId))
+                row.Selected = true;
+        }
+        if (primarySelectedPackageId == null && grid.SelectedRows.Count > 0)
+            primarySelectedPackageId = (grid.SelectedRows[0].Tag as ModEntry)?.PackageId;
+        modRows.ResumeLayout();
+        ResizeModRows();
+        UpdateModRowSelection();
+        UpdateDetails();
+        rebuildingRows = false;
+    }
+
+    private void AddFolderGroups(List<ModEntry> filtered, List<FolderData> folders, bool isTagFolder, CategoryData? category)
+    {
+        var shown = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (FolderData folder in folders)
+        {
+            List<ModEntry> members = filtered.Where(mod => folder.ModIds.Contains(mod.PackageId, StringComparer.OrdinalIgnoreCase)).ToList();
+            if (members.Count == 0 && folder.Id != "uncategorized") continue;
+            AddFolderHeader(folder, members, isTagFolder, category);
+            foreach (ModEntry mod in members)
+            {
+                shown.Add(mod.PackageId);
+                if (!folder.Collapsed) AddModRow(mod);
+            }
+        }
+        foreach (ModEntry mod in filtered.Where(mod => !shown.Contains(mod.PackageId)))
+            AddModRow(mod);
+    }
+
+    private void AddFolderHeader(FolderData folder, List<ModEntry> members, bool isTagFolder, CategoryData? category)
+    {
+        var row = new Panel
+        {
+            Height = 31,
+            Width = Math.Max(250, modRows.ClientSize.Width - 28),
+            Margin = new Padding(1, 5, 1, 1),
+            BackColor = Color.FromArgb(48, 53, 62),
+            Tag = folder
+        };
+        var fold = new Button
+        {
+            Text = folder.Collapsed ? "▶" : "▼",
+            Width = 29,
+            Height = 27,
+            Left = 2,
+            Top = 2,
+            FlatStyle = FlatStyle.Flat,
+            BackColor = Color.FromArgb(55, 62, 72),
+            ForeColor = Color.White,
+            FlatAppearance = { BorderSize = 0 }
+        };
+        fold.Click += (_, _) => { folder.Collapsed = !folder.Collapsed; RefreshGameLikeList(); };
+        int active = members.Count(m => m.Active || m.Official);
+        var title = new Label
+        {
+            Text = $"{folder.Name} ({active}/{members.Count})",
+            Left = 37,
+            Top = 4,
+            Width = Math.Max(100, row.Width - 45),
+            Height = 24,
+            ForeColor = Color.White,
+            TextAlign = ContentAlignment.MiddleLeft,
+            Font = new Font("Segoe UI", 9f, FontStyle.Bold)
+        };
+        row.Controls.Add(fold);
+        row.Controls.Add(title);
+        var menu = new ContextMenuStrip();
+        menu.Items.Add("선택 항목으로 새 폴더 만들기", null, (_, _) =>
+        {
+            SelectFolderRepresentative(members);
+            if (isTagFolder) CreateTagFolderForSelected(); else CreateFolderForSelected();
+        });
+        menu.Items.Add("이 폴더 이름 변경", null, (_, _) =>
+        {
+            SelectFolderRepresentative(members);
+            if (isTagFolder) RenameSelectedTagFolder(); else RenameSelectedFolder();
+        });
+        if (folder.Id != "uncategorized")
+            menu.Items.Add("이 폴더 삭제", null, (_, _) =>
+            {
+                SelectFolderRepresentative(members);
+                if (isTagFolder) DeleteSelectedTagFolder(); else DeleteSelectedFolder();
+            });
+        row.ContextMenuStrip = menu;
+        title.ContextMenuStrip = menu;
+        AddModListControl(row);
+    }
+
+    private void SelectFolderRepresentative(List<ModEntry> members)
+    {
+        if (members.Count == 0) return;
+        SelectModRow(members[0], new MouseEventArgs(MouseButtons.Left, 1, 0, 0, 0), false);
+    }
+
+    private void AddModRow(ModEntry mod)
+    {
+        int rowIndex = grid.Rows.Cast<DataGridViewRow>()
+            .ToList().FindIndex(row => (row.Tag as ModEntry)?.PackageId.Equals(mod.PackageId, StringComparison.OrdinalIgnoreCase) == true);
+        if (rowIndex < 0) return;
+        ModState state = store!.GetState(mod.PackageId);
+        CategoryData? category = store.Categories.FirstOrDefault(c => c.ModIds.Contains(mod.PackageId, StringComparer.OrdinalIgnoreCase));
+
+        var row = new Panel
+        {
+            Height = 31,
+            Width = Math.Max(250, modRows.ClientSize.Width - 28),
+            Margin = new Padding(1, 0, 1, 1),
+            BackColor = rowIndex % 2 == 0 ? Color.FromArgb(31, 35, 42) : Color.FromArgb(36, 40, 48),
+            Tag = mod,
+            Cursor = Cursors.Hand
+        };
+        var marker = new Panel
+        {
+            Dock = DockStyle.Left,
+            Width = 4,
+            BackColor = TryParseColor(state.ColorHex, out Color modColor)
+                ? modColor
+                : TryParseColor(category?.ColorHex, out Color categoryColor) ? categoryColor : Color.FromArgb(71, 82, 96)
+        };
+        var check = new CheckBox
+        {
+            Left = 8,
+            Top = 5,
+            Width = 20,
+            Height = 22,
+            Checked = mod.Active || mod.Official,
+            Enabled = !mod.Official,
+            BackColor = Color.Transparent,
+            Cursor = Cursors.Hand
+        };
+        var name = new Label
+        {
+            Left = 34,
+            Top = 1,
+            Width = 240,
+            Height = 29,
+            Text = string.IsNullOrWhiteSpace(state.DisplayName) ? mod.Name : state.DisplayName,
+            ForeColor = mod.Issue.Length > 0 ? Color.Salmon : Color.Gainsboro,
+            TextAlign = ContentAlignment.MiddleLeft,
+            AutoEllipsis = true,
+            Cursor = Cursors.Hand
+        };
+        List<string> tagNames = state.TagIds.Select(id => store.Tags.FirstOrDefault(t => t.Id == id)?.Name)
+            .Where(value => !string.IsNullOrWhiteSpace(value)).Cast<string>().ToList();
+        var meta = new Label
+        {
+            Top = 1,
+            Height = 29,
+            Text = string.Join(" · ", tagNames),
+            ForeColor = Color.Silver,
+            TextAlign = ContentAlignment.MiddleRight,
+            AutoEllipsis = true,
+            Cursor = Cursors.Hand
+        };
+        row.Controls.Add(marker);
+        row.Controls.Add(check);
+        row.Controls.Add(name);
+        row.Controls.Add(meta);
+        row.Resize += (_, _) =>
+        {
+            name.Width = Math.Max(90, row.ClientSize.Width - 250);
+            meta.Left = name.Right + 4;
+            meta.Width = Math.Max(35, row.ClientSize.Width - meta.Left - 7);
+        };
+        name.Width = Math.Max(90, row.ClientSize.Width - 250);
+        meta.Left = name.Right + 4;
+        meta.Width = Math.Max(35, row.ClientSize.Width - meta.Left - 7);
+        rowToolTip.SetToolTip(row, $"{mod.Name}\n{mod.PackageId}\n제작자: {mod.Author}\n버전: {mod.Version}\n{mod.Issue}");
+        rowToolTip.SetToolTip(name, $"{mod.Name}\n{mod.PackageId}\n{mod.Description}");
+        EventHandler selectHandler = (_, _) => SelectModRow(mod, new MouseEventArgs(MouseButtons.Left, 1, 0, 0, 0));
+        row.Click += selectHandler;
+        marker.Click += selectHandler;
+        name.Click += selectHandler;
+        meta.Click += selectHandler;
+        check.CheckedChanged += (_, _) =>
+        {
+            if (rebuildingRows || store == null || mod.Official) return;
+            mod.Active = check.Checked;
+            store.GetState(mod.PackageId).Enabled = mod.Active;
+            SetStatus($"{mod.Name}: {(mod.Active ? "활성화" : "비활성화")} 예정 · '적용 / 저장'을 눌러 반영하세요.");
+            RefreshSidebar();
+        };
+        MouseEventHandler rightClick = (_, e) =>
+        {
+            if (e.Button != MouseButtons.Right) return;
+            SelectModRow(mod, e, false);
+            contextMenuAnchor = row;
+            contextMenuPoint = e.Location;
+            GridMouseUp(grid, e);
+            contextMenuAnchor = null;
+        };
+        row.MouseDown += (_, e) => SelectModRow(mod, e);
+        name.MouseDown += (_, e) => SelectModRow(mod, e);
+        meta.MouseDown += (_, e) => SelectModRow(mod, e);
+        row.MouseUp += rightClick;
+        name.MouseUp += rightClick;
+        meta.MouseUp += rightClick;
+
+        if (grid.Rows[rowIndex].Selected)
+            row.BackColor = Color.FromArgb(44, 91, 112);
+        AddModListControl(row);
+    }
+
+    private void SelectModRow(ModEntry mod, MouseEventArgs e, bool applyModifierSelection = true)
+    {
+        int index = grid.Rows.Cast<DataGridViewRow>()
+            .ToList().FindIndex(row => (row.Tag as ModEntry)?.PackageId.Equals(mod.PackageId, StringComparison.OrdinalIgnoreCase) == true);
+        if (index < 0) return;
+
+        bool control = applyModifierSelection && (ModifierKeys & Keys.Control) == Keys.Control;
+        bool shift = applyModifierSelection && (ModifierKeys & Keys.Shift) == Keys.Shift;
+        var selected = grid.SelectedRows.Cast<DataGridViewRow>()
+            .Select(row => (row.Tag as ModEntry)?.PackageId)
+            .Where(id => !string.IsNullOrEmpty(id)).Cast<string>()
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        if (shift && selectionAnchorRow >= 0)
+        {
+            if (!control) selected.Clear();
+            int start = Math.Min(selectionAnchorRow, index);
+            int end = Math.Max(selectionAnchorRow, index);
+            for (int i = start; i <= end && i < grid.Rows.Count; i++)
+                if (grid.Rows[i].Tag is ModEntry rangeMod) selected.Add(rangeMod.PackageId);
+        }
+        else if (control)
+        {
+            if (!selected.Add(mod.PackageId)) selected.Remove(mod.PackageId);
+            selectionAnchorRow = index;
+        }
+        else
+        {
+            selected.Clear();
+            selected.Add(mod.PackageId);
+            selectionAnchorRow = index;
+        }
+
+        grid.ClearSelection();
+        for (int i = 0; i < grid.Rows.Count; i++)
+            if (grid.Rows[i].Tag is ModEntry rowMod && selected.Contains(rowMod.PackageId))
+                grid.Rows[i].Selected = true;
+
+        primarySelectedPackageId = selected.Contains(mod.PackageId)
+            ? mod.PackageId
+            : grid.SelectedRows.Count > 0 ? (grid.SelectedRows[0].Tag as ModEntry)?.PackageId : null;
+        UpdateModRowSelection();
+        UpdateDetails();
+    }
+
+    private void UpdateModRowSelection()
+    {
+        var selected = grid.SelectedRows.Cast<DataGridViewRow>()
+            .Select(row => (row.Tag as ModEntry)?.PackageId)
+            .Where(id => !string.IsNullOrEmpty(id))
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        foreach (Control control in modRows.Controls)
+        {
+            if (control is not Panel panel || panel.Tag is not ModEntry mod) continue;
+            panel.BackColor = selected.Contains(mod.PackageId)
+                ? Color.FromArgb(44, 91, 112)
+                : modRows.Controls.GetChildIndex(panel) % 2 == 0
+                    ? Color.FromArgb(31, 35, 42)
+                    : Color.FromArgb(36, 40, 48);
+        }
+    }
+
+    private void AddModListControl(Control control)
+    {
+        control.Width = Math.Max(250, modRows.ClientSize.Width - 28);
+        modRows.Controls.Add(control);
+    }
+
+    private void AddMessageRow(string message)
+    {
+        modRows.Controls.Add(new Label
+        {
+            Text = message,
+            Width = Math.Max(250, modRows.ClientSize.Width - 25),
+            Height = 42,
+            ForeColor = Color.Silver,
+            TextAlign = ContentAlignment.MiddleCenter,
+            Margin = new Padding(1, 12, 1, 1)
+        });
+    }
+
+    private void ResizeModRows()
+    {
+        int width = Math.Max(250, modRows.ClientSize.Width - SystemInformation.VerticalScrollBarWidth - 18);
+        foreach (Control control in modRows.Controls) control.Width = width;
+    }
+
+    private ModEntry? GetPrimarySelectedMod()
+    {
+        if (store == null) return null;
+        if (!string.IsNullOrEmpty(primarySelectedPackageId))
+        {
+            ModEntry? primary = store.OrderedMods.FirstOrDefault(mod =>
+                mod.PackageId.Equals(primarySelectedPackageId, StringComparison.OrdinalIgnoreCase));
+            if (primary != null) return primary;
+        }
+        return grid.SelectedRows.Count > 0 ? grid.SelectedRows[0].Tag as ModEntry : null;
+    }
+
+    private void UpdateDetailsPane()
+    {
+        ModEntry? mod = GetPrimarySelectedMod();
+        if (mod == null)
+        {
+            detailTitle.Text = "모드를 선택하세요";
+            SetPreviewImage(null);
+            return;
+        }
+
+        ModState state = store?.GetState(mod.PackageId) ?? new ModState();
+        detailTitle.Text = string.IsNullOrWhiteSpace(state.DisplayName) ? mod.Name : state.DisplayName;
+        string[] candidates =
+        {
+            Path.Combine(mod.Path, "About", "Preview.png"),
+            Path.Combine(mod.Path, "About", "preview.png"),
+            Path.Combine(mod.Path, "About", "Preview.jpg"),
+            Path.Combine(mod.Path, "About", "preview.jpg"),
+            Path.Combine(mod.Path, "About", "Preview.jpeg")
+        };
+        string? imagePath = candidates.FirstOrDefault(File.Exists);
+        if (imagePath == null)
+        {
+            SetPreviewImage(null);
+            return;
+        }
+        try
+        {
+            using var stream = new FileStream(imagePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+            using var image = Image.FromStream(stream);
+            SetPreviewImage(new Bitmap(image));
+        }
+        catch { SetPreviewImage(null); }
+    }
+
+    private void SetPreviewImage(Image? image)
+    {
+        Image? old = currentPreviewImage;
+        currentPreviewImage = image;
+        previewImage.Image = image;
+        if (old != null && !ReferenceEquals(old, image)) old.Dispose();
+    }
+}
