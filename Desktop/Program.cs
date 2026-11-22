@@ -165,8 +165,20 @@ internal sealed class ModStore
         var activeSet = new HashSet<string>(activeIds, StringComparer.OrdinalIgnoreCase);
         Mods = ScanMods().GroupBy(m => m.PackageId, StringComparer.OrdinalIgnoreCase).Select(g => g.First()).ToList();
         foreach (var mod in Mods) mod.Active = activeSet.Contains(mod.PackageId) || mod.Official;
-        OrderedMods = activeIds.Select(id => Mods.FirstOrDefault(m => m.PackageId.Equals(id, StringComparison.OrdinalIgnoreCase)))
-            .Where(m => m != null).Cast<ModEntry>().ToList();
+        OrderedMods = new List<ModEntry>();
+        foreach (string id in activeIds)
+        {
+            ModEntry? installed = Mods.FirstOrDefault(m => m.PackageId.Equals(id, StringComparison.OrdinalIgnoreCase));
+            // Missing active entries remain visible so applying changes cannot silently remove them.
+            OrderedMods.Add(installed ?? new ModEntry
+            {
+                PackageId = id,
+                Name = id,
+                Active = true,
+                Path = "",
+                Issue = "설치된 모드 폴더 없음"
+            });
+        }
         OrderedMods.AddRange(Mods.Where(m => !activeSet.Contains(m.PackageId)).OrderBy(m => m.Name, StringComparer.CurrentCultureIgnoreCase));
         LoadManagerData();
         ApplyCategoryAndTagState();
@@ -337,8 +349,13 @@ internal sealed class ModStore
     private void RebuildIssues()
     {
         var ids = new HashSet<string>(Mods.Select(m => m.PackageId), StringComparer.OrdinalIgnoreCase);
-        foreach (ModEntry mod in Mods)
+        foreach (ModEntry mod in OrderedMods)
         {
+            if (string.IsNullOrWhiteSpace(mod.Path))
+            {
+                mod.Issue = "설치된 모드 폴더 없음";
+                continue;
+            }
             var missing = mod.Required.Where(id => !ids.Contains(id)).ToList();
             mod.Issue = missing.Count > 0 ? "필수 모드 누락: " + string.Join(", ", missing) : "";
         }
@@ -382,6 +399,14 @@ internal sealed class ModStore
             if (add) EnsureFolder(tag.Folders).ModIds.Add(id);
             else foreach (var folder in tag.Folders) folder.ModIds.RemoveAll(m => m.Equals(id, StringComparison.OrdinalIgnoreCase));
         }
+    }
+
+    public void RemoveTag(TagData tag)
+    {
+        if (tag.IsSystem) return;
+        Tags.Remove(tag);
+        foreach (ModState state in States)
+            state.TagIds.RemoveAll(id => id.Equals(tag.Id, StringComparison.OrdinalIgnoreCase));
     }
 
     public void SaveAll()
@@ -583,7 +608,11 @@ internal sealed class MainForm : Form
         AddButton(toolbar, "위로", () => MoveSelected(-1));
         AddButton(toolbar, "아래로", () => MoveSelected(1));
         AddButton(toolbar, "카테고리 추가", AddCategory);
+        AddButton(toolbar, "카테고리 이름 변경", RenameCategory);
+        AddButton(toolbar, "카테고리 삭제", DeleteCategory);
         AddButton(toolbar, "태그 추가", AddTag);
+        AddButton(toolbar, "태그 이름 변경", RenameTag);
+        AddButton(toolbar, "태그 삭제", DeleteTag);
         AddButton(toolbar, "경로 설정", ChoosePaths);
         AddButton(toolbar, "게임 실행", LaunchGame);
         var split = new SplitContainer { Dock = DockStyle.Fill, Orientation = Orientation.Horizontal, SplitterDistance = 610, BackColor = Color.FromArgb(23, 26, 31), Panel1MinSize = 240, Panel2MinSize = 100 };
@@ -769,6 +798,61 @@ internal sealed class MainForm : Form
         string? name = Prompt.Show(this, "새 태그 이름", "태그 추가"); if (string.IsNullOrWhiteSpace(name)) return;
         if (store.Tags.Any(t => t.Name.Equals(name.Trim(), StringComparison.CurrentCultureIgnoreCase))) { MessageBox.Show(this, "같은 이름의 태그가 이미 있습니다."); return; }
         store.Tags.Add(new TagData { Id = "tag-" + Guid.NewGuid().ToString("N"), Name = name.Trim(), Folders = [new FolderData()] }); RefreshFilters();
+    }
+
+    private CategoryData? SelectedCategory()
+    {
+        if (store == null) return null;
+        string name = categoryFilter.SelectedItem?.ToString() ?? "전체";
+        return name == "전체" ? null : store.Categories.FirstOrDefault(c => c.Name == name);
+    }
+
+    private TagData? SelectedTag()
+    {
+        if (store == null) return null;
+        string name = tagFilter.SelectedItem?.ToString() ?? "모든 태그";
+        return name == "모든 태그" ? null : store.Tags.FirstOrDefault(t => t.Name == name);
+    }
+
+    private void RenameCategory()
+    {
+        CategoryData? category = SelectedCategory();
+        if (category == null) { MessageBox.Show(this, "카테고리 필터에서 변경할 카테고리를 먼저 선택하세요."); return; }
+        string? name = Prompt.Show(this, "새 카테고리 이름", "카테고리 이름 변경");
+        if (string.IsNullOrWhiteSpace(name)) return;
+        category.Name = name.Trim(); RefreshFilters(); RefreshGrid();
+    }
+
+    private void DeleteCategory()
+    {
+        if (store == null) return;
+        CategoryData? category = SelectedCategory();
+        if (category == null) { MessageBox.Show(this, "카테고리 필터에서 삭제할 카테고리를 먼저 선택하세요."); return; }
+        if (new[] { "before", "core", "normal", "after" }.Contains(category.Id))
+        {
+            MessageBox.Show(this, "기본 카테고리는 삭제할 수 없습니다."); return;
+        }
+        if (MessageBox.Show(this, "이 카테고리를 삭제하고 포함된 모드를 '일반 모드'로 이동할까요?", "카테고리 삭제", MessageBoxButtons.YesNo) != DialogResult.Yes) return;
+        store.AssignCategory(category.ModIds.ToList(), "normal");
+        store.Categories.Remove(category); RefreshFilters(); RefreshGrid();
+    }
+
+    private void RenameTag()
+    {
+        TagData? tag = SelectedTag();
+        if (tag == null || tag.IsSystem) { MessageBox.Show(this, "태그 필터에서 사용자 태그를 선택하세요."); return; }
+        string? name = Prompt.Show(this, "새 태그 이름", "태그 이름 변경");
+        if (string.IsNullOrWhiteSpace(name)) return;
+        tag.Name = name.Trim(); RefreshFilters(); RefreshGrid();
+    }
+
+    private void DeleteTag()
+    {
+        if (store == null) return;
+        TagData? tag = SelectedTag();
+        if (tag == null || tag.IsSystem) { MessageBox.Show(this, "태그 필터에서 삭제할 사용자 태그를 선택하세요."); return; }
+        if (MessageBox.Show(this, "이 태그를 삭제하고 모든 모드에서 연결을 해제할까요?", "태그 삭제", MessageBoxButtons.YesNo) != DialogResult.Yes) return;
+        store.RemoveTag(tag); RefreshFilters(); RefreshGrid();
     }
 
     private void CreateFolderForSelected()
