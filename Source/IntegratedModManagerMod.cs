@@ -15,6 +15,7 @@ namespace Lilly.IntegratedModManager
         {
             Instance = this;
             Settings = GetSettings<IntegratedModManagerSettings>();
+            DesktopShortcut.Initialize(content.RootDir);
         }
 
         public override string SettingsCategory()
