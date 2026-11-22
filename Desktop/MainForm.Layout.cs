@@ -1083,6 +1083,7 @@ internal sealed partial class MainForm
             contextMenuAnchor = null;
         };
         foreach (Control chip in meta.Controls) chip.MouseUp += rightClick;
+        marker.MouseUp += rightClick;
         row.MouseDown += rowMouseDown;
         name.MouseDown += rowMouseDown;
         meta.MouseDown += rowMouseDown;
@@ -1585,6 +1586,11 @@ internal sealed class QuickFolderMoveForm : Form
         Controls.Add(columnsHost);
         Controls.Add(header);
         search.TextChanged += (_, _) => RebuildColumns();
+        columnsHost.SizeChanged += (_, _) =>
+        {
+            int height = Math.Max(280, columnsHost.ClientSize.Height - 22);
+            foreach (Control column in columnsHost.Controls) column.Height = height;
+        };
         Shown += (_, _) => RebuildColumns();
     }
 
@@ -1704,16 +1710,32 @@ internal sealed class QuickFolderMoveForm : Form
             recents.RemoveAll(key => key.Equals(target.Key, StringComparison.OrdinalIgnoreCase));
             recents.Insert(0, target.Key);
             if (recents.Count > 10) recents.RemoveRange(10, recents.Count - 10);
-            savePreferences();
-            target.Move();
-            Close();
+            try
+            {
+                savePreferences();
+                target.Move();
+                Close();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(this, ex.Message, "폴더 이동 저장 실패",
+                    MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
         };
         favorite.Click += (_, _) =>
         {
             if (favorites.RemoveAll(key => key.Equals(target.Key, StringComparison.OrdinalIgnoreCase)) == 0)
                 favorites.Add(target.Key);
-            savePreferences();
-            RebuildColumns();
+            try
+            {
+                savePreferences();
+                RebuildColumns();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(this, ex.Message, "즐겨찾기 저장 실패",
+                    MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
         };
         row.Controls.Add(choose);
         row.Controls.Add(favorite);
