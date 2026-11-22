@@ -115,9 +115,8 @@ namespace Lilly.IntegratedModManager
                         Rect deleteRect = new Rect(rowRect.xMax - 27f, rowRect.y + 2f, 22f, 24f);
                         Rect labelRect = new Rect(enabledRect.xMax + 4f, rowRect.y,
                             Mathf.Max(24f, editRect.x - enabledRect.xMax - 7f), 26f);
-                        string label = category.Name + " (" +
-            GetActiveCount(category) + "/" +
-            GetInstalledCount(category) + ")";
+                        string label = "(" + GetActiveCount(category) + "/" +
+            GetInstalledCount(category) + ") " + category.Name;
         
         
         Color previousContentColor = GUI.contentColor;
@@ -183,7 +182,7 @@ namespace Lilly.IntegratedModManager
                     if (category == null)
                         return 163f;
         
-                    string label = category.Name + " (" + GetInstalledCount(category) + ")";
+                    string label = "(" + GetInstalledCount(category) + ") " + category.Name;
                     float titleWidth = Text.CalcSize(label).x;
                     float requiredCardWidth = Mathf.Max(157f, titleWidth + 63f);
                     return requiredCardWidth + 6f;
@@ -550,9 +549,8 @@ namespace Lilly.IntegratedModManager
                         }
                         Rect labelRect = new Rect(stateRect.xMax + 4f, rowRect.y,
                             Mathf.Max(24f, editRect.x - stateRect.xMax - 7f), 26f);
-                        string label = tag.Name + " (" +
-            GetActiveCount(tag) + "/" +
-            GetInstalledCount(tag) + ")";
+                        string label = "(" + GetActiveCount(tag) + "/" +
+            GetInstalledCount(tag) + ") " + tag.Name;
         
         // 태그 배경의 상대 휘도에 따라 글자색을 검정 또는 흰색으로 자동 선택한다.
         GUI.contentColor = ManagerTagColors.IsValidHex(tag.ColorHex)
@@ -664,7 +662,7 @@ namespace Lilly.IntegratedModManager
                         Rect labelRect = new Rect(stateRect.xMax + 3f, tabRect.y,
                             Mathf.Max(20f, tabRect.width - 43f), 30f);
                         if (Widgets.ButtonText(labelRect,
-                            tag.Name + " (" + GetInstalledCount(tag) + ")"))
+                            "(" + GetInstalledCount(tag) + ") " + tag.Name))
                             SelectTag(tag);
                         TooltipHandler.TipRegion(labelRect, tag.Name + " (" + GetInstalledCount(tag) + ")");
                         return;
