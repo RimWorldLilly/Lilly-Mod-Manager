@@ -830,11 +830,7 @@ internal sealed partial class MainForm : Form
 
     private Icon? LoadIcon()
     {
-        try
-        {
-            string path = System.IO.Path.Combine(AppContext.BaseDirectory, "Assets", "LillyModManager.ico");
-            return File.Exists(path) ? new Icon(path) : null;
-        }
+        try { return Icon.ExtractAssociatedIcon(Application.ExecutablePath); }
         catch { return null; }
     }
 
