@@ -1026,16 +1026,27 @@ internal sealed partial class MainForm : Form
         }
         ModState state = store?.GetState(mod.PackageId) ?? new ModState();
         string displayName = string.IsNullOrWhiteSpace(state.DisplayName) ? mod.Name : state.DisplayName;
+        CategoryData? category = store?.Categories.FirstOrDefault(item =>
+            item.ModIds.Contains(mod.PackageId, StringComparer.OrdinalIgnoreCase));
+        string folderName = category?.Folders.FirstOrDefault(folder =>
+            folder.ModIds.Contains(mod.PackageId, StringComparer.OrdinalIgnoreCase))?.Name ?? "미분류";
+        string tagNames = store == null ? "" : string.Join(", ", state.TagIds
+            .Select(id => store.Tags.FirstOrDefault(tag => tag.Id.Equals(id, StringComparison.OrdinalIgnoreCase))?.Name)
+            .Where(name => !string.IsNullOrWhiteSpace(name)));
         details.Text =
             $"{displayName}\n{mod.PackageId}\n제작자: {mod.Author}\n버전: {mod.Version}\n" +
+            $"상태: {(mod.Active || mod.Official ? "활성" : "비활성")}\n" +
+            $"카테고리: {category?.Name ?? "미분류"} / 폴더: {folderName}\n" +
+            $"태그: {(tagNames.Length == 0 ? "없음" : tagNames)}\n" +
             $"설치 위치: {(mod.Official ? "공식" : mod.Workshop ? "Steam 창작마당" : "로컬")}\n" +
             $"지원 버전: {(mod.SupportedVersions.Count == 0 ? "정보 없음" : string.Join(", ", mod.SupportedVersions))}\n" +
             $"경로: {mod.Path}\n" +
             (string.IsNullOrWhiteSpace(mod.Url) ? "" : $"프로젝트 페이지: {mod.Url}\n") +
             $"\n{mod.Description}\n\n" +
-            $"필수 모드: {string.Join(", ", mod.Required)}\n" +
-            $"LoadAfter: {string.Join(", ", mod.LoadAfter)}\n" +
-            $"LoadBefore: {string.Join(", ", mod.LoadBefore)}\n\n{mod.Issue}";
+            $"필수 모드: {(mod.Required.Count == 0 ? "없음" : string.Join(", ", mod.Required))}\n" +
+            $"LoadAfter: {(mod.LoadAfter.Count == 0 ? "없음" : string.Join(", ", mod.LoadAfter))}\n" +
+            $"LoadBefore: {(mod.LoadBefore.Count == 0 ? "없음" : string.Join(", ", mod.LoadBefore))}\n\n" +
+            $"검사 결과: {(string.IsNullOrWhiteSpace(mod.Issue) ? "문제 없음" : mod.Issue)}";
         UpdateDetailsPane();
     }
 
