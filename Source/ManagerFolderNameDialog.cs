@@ -115,8 +115,11 @@ inputColor = ManagerTagColors.IsValidHex(initialColor)
             // 카테고리 색상도 공통 색상 선택 창을 사용한다.
             if (allowColorSelection)
             {
+                if (Widgets.ButtonText(new Rect(0f, 84f, 92f, 28f), "색상 없음"))
+                    inputColor = null;
+
                 if (Widgets.ButtonText(
-                    new Rect(0f, 84f, 112f, 28f),
+                    new Rect(98f, 84f, 112f, 28f),
                     ManagerTranslation.Get("LMM_0192")))
                 {
                     Find.WindowStack.Add(new ManagerColorPickerDialog(
@@ -127,14 +130,10 @@ inputColor = ManagerTagColors.IsValidHex(initialColor)
 
                 if (ManagerTagColors.IsValidHex(inputColor))
                 {
-                    Rect preview = new Rect(122f, 84f, 42f, 28f);
+                    Rect preview = new Rect(218f, 84f, 42f, 28f);
                     Widgets.DrawBoxSolid(preview, ManagerTagColors.Background(inputColor));
                     Widgets.DrawBox(preview);
-                    Widgets.Label(new Rect(172f, 84f, rect.width - 172f, 28f), "#" + inputColor);
-                }
-                else
-                {
-                    Widgets.Label(new Rect(122f, 84f, rect.width - 122f, 28f), "색상 없음");
+                    Widgets.Label(new Rect(268f, 84f, rect.width - 268f, 28f), "#" + inputColor);
                 }
             }
 
