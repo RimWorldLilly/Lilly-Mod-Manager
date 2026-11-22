@@ -503,7 +503,7 @@ internal sealed class ModStore
         Directory.CreateDirectory(System.IO.Path.GetDirectoryName(Paths.ManagerSettings)!);
         XDocument doc = File.Exists(Paths.ManagerSettings) ? XDocument.Load(Paths.ManagerSettings) : new XDocument(new XElement("ModSettings"));
         XElement root = doc.Root ?? throw new InvalidDataException("ModSettings XML root is missing.");
-        XElement manager = root.Name.LocalName == "Lilly.ModManager" ? root : root.Elements().FirstOrDefault(e => e.Name.LocalName == "Lilly.ModManager") ?? new XElement("Lilly.ModManager");
+        XElement manager = root.DescendantsAndSelf().FirstOrDefault(e => e.Name.LocalName == "Lilly.ModManager") ?? new XElement("Lilly.ModManager");
         if (manager.Parent == null) root.Add(manager);
         ReplaceCollection(manager, "categories", Categories.Select(WriteCategory));
         ReplaceCollection(manager, "tags", Tags.Select(WriteTag));
