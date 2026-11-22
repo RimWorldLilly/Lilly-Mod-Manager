@@ -55,7 +55,7 @@ namespace Lilly.IntegratedModManager
                                             OpenMoveMenu();
                                     }));
                                 options.Add(new FloatMenuOption(ManagerTranslation.Get("LMM_0055"),
-                                    () => OpenSelectedTagMenu(targets)));
+                                    () => OpenSelectedTagEditor(targets)));
                                 options.Add(new FloatMenuOption(ManagerTranslation.Get("LMM_0053"),
                                     () => ClearTagsForSelection(targets)));
                 
