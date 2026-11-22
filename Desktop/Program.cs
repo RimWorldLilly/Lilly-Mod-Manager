@@ -809,7 +809,7 @@ internal sealed class MainForm : Form
         if (mod == null) return;
         ModState state = store?.GetState(mod.PackageId) ?? new ModState();
         string displayName = string.IsNullOrWhiteSpace(state.DisplayName) ? mod.Name : state.DisplayName;
-        details.Text = $"{displayName}\n{mod.PackageId}\n제작자: {mod.Author}\n버전: {mod.Version}\n경로: {mod.Path}\n\n{mod.Description}\n\n{mod.Issue}";
+        details.Text = $"{displayName}\n{mod.PackageId}\n제작자: {mod.Author}\n버전: {mod.Version}\n경로: {mod.Path}\n\n{mod.Description}\n\n필수 모드: {string.Join(", ", mod.Required)}\nLoadAfter: {string.Join(", ", mod.LoadAfter)}\nLoadBefore: {string.Join(", ", mod.LoadBefore)}\n\n{mod.Issue}";
     }
 
     private List<string> SelectedIds() => grid.SelectedRows.Cast<DataGridViewRow>().Select(r => (r.Tag as ModEntry)?.PackageId).Where(x => !string.IsNullOrEmpty(x)).Cast<string>().ToList();
@@ -824,6 +824,8 @@ internal sealed class MainForm : Form
             CategoryData captured = category;
             categoryMenu.DropDownItems.Add(category.Name, null, (_, _) => { store.AssignCategory(SelectedIds(), captured.Id); RefreshGrid(); });
         }
+        menu.Items.Add("선택 모드 활성화", null, (_, _) => SetSelectedActive(true));
+        menu.Items.Add("선택 모드 비활성화", null, (_, _) => SetSelectedActive(false));
         menu.Items.Add(categoryMenu);
         var tagMenu = new ToolStripMenuItem("태그 지정 / 해제");
         foreach (TagData tag in store.Tags.Where(t => !t.IsSystem))
@@ -932,6 +934,20 @@ internal sealed class MainForm : Form
         if (store == null || grid.SelectedRows.Count == 0 || grid.SelectedRows[0].Tag is not ModEntry mod) return;
         store.GetState(mod.PackageId).ColorHex = null;
         RefreshGrid();
+    }
+
+    private void SetSelectedActive(bool active)
+    {
+        if (store == null) return;
+        foreach (string id in SelectedIds())
+        {
+            ModEntry? mod = store.OrderedMods.FirstOrDefault(m => m.PackageId == id);
+            if (mod == null || mod.Official) continue;
+            mod.Active = active;
+            store.GetState(id).Enabled = active;
+        }
+        RefreshGrid();
+        SetStatus(active ? "선택한 모드를 활성화할 예정입니다." : "선택한 모드를 비활성화할 예정입니다.");
     }
 
     private void RenameSelectedMod()
