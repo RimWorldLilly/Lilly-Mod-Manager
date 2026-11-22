@@ -829,6 +829,21 @@ internal sealed partial class MainForm
         rebuildingRows = false;
     }
 
+
+    private void SetFolderEnabled(FolderData folder, List<ModEntry> members, bool enabled)
+    {
+        if (store == null) return;
+        foreach (ModEntry mod in members)
+        {
+            if (mod.Official) continue;
+            mod.Active = enabled;
+            store.GetState(mod.PackageId).Enabled = enabled;
+        }
+        RefreshSidebar();
+        RefreshGameLikeList();
+        SetStatus($"'{folder.Name}' 폴더의 모드를 {(enabled ? "활성화" : "비활성화")}할 예정입니다.");
+    }
+
     private void AddFolderGroups(List<ModEntry> filtered, List<FolderData> folders, bool isTagFolder, CategoryData? category)
     {
         var shown = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -870,13 +885,32 @@ internal sealed partial class MainForm
             FlatAppearance = { BorderSize = 0 }
         };
         fold.Click += (_, _) => { folder.Collapsed = !folder.Collapsed; RefreshGameLikeList(); };
+        List<ModEntry> eligibleMembers = members.Where(mod => !mod.Official).ToList();
+        int activeEligible = eligibleMembers.Count(mod => mod.Active);
+        CheckState folderState = eligibleMembers.Count == 0 || activeEligible == 0
+            ? CheckState.Unchecked
+            : activeEligible == eligibleMembers.Count ? CheckState.Checked : CheckState.Indeterminate;
+        var enabled = new CheckBox
+        {
+            AutoCheck = false,
+            ThreeState = true,
+            CheckState = folderState,
+            Left = 34,
+            Top = 4,
+            Width = 20,
+            Height = 22,
+            Enabled = eligibleMembers.Count > 0,
+            BackColor = Color.Transparent
+        };
+        enabled.Click += (_, _) => SetFolderEnabled(
+            folder, eligibleMembers, enabled.CheckState != CheckState.Checked);
         int active = members.Count(m => m.Active || m.Official);
         var title = new Label
         {
             Text = $"{folder.Name} ({active}/{members.Count})",
-            Left = 37,
+            Left = 60,
             Top = 4,
-            Width = Math.Max(100, row.Width - 45),
+            Width = Math.Max(100, row.Width - 68),
             Height = 24,
             ForeColor = Color.White,
             TextAlign = ContentAlignment.MiddleLeft,
@@ -891,6 +925,7 @@ internal sealed partial class MainForm
         row.DragDrop += (_, e) => DropOnFolder(folder, isTagFolder, category, e);
         title.DragDrop += (_, e) => DropOnFolder(folder, isTagFolder, category, e);
         row.Controls.Add(fold);
+        row.Controls.Add(enabled);
         row.Controls.Add(title);
         var menu = new ContextMenuStrip();
         menu.Items.Add("선택 모드를 이 폴더로 이동", null, (_, _) =>
@@ -933,6 +968,7 @@ internal sealed partial class MainForm
             });
         row.ContextMenuStrip = menu;
         title.ContextMenuStrip = menu;
+        enabled.ContextMenuStrip = menu;
         AddModListControl(row);
     }
 
