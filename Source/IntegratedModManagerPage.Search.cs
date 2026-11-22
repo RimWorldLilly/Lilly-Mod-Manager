@@ -193,13 +193,8 @@ namespace Lilly.IntegratedModManager
         
         private static Color GetReadableTextColor(Color background)
                 {
-                    // 상대 휘도를 기준으로 어두운 배경에는 밝은 글자, 밝은 배경에는 어두운 글자를 사용한다.
-                    float luminance = background.r * 0.2126f +
-                        background.g * 0.7152f +
-                        background.b * 0.0722f;
-                    return luminance >= 0.48f
-                        ? new Color(0.08f, 0.08f, 0.08f, 1f)
-                        : Color.white;
+                    // 색상 선택기와 동일한 선형 sRGB 상대 휘도 기준으로 글자 대비를 계산한다.
+                    return ManagerTagColors.Foreground(background);
                 }
         
         private static bool DrawFilterCheckbox(ref bool value, string label, Rect rect)
