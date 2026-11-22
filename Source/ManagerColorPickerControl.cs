@@ -13,6 +13,7 @@ namespace Lilly.IntegratedModManager
         private const int LuminanceMode = 2;
         private const int GridColumns = 16;
         private const int GridRows = 10;
+        private const int PresetColumns = 12;
 
         private string colorHex;
         private string hexInput;
@@ -136,9 +137,9 @@ namespace Lilly.IntegratedModManager
             DrawColorGrid(rect, gridY);
 
             int visibleRows = selectedMode == PresetMode
-                ? 7
+                ? Mathf.CeilToInt(ManagerTagColors.Palette.Length / (float)PresetColumns)
                 : GridRows;
-            float cellHeight = selectedMode == PresetMode ? 19f : 14f;
+            float cellHeight = selectedMode == PresetMode ? 30f : 14f;
             float cellGap = selectedMode == PresetMode ? 2f : 1.5f;
             float gridBottom = gridY + visibleRows * (cellHeight + cellGap) - cellGap;
             float customY = gridBottom + 3f;
@@ -332,9 +333,11 @@ namespace Lilly.IntegratedModManager
 
         private void DrawColorGrid(Rect rect, float gridY)
         {
-            int columns = selectedMode == PresetMode ? 8 : GridColumns;
-            int visibleRows = selectedMode == PresetMode ? 7 : GridRows;
-            float cellHeight = selectedMode == PresetMode ? 19f : 14f;
+            int columns = selectedMode == PresetMode ? PresetColumns : GridColumns;
+            int visibleRows = selectedMode == PresetMode
+                ? Mathf.CeilToInt(ManagerTagColors.Palette.Length / (float)PresetColumns)
+                : GridRows;
+            float cellHeight = selectedMode == PresetMode ? 30f : 14f;
             float cellGap = selectedMode == PresetMode ? 2f : 1.5f;
             float cellWidth = (rect.width - cellGap * (columns - 1)) / columns;
 
