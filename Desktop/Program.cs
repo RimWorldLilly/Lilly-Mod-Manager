@@ -693,6 +693,24 @@ internal sealed class ModStore
         }
 
         AssignUnclassifiedMods();
+
+        // A manager preset stores category and folder membership in display order.
+        // Rebuild the order from those folders, then append any remaining installed mods.
+        var reordered = new List<ModEntry>();
+        var reorderedIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (CategoryData category in Categories)
+            foreach (FolderData folder in category.Folders)
+                foreach (string id in folder.ModIds)
+                {
+                    ModEntry? item = OrderedMods.FirstOrDefault(mod => mod.PackageId.Equals(id, StringComparison.OrdinalIgnoreCase));
+                    if (item != null && reorderedIds.Add(id))
+                        reordered.Add(item);
+                }
+        foreach (ModEntry mod in OrderedMods)
+            if (reorderedIds.Add(mod.PackageId))
+                reordered.Add(mod);
+        OrderedMods = reordered;
+
         var enabled = new HashSet<string>(States.Where(state => state.Enabled).Select(state => state.PackageId), StringComparer.OrdinalIgnoreCase);
         var disabledCategories = new HashSet<string>(Categories.Where(category => !category.Enabled).Select(category => category.Id));
         foreach (ModEntry mod in Mods)
