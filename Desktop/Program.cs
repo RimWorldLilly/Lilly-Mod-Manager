@@ -1678,8 +1678,8 @@ internal sealed partial class MainForm : Form
 
     private void RenameSelectedFolder()
     {
-        FolderData? folder = GetCurrentCategoryFolder(out _);
-        if (folder == null || folder.Id == "uncategorized")
+        FolderData? folder = GetCurrentCategoryFolder(out CategoryData? category);
+        if (folder == null || category == null || folder.Id == "uncategorized")
         {
             MessageBox.Show(this, "이름을 변경할 사용자 폴더를 선택하세요.");
             return;
@@ -1730,8 +1730,8 @@ internal sealed partial class MainForm : Form
 
     private void RenameSelectedTagFolder()
     {
-        FolderData? folder = GetCurrentTagFolder(out _);
-        if (folder == null || folder.Id == "uncategorized")
+        FolderData? folder = GetCurrentTagFolder(out TagData? tag);
+        if (folder == null || tag == null || folder.Id == "uncategorized")
         {
             MessageBox.Show(this, "이름을 변경할 태그 폴더를 선택하세요.");
             return;
