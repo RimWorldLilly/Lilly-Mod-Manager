@@ -1104,7 +1104,7 @@ internal sealed partial class MainForm
             Control sourceControl = source as Control ?? row;
             contextMenuAnchor = row;
             contextMenuPoint = row.PointToClient(sourceControl.PointToScreen(e.Location));
-            GridMouseUp(this, e);
+            ShowModContextMenu(this, e);
             contextMenuAnchor = null;
         };
         foreach (Control chip in meta.Controls) chip.MouseUp += rightClick;
