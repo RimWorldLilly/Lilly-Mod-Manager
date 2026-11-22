@@ -14,7 +14,6 @@ namespace Lilly.IntegratedModManager
         private readonly ManagerColorPickerControl colorPicker;
 
         private string inputName;
-        private string inputColor;
         private bool focusNameOnNextDraw = true;
 
         public override Vector2 InitialSize
@@ -38,7 +37,6 @@ namespace Lilly.IntegratedModManager
         {
             this.title = title;
             inputName = initialName ?? string.Empty;
-            inputColor = null;
             this.acceptAction = (name, color) => acceptAction(name);
             allowColorSelection = false;
             showNameInput = true;
@@ -59,7 +57,6 @@ namespace Lilly.IntegratedModManager
         {
             this.title = title;
             inputName = initialName ?? string.Empty;
-            inputColor = initialColor;
             this.acceptAction = acceptAction;
             allowColorSelection = true;
             showNameInput = true;
