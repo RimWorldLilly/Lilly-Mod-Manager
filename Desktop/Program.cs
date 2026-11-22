@@ -750,6 +750,14 @@ internal sealed class MainForm : Form
         grid.Columns[0].FillWeight = 35; grid.Columns[1].FillWeight = 180; grid.Columns[2].FillWeight = 75; grid.Columns[3].FillWeight = 75; grid.Columns[4].FillWeight = 120; grid.Columns[5].FillWeight = 55; grid.Columns[6].FillWeight = 60; grid.Columns[7].FillWeight = 115;
         grid.CurrentCellDirtyStateChanged += (_, _) => { if (grid.IsCurrentCellDirty) grid.CommitEdit(DataGridViewDataErrorContexts.Commit); };
         grid.CellValueChanged += GridCellValueChanged; grid.SelectionChanged += (_, _) => UpdateDetails();
+        grid.KeyDown += (_, e) =>
+        {
+            if (e.Control && e.KeyCode == Keys.A)
+            {
+                grid.SelectAll();
+                e.Handled = true;
+            }
+        };
         grid.CellMouseDown += (_, e) => { if (e.Button == MouseButtons.Right && e.RowIndex >= 0 && !grid.Rows[e.RowIndex].Selected) { grid.ClearSelection(); grid.Rows[e.RowIndex].Selected = true; } };
         grid.MouseUp += GridMouseUp;
         search.TextChanged += (_, _) => RefreshGrid(); categoryFilter.SelectedIndexChanged += (_, _) => RefreshGrid(); tagFilter.SelectedIndexChanged += (_, _) => RefreshGrid(); activeFilter.SelectedIndexChanged += (_, _) => RefreshGrid();
@@ -820,7 +828,7 @@ internal sealed class MainForm : Form
             string stateName = activeFilter.SelectedItem?.ToString() ?? "모두";
             if (stateName == "활성" && !mod.Active && !mod.Official) continue;
             if (stateName == "비활성" && (mod.Active || mod.Official)) continue;
-            if (q.Length > 0 && !string.Join(" ", mod.Name, state.DisplayName, mod.PackageId, mod.Author, mod.Description).Contains(q, StringComparison.CurrentCultureIgnoreCase)) continue;
+            if (q.Length > 0 && !string.Join(" ", mod.Name, state.DisplayName, mod.PackageId, mod.Author, mod.Description, mod.Version, cat?.Name, string.Join(" ", names)).Contains(q, StringComparison.CurrentCultureIgnoreCase)) continue;
             int index = grid.Rows.Add(mod.Active || mod.Official, string.IsNullOrWhiteSpace(state.DisplayName) ? mod.Name : state.DisplayName, cat?.Name ?? "미분류", folderName, string.Join(", ", names), mod.Version, mod.Official ? "공식" : mod.Workshop ? "창작마당" : "로컬", mod.Issue, mod.PackageId);
             grid.Rows[index].Cells[0].ReadOnly = mod.Official;
             ApplyCellColor(grid.Rows[index].Cells[1], state.ColorHex);
@@ -911,8 +919,10 @@ internal sealed class MainForm : Form
         menu.Items.Add(tagFolderMenu);
         menu.Items.Add("선택 항목으로 폴더 만들기", null, (_, _) => CreateFolderForSelected());
         menu.Items.Add("선택 항목으로 태그 폴더 만들기", null, (_, _) => CreateTagFolderForSelected());
-        menu.Items.Add("현재 폴더 이름 변경", null, (_, _) => RenameSelectedFolder());
-        menu.Items.Add("현재 폴더 삭제", null, (_, _) => DeleteSelectedFolder());
+        menu.Items.Add("현재 카테고리 폴더 이름 변경", null, (_, _) => RenameSelectedFolder());
+        menu.Items.Add("현재 카테고리 폴더 삭제", null, (_, _) => DeleteSelectedFolder());
+        menu.Items.Add("현재 태그 폴더 이름 변경", null, (_, _) => RenameSelectedTagFolder());
+        menu.Items.Add("현재 태그 폴더 삭제", null, (_, _) => DeleteSelectedTagFolder());
         menu.Items.Add("표시 이름 변경", null, (_, _) => RenameSelectedMod());
         menu.Items.Add("표시 이름 초기화", null, (_, _) => ResetSelectedModName());
         menu.Items.Add("모드 폴더 열기", null, (_, _) => OpenSelectedFolder());
@@ -1114,9 +1124,9 @@ internal sealed class MainForm : Form
         CategoryData? category = store.Categories.FirstOrDefault(c => c.Id == first.CategoryId); if (category == null) return;
         string? name = Prompt.Show(this, "새 폴더 이름", "폴더 추가"); if (string.IsNullOrWhiteSpace(name)) return;
         string folderId = "folder-" + Guid.NewGuid().ToString("N");
-        var folder = new FolderData { Id = folderId, Name = name.Trim(), ModIds = ids };
+        var folder = new FolderData { Id = folderId, Name = name.Trim(), ModIds = [] };
         category.Folders.Add(folder);
-        foreach (string id in ids) { foreach (var f in category.Folders.Where(f => f.Id != folderId)) f.ModIds.Remove(id); }
+        store.AssignToCategoryFolder(ids, category, folder);
         RefreshGrid();
     }
 
@@ -1184,6 +1194,53 @@ internal sealed class MainForm : Form
         }
         foreach (string id in folder.ModIds.ToList()) target.ModIds.Add(id);
         category.Folders.Remove(folder);
+        RefreshGrid();
+    }
+
+    private FolderData? GetCurrentTagFolder(out TagData? tag)
+    {
+        tag = SelectedTag();
+        if (tag == null || grid.SelectedRows.Count == 0 || grid.SelectedRows[0].Tag is not ModEntry mod)
+            return null;
+        return tag.Folders.FirstOrDefault(folder =>
+            folder.ModIds.Contains(mod.PackageId, StringComparer.OrdinalIgnoreCase));
+    }
+
+    private void RenameSelectedTagFolder()
+    {
+        FolderData? folder = GetCurrentTagFolder(out _);
+        if (folder == null || folder.Id == "uncategorized")
+        {
+            MessageBox.Show(this, "이름을 변경할 태그 폴더를 선택하세요.");
+            return;
+        }
+        string? name = Prompt.Show(this, "새 태그 폴더 이름", "태그 폴더 이름 변경");
+        if (string.IsNullOrWhiteSpace(name)) return;
+        folder.Name = name.Trim();
+        RefreshGrid();
+    }
+
+    private void DeleteSelectedTagFolder()
+    {
+        FolderData? folder = GetCurrentTagFolder(out TagData? tag);
+        if (folder == null || tag == null || folder.Id == "uncategorized")
+        {
+            MessageBox.Show(this, "삭제할 태그 폴더를 선택하세요.");
+            return;
+        }
+        if (MessageBox.Show(this, "태그 폴더를 삭제하고 포함된 모드를 '미분류'로 이동할까요?",
+            "태그 폴더 삭제", MessageBoxButtons.YesNo) != DialogResult.Yes) return;
+
+        FolderData? target = tag.Folders.FirstOrDefault(item => item.Id == "uncategorized");
+        if (target == null)
+        {
+            target = new FolderData();
+            tag.Folders.Insert(0, target);
+        }
+        foreach (string id in folder.ModIds.ToList())
+            if (!target.ModIds.Contains(id, StringComparer.OrdinalIgnoreCase))
+                target.ModIds.Add(id);
+        tag.Folders.Remove(folder);
         RefreshGrid();
     }
 
