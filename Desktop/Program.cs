@@ -772,7 +772,43 @@ internal sealed class MainForm : Form
             tagMenu.DropDownItems.Add(item);
         }
         menu.Items.Add(tagMenu);
+
+        var folderMenu = new ToolStripMenuItem("카테고리 폴더로 이동");
+        ModEntry? currentMod = grid.SelectedRows.Count > 0 ? grid.SelectedRows[0].Tag as ModEntry : null;
+        CategoryData? currentCategory = currentMod == null ? null : store.Categories.FirstOrDefault(c => c.Id == currentMod.CategoryId);
+        if (currentCategory != null)
+        {
+            foreach (FolderData folder in currentCategory.Folders)
+            {
+                FolderData targetFolder = folder;
+                CategoryData targetCategory = currentCategory;
+                folderMenu.DropDownItems.Add(folder.Name, null, (_, _) =>
+                {
+                    store.AssignToCategoryFolder(SelectedIds(), targetCategory, targetFolder);
+                    RefreshGrid();
+                });
+            }
+        }
+        menu.Items.Add(folderMenu);
+
+        var tagFolderMenu = new ToolStripMenuItem("선택 태그 폴더로 이동");
+        TagData? currentTag = SelectedTag();
+        if (currentTag != null)
+        {
+            foreach (FolderData folder in currentTag.Folders)
+            {
+                FolderData targetFolder = folder;
+                TagData targetTag = currentTag;
+                tagFolderMenu.DropDownItems.Add(folder.Name, null, (_, _) =>
+                {
+                    store.AssignToTagFolder(SelectedIds(), targetTag, targetFolder);
+                    RefreshGrid();
+                });
+            }
+        }
+        menu.Items.Add(tagFolderMenu);
         menu.Items.Add("선택 항목으로 폴더 만들기", null, (_, _) => CreateFolderForSelected());
+        menu.Items.Add("선택 항목으로 태그 폴더 만들기", null, (_, _) => CreateTagFolderForSelected());
         menu.Items.Add("모드 폴더 열기", null, (_, _) => OpenSelectedFolder());
         menu.Items.Add("창작마당 페이지 열기", null, (_, _) => OpenWorkshopPage());
         menu.Show(grid, e.Location);
