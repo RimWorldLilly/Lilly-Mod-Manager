@@ -977,7 +977,6 @@ internal sealed partial class MainForm
         EventHandler selectHandler = (_, _) => SelectModRow(mod, new MouseEventArgs(MouseButtons.Left, 1, 0, 0, 0));
         MouseEventHandler rowMouseDown = (source, e) => HandleModRowMouseDown(mod, source, e);
         MouseEventHandler rowMouseMove = HandleModRowMouseMove;
-        MouseEventHandler rowRightClick = rightClick;
         row.Click += selectHandler;
         marker.Click += selectHandler;
         name.Click += selectHandler;
@@ -987,7 +986,6 @@ internal sealed partial class MainForm
             chip.Click += selectHandler;
             chip.MouseDown += rowMouseDown;
             chip.MouseMove += rowMouseMove;
-            chip.MouseUp += rowRightClick;
         }
         check.MouseDown += (_, e) => { if (e.Button == MouseButtons.Left) SelectModRow(mod, e); };
         check.CheckedChanged += (_, _) =>
@@ -1011,6 +1009,7 @@ internal sealed partial class MainForm
             GridMouseUp(grid, e);
             contextMenuAnchor = null;
         };
+        foreach (Control chip in meta.Controls) chip.MouseUp += rightClick;
         row.MouseDown += (source, e) => HandleModRowMouseDown(mod, source, e);
         name.MouseDown += (source, e) => HandleModRowMouseDown(mod, source, e);
         meta.MouseDown += (source, e) => HandleModRowMouseDown(mod, source, e);
