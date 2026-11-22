@@ -137,7 +137,7 @@ namespace Lilly.IntegratedModManager
             }
 
             if (allowColorSelection && colorPicker != null)
-                colorPicker.Draw(new Rect(0f, pickerY, rect.width, 340f));
+                colorPicker.Draw(new Rect(0f, pickerY, rect.width, 370f));
 
             float buttonWidth = 120f;
             float buttonY = rect.height - 36f;
