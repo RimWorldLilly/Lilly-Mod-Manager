@@ -1040,6 +1040,18 @@ internal sealed partial class MainForm
         SelectModRow(members[0], new MouseEventArgs(MouseButtons.Left, 1, 0, 0, 0), false);
     }
 
+    private void FitTagChips(FlowLayoutPanel panel)
+    {
+        int remaining = Math.Max(0, panel.ClientSize.Width - panel.Padding.Horizontal);
+        foreach (Control chip in panel.Controls)
+        {
+            int needed = chip.Width + chip.Margin.Horizontal;
+            bool visible = needed <= remaining;
+            chip.Visible = visible;
+            if (visible) remaining -= needed;
+        }
+    }
+
     private void AddModRow(ModEntry mod)
     {
         ModState state = store!.GetState(mod.PackageId);
@@ -1110,8 +1122,8 @@ internal sealed partial class MainForm
             var chip = new Label
             {
                 Text = tag.Name,
-                AutoSize = true,
-                MaximumSize = new Size(145, 22),
+                AutoSize = false,
+                Width = Math.Min(145, TextRenderer.MeasureText(tag.Name, meta.Font).Width + 14),
                 Height = 22,
                 Margin = new Padding(2, 1, 2, 1),
                 Padding = new Padding(5, 1, 5, 1),
@@ -1137,12 +1149,17 @@ internal sealed partial class MainForm
             name.Width = Math.Max(90, row.ClientSize.Width - 250);
             meta.Left = name.Right + 4;
             meta.Width = Math.Max(35, row.ClientSize.Width - meta.Left - 7);
+            FitTagChips(meta);
         };
         name.Width = Math.Max(90, row.ClientSize.Width - 250);
         meta.Left = name.Right + 4;
         meta.Width = Math.Max(35, row.ClientSize.Width - meta.Left - 7);
+        FitTagChips(meta);
         rowToolTip.SetToolTip(row, $"{mod.Name}\n{mod.PackageId}\n제작자: {mod.Author}\n버전: {mod.Version}\n{mod.Issue}");
         rowToolTip.SetToolTip(name, $"{mod.Name}\n{mod.PackageId}\n{mod.Description}");
+        rowToolTip.SetToolTip(meta, assignedTags.Count == 0
+            ? ""
+            : "태그 전체: " + string.Join(", ", assignedTags.Select(tag => tag.Name)));
         MouseEventHandler rowMouseDown = (source, e) => HandleModRowMouseDown(mod, source, e);
         MouseEventHandler rowMouseMove = HandleModRowMouseMove;
         marker.MouseDown += rowMouseDown;
