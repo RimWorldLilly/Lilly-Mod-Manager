@@ -76,7 +76,9 @@ namespace Lilly.IntegratedModManager
                 new Rect(rect.x, rect.y, rect.width, 22f),
                 ManagerTranslation.Get("LMM_0041"));
 
-            float tabY = rect.y + 22f;
+            // 사용자 지정 색상 영역은 탭 콘텐츠보다 위에 고정해 탭 전환 시 위치가 바뀌지 않게 한다.
+            float customColorBottom = DrawColorDetails(rect, rect.y + 22f);
+            float tabY = customColorBottom + 5f;
             float tabGap = 4f;
             float tabWidth = (rect.width - tabGap) / 2f;
             DrawModeButton(
@@ -89,11 +91,10 @@ namespace Lilly.IntegratedModManager
                 PresetMode);
 
             float contentY = tabY + 29f;
-            float contentBottom = selectedMode == PickerMode
-                ? DrawNativeColorWheel(rect, contentY)
-                : DrawNativePresetPalette(rect, contentY);
-
-            DrawColorDetails(rect, contentBottom + 3f);
+            if (selectedMode == PickerMode)
+                DrawNativeColorWheel(rect, contentY);
+            else
+                DrawNativePresetPalette(rect, contentY);
         }
 
         private float DrawNativeColorWheel(Rect rect, float y)
@@ -178,7 +179,7 @@ namespace Lilly.IntegratedModManager
             return y + height;
         }
 
-        private void DrawColorDetails(Rect rect, float y)
+        private float DrawColorDetails(Rect rect, float y)
         {
             Widgets.Label(
                 new Rect(rect.x, y, rect.width, 18f),
@@ -284,6 +285,8 @@ namespace Lilly.IntegratedModManager
                     HasInvalidInput = true;
                 }
             }
+
+            return rgbY + 24f;
         }
 
         private void DrawModeButton(Rect rect, string label, int mode)
