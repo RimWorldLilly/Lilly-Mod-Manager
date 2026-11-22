@@ -238,6 +238,26 @@ namespace Lilly.IntegratedModManager
                             Widgets.EndScrollView();
                         }
 
+        private static GUIStyle modNameShadowSourceStyle;
+        private static GUIStyle modNameShadowStyle;
+
+        private static GUIStyle GetModNameShadowStyle()
+        {
+            GUIStyle currentStyle = Text.CurFontStyle;
+            if (modNameShadowStyle == null || !ReferenceEquals(modNameShadowSourceStyle, currentStyle))
+            {
+                modNameShadowSourceStyle = currentStyle;
+                modNameShadowStyle = new GUIStyle(currentStyle);
+                Color shadowColor = new Color(0f, 0f, 0f, 0.88f);
+                modNameShadowStyle.normal.textColor = shadowColor;
+                modNameShadowStyle.hover.textColor = shadowColor;
+                modNameShadowStyle.active.textColor = shadowColor;
+                modNameShadowStyle.focused.textColor = shadowColor;
+            }
+
+            return modNameShadowStyle;
+        }
+
         private void DrawModRow(ModMetaData mod, int visibleIndex, float width, float y)
                         {
                             Color previousGuiColor = GUI.color;
@@ -464,19 +484,23 @@ namespace Lilly.IntegratedModManager
                             bool outdatedForGameVersion = rowIsVisible &&
                                 IsModActiveInManager(mod) && IsModOutdatedForCurrentGameVersion(mod);
                 
+                            // 일반 모드 이름은 행 배경색에 맞춰 검정/흰색 중 대비가 높은 색을 사용한다.
+                            // 오류/경고가 있는 모드는 기존 의미 색상을 유지한다.
+                            Color rowTextColor = ManagerTagColors.Foreground(finalRowColor);
+
                             // 강조 우선순위: 필수 모드 누락 > 충돌 > 로드 순서 > 요구 버전 불일치 > 게임 지원 버전 경고.
                             // 게임 지원 버전 경고는 다른 문제가 없을 때만 표시한다.
                             if (rowIssue == ModRowIssue.RequiredMod)
-                                GUI.color = new Color(1f, 0.28f, 0.28f, 1f);
+                                rowTextColor = new Color(1f, 0.28f, 0.28f, 1f);
                             else if (conflictingMod)
-                                GUI.color = new Color(1f, 0.415f, 0.26f, 1f);
+                                rowTextColor = new Color(1f, 0.415f, 0.26f, 1f);
                             else if (rowIssue == ModRowIssue.LoadOrder)
-                                GUI.color = new Color(1f, 0.55f, 0.24f, 1f);
+                                rowTextColor = new Color(1f, 0.55f, 0.24f, 1f);
                             else if (rowIssue == ModRowIssue.Version)
-                                GUI.color = new Color(1f, 0.685f, 0.22f, 1f);
+                                rowTextColor = new Color(1f, 0.685f, 0.22f, 1f);
                             else if (outdatedForGameVersion)
-                                GUI.color = new Color(1f, 0.82f, 0.2f, 1f);
-                
+                                rowTextColor = new Color(1f, 0.82f, 0.2f, 1f);
+
                             if (rowIssue == ModRowIssue.RequiredMod)
                                 TooltipHandler.TipRegion(nameRect, ManagerTranslation.Get("LMM_0145"));
                             else if (conflictingMod)
@@ -490,7 +514,16 @@ namespace Lilly.IntegratedModManager
                                     "이 모드는 현재 게임 버전보다 낮은 버전만 지원합니다. 지원 버전: " +
                                     GetSupportedGameVersionText(mod));
                             string rowName = protectedMod ? name + ManagerTranslation.Get("LMM_0001") : name;
+
+                            // 반투명 검정 그림자를 한 픽셀 어긋나게 먼저 그려 배경색과 관계없이 글자를 분리한다.
+                            GUIStyle shadowStyle = GetModNameShadowStyle();
+                            Color previousTextGuiColor = GUI.color;
+                            GUI.color = Color.white;
+                            GUI.Label(new Rect(nameRect.x + 1f, nameRect.y + 1f,
+                                nameRect.width, nameRect.height), rowName, shadowStyle);
+                            GUI.color = rowTextColor;
                             Widgets.Label(nameRect, rowName);
+                            GUI.color = previousTextGuiColor;
                             bool workshopItemMissing = false;
                             if (rowIsVisible && mod.OnSteamWorkshop)
                             {
