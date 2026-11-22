@@ -974,16 +974,12 @@ internal sealed partial class MainForm
         meta.Width = Math.Max(35, row.ClientSize.Width - meta.Left - 7);
         rowToolTip.SetToolTip(row, $"{mod.Name}\n{mod.PackageId}\n제작자: {mod.Author}\n버전: {mod.Version}\n{mod.Issue}");
         rowToolTip.SetToolTip(name, $"{mod.Name}\n{mod.PackageId}\n{mod.Description}");
-        EventHandler selectHandler = (_, _) => SelectModRow(mod, new MouseEventArgs(MouseButtons.Left, 1, 0, 0, 0));
         MouseEventHandler rowMouseDown = (source, e) => HandleModRowMouseDown(mod, source, e);
         MouseEventHandler rowMouseMove = HandleModRowMouseMove;
-        row.Click += selectHandler;
-        marker.Click += selectHandler;
-        name.Click += selectHandler;
-        meta.Click += selectHandler;
+        marker.MouseDown += rowMouseDown;
+        marker.MouseMove += rowMouseMove;
         foreach (Control chip in meta.Controls)
         {
-            chip.Click += selectHandler;
             chip.MouseDown += rowMouseDown;
             chip.MouseMove += rowMouseMove;
         }
@@ -1010,12 +1006,12 @@ internal sealed partial class MainForm
             contextMenuAnchor = null;
         };
         foreach (Control chip in meta.Controls) chip.MouseUp += rightClick;
-        row.MouseDown += (source, e) => HandleModRowMouseDown(mod, source, e);
-        name.MouseDown += (source, e) => HandleModRowMouseDown(mod, source, e);
-        meta.MouseDown += (source, e) => HandleModRowMouseDown(mod, source, e);
-        row.MouseMove += HandleModRowMouseMove;
-        name.MouseMove += HandleModRowMouseMove;
-        meta.MouseMove += HandleModRowMouseMove;
+        row.MouseDown += rowMouseDown;
+        name.MouseDown += rowMouseDown;
+        meta.MouseDown += rowMouseDown;
+        row.MouseMove += rowMouseMove;
+        name.MouseMove += rowMouseMove;
+        meta.MouseMove += rowMouseMove;
         row.MouseUp += rightClick;
         name.MouseUp += rightClick;
         meta.MouseUp += rightClick;
