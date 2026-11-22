@@ -8,6 +8,7 @@ namespace Lilly.IntegratedModManager
     internal sealed class ManagerColorPickerDialog : Window
     {
         private readonly Action<string> onColorSelected;
+        private readonly string titleText;
         private string currentColor;
         private string hexInput;
         private string redInput;
@@ -23,6 +24,7 @@ namespace Lilly.IntegratedModManager
 
         internal ManagerColorPickerDialog(string title, string initialColor, Action<string> onColorSelected)
         {
+            this.titleText = title;
             this.onColorSelected = onColorSelected;
             currentColor = Normalize(initialColor);
             if (currentColor == null)
