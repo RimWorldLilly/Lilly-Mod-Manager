@@ -399,10 +399,30 @@ internal sealed class ModStore
             if (!mod.Official && firstOfficial > 0 && OrderedMods.IndexOf(mod) < firstOfficial) id = "before";
             CategoryData category = Categories.FirstOrDefault(c => c.Id.Equals(id, StringComparison.OrdinalIgnoreCase)) ?? Categories.Last();
             category.ModIds.Add(mod.PackageId);
-            EnsureFolder(category.Folders).ModIds.Add(mod.PackageId);
         }
-        foreach (var c in Categories) EnsureFolder(c.Folders);
-        foreach (var t in Tags) EnsureFolder(t.Folders);
+
+        foreach (CategoryData category in Categories)
+        {
+            FolderData unfiled = EnsureFolder(category.Folders);
+            var folderIds = new HashSet<string>(category.Folders.SelectMany(folder => folder.ModIds), StringComparer.OrdinalIgnoreCase);
+            foreach (string id in category.ModIds)
+                if (folderIds.Add(id))
+                    unfiled.ModIds.Add(id);
+        }
+
+        foreach (TagData tag in Tags)
+        {
+            FolderData unfiled = EnsureFolder(tag.Folders);
+            var folderIds = new HashSet<string>(tag.Folders.SelectMany(folder => folder.ModIds), StringComparer.OrdinalIgnoreCase);
+            foreach (ModState state in States)
+            {
+                bool belongs = tag.IsSystem
+                    ? state.TagIds.Count == 0
+                    : state.TagIds.Contains(tag.Id, StringComparer.OrdinalIgnoreCase);
+                if (belongs && folderIds.Add(state.PackageId))
+                    unfiled.ModIds.Add(state.PackageId);
+            }
+        }
     }
 
     private static FolderData EnsureFolder(List<FolderData> folders)
@@ -650,14 +670,34 @@ internal sealed class ModStore
 
     public void LoadPreset(PresetData preset)
     {
+        var previousStates = States.ToDictionary(state => state.PackageId, Clone, StringComparer.OrdinalIgnoreCase);
         Categories = preset.Categories.Select(Clone).ToList();
         Tags = preset.Tags.Select(Clone).ToList();
         States = preset.Mods.Select(Clone).ToList();
-        var enabled = new HashSet<string>(States.Where(s => s.Enabled).Select(s => s.PackageId), StringComparer.OrdinalIgnoreCase);
-        var disabledCategories = new HashSet<string>(Categories.Where(c => !c.Enabled).Select(c => c.Id));
+
+        if (!Tags.Any(tag => tag.Id.Equals("untagged", StringComparison.OrdinalIgnoreCase)))
+            Tags.Insert(0, new TagData { Id = "untagged", Name = "태그 없음", IsSystem = true, Folders = [NewFolder()] });
+
+        var stateIds = new HashSet<string>(States.Select(state => state.PackageId), StringComparer.OrdinalIgnoreCase);
         foreach (ModEntry mod in Mods)
         {
-            string categoryId = Categories.FirstOrDefault(c => c.ModIds.Contains(mod.PackageId))?.Id ?? "";
+            if (!stateIds.Add(mod.PackageId))
+                continue;
+
+            ModState preserved;
+            if (previousStates.TryGetValue(mod.PackageId, out ModState? oldState))
+                preserved = Clone(oldState);
+            else
+                preserved = new ModState { PackageId = mod.PackageId, Enabled = mod.Active, InstalledVersion = mod.Version };
+            States.Add(preserved);
+        }
+
+        AssignUnclassifiedMods();
+        var enabled = new HashSet<string>(States.Where(state => state.Enabled).Select(state => state.PackageId), StringComparer.OrdinalIgnoreCase);
+        var disabledCategories = new HashSet<string>(Categories.Where(category => !category.Enabled).Select(category => category.Id));
+        foreach (ModEntry mod in Mods)
+        {
+            string categoryId = Categories.FirstOrDefault(category => category.ModIds.Contains(mod.PackageId, StringComparer.OrdinalIgnoreCase))?.Id ?? "normal";
             mod.Active = mod.Official || (enabled.Contains(mod.PackageId) && !disabledCategories.Contains(categoryId));
         }
         ApplyCategoryAndTagState();
