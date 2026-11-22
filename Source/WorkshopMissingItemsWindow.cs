@@ -13,7 +13,7 @@ namespace Lilly.IntegratedModManager
     internal sealed class WorkshopMissingItem
     {
         public string Id;
-        public string Name;
+        public string Name = "이름 확인 필요";
     }
 
     internal sealed class WorkshopMissingItemsWindow : Window
