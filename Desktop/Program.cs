@@ -12,8 +12,57 @@ internal static class Program
     [STAThread]
     private static void Main()
     {
-        ApplicationConfiguration.Initialize();
-        Application.Run(new MainForm());
+        Application.SetUnhandledExceptionMode(UnhandledExceptionMode.CatchException);
+        Application.ThreadException += (_, e) => ReportStartupError(e.Exception);
+        AppDomain.CurrentDomain.UnhandledException += (_, e) =>
+        {
+            if (e.ExceptionObject is Exception exception)
+                ReportStartupError(exception);
+        };
+
+        try
+        {
+            ApplicationConfiguration.Initialize();
+            Application.Run(new MainForm());
+        }
+        catch (Exception ex)
+        {
+            ReportStartupError(ex);
+        }
+    }
+
+    private static void ReportStartupError(Exception exception)
+    {
+        string logDirectory = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "Lilly Mod Manager");
+        string logPath = Path.Combine(logDirectory, "startup.log");
+
+        try
+        {
+            Directory.CreateDirectory(logDirectory);
+            File.AppendAllText(logPath,
+                $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff}] Application error{Environment.NewLine}" +
+                exception + Environment.NewLine + Environment.NewLine);
+        }
+        catch
+        {
+            // Still show the original exception if the diagnostic log cannot be written.
+        }
+
+        try
+        {
+            MessageBox.Show(
+                exception + Environment.NewLine + Environment.NewLine +
+                $"진단 로그: {logPath}",
+                "Lilly Mod Manager 실행 오류",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Error);
+        }
+        catch
+        {
+            // MessageBox may be unavailable during process shutdown.
+        }
     }
 }
 
