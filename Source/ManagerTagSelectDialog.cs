@@ -119,6 +119,17 @@ namespace Lilly.IntegratedModManager
                 GUI.FocusControl("LillyModManagerNewTagInput");
                 focusNameOnNextDraw = false;
             }
+
+            // 입력칸에 포커스가 있을 때 Enter 또는 숫자 키패드 Enter로 태그를 생성한다.
+            Event inputEvent = Event.current;
+            if (inputEvent.type == EventType.KeyDown &&
+                (inputEvent.keyCode == KeyCode.Return || inputEvent.keyCode == KeyCode.KeypadEnter) &&
+                GUI.GetNameOfFocusedControl() == "LillyModManagerNewTagInput")
+            {
+                CreateTag();
+                inputEvent.Use();
+            }
+
             if (Widgets.ButtonText(new Rect(rect.width - createButtonWidth, inputY,
                 createButtonWidth, 30f), ManagerTranslation.Get("LMM_0139")))
                 CreateTag();
