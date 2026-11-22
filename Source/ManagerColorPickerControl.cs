@@ -390,7 +390,7 @@ namespace Lilly.IntegratedModManager
                     TooltipHandler.TipRegion(
                         swatch,
                         "#" + candidate + "  |  " +
-                        ManagerTranslation.Get("LMM_0199") + ": " +
+                        ManagerTranslation.Get("LMM_0200") + ": " +
                         Mathf.RoundToInt(luminanceValue * 100f) + "%");
                 }
             }
