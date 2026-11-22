@@ -202,7 +202,35 @@ namespace Lilly.IntegratedModManager
                 string packageId = mod.PackageId;
                 if (excludedPackageIds.Contains(packageId))
                     continue;
-                GetOrCreateModData(mod);
+
+                // 최초 설정 초기화 시 설치 모드 상태가 먼저 생성되면
+                // IntegratedModManagerPage의 신규 모드 검사에서 신규로 인식되지 않는다.
+                // 상태 생성 시점에 신규 여부를 판별하고 자동 태그도 함께 부여한다.
+                ManagerModData modData = FindModData(packageId);
+                bool isNewMod = modData == null;
+                if (isNewMod)
+                    modData = GetOrCreateModData(mod);
+
+                if (isNewMod && AutoTagNewMods)
+                {
+                    ManagerTagData newModTag = Tags.FirstOrDefault(tag => tag != null &&
+                        string.Equals(tag.Id, "auto-new", StringComparison.OrdinalIgnoreCase));
+                    if (newModTag == null)
+                    {
+                        newModTag = Tags.FirstOrDefault(tag => tag != null &&
+                            string.Equals(tag.Name, "신규", StringComparison.OrdinalIgnoreCase));
+                    }
+                    if (newModTag == null)
+                    {
+                        newModTag = new ManagerTagData("auto-new", "신규");
+                        Tags.Add(newModTag);
+                    }
+
+                    if (modData.TagIds == null)
+                        modData.TagIds = new List<string>();
+                    if (!modData.TagIds.Contains(newModTag.Id))
+                        modData.TagIds.Add(newModTag.Id);
+                }
 
                 if (assignedPackageIds.Add(packageId))
                 {
