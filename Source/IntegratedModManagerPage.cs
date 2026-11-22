@@ -272,22 +272,17 @@ nextInstalledModRefreshTime =
             Rect detailsRect = new Rect(mainX + listWidth + 10f, contentTop,
                 mainWidth - listWidth - 10f, contentHeight);
 
+            // 키보드 탐색은 검색창/목록 등의 IMGUI 컨트롤이 KeyDown 이벤트를
+            // 먼저 소비하기 전에 처리해야 한다. 팝업을 닫은 직후에도 이 위치에서
+            // 방향키 입력을 먼저 받아 목록 포커스를 복구할 수 있다.
+            HandleModListNavigation(categoryRect, listRect);
+
             // 하단 버튼을 사이드바/모드 목록보다 먼저 그려 IMGUI 컨트롤 ID와
             // 마우스 입력 처리가 목록의 선택 상태에 영향을 받지 않게 한다.
             DrawBottomButtons(new Rect(20f, inRect.height - BottomHeight - 8f,
                 inRect.width - 40f, BottomHeight));
 
             DrawCategoryTabs(categoryRect);
-
-            if (Event.current.type == EventType.MouseDown &&
-                listRect.Contains(Event.current.mousePosition))
-            {
-                // 모드 목록을 마우스로 클릭하면 키보드 포커스도 모드 목록으로 이동한다.
-                // 행 클릭 처리에서 이벤트가 소비되더라도 포커스 상태가 유지되도록
-                // DrawModList 호출 전에 처리한다.
-                modListHasKeyboardFocus = true;
-                categoryTabsHaveKeyboardFocus = false;
-            }
             DrawSearchField(searchRect);
 
             DrawModList(listRect);
@@ -296,7 +291,6 @@ nextInstalledModRefreshTime =
             DrawModDragPreview(inRect);
             DrawSidebarDragPreview(inRect);
             DrawFolderDragPreview(inRect);
-            HandleModListNavigation(categoryRect, listRect);
             HandleSelectAll();
             if (Event.current.type == EventType.MouseUp)
             {
