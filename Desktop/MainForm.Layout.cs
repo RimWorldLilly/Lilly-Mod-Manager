@@ -378,10 +378,8 @@ internal sealed partial class MainForm
         select.MouseMove += HandleCategoryMouseMove;
         row.AllowDrop = true;
         select.AllowDrop = true;
-        row.DragEnter += NavigationDragEnter;
-        select.DragEnter += NavigationDragEnter;
-        row.DragDrop += (_, e) => DropOnCategory(category, e);
-        select.DragDrop += (_, e) => DropOnCategory(category, e);
+        row.DragEnter += CategoryNavigationDragEnter;
+        select.DragEnter += CategoryNavigationDragEnter;
         row.DragDrop += (_, e) => DropOnCategory(category, e);
         select.DragDrop += (_, e) => DropOnCategory(category, e);
         enabled.CheckedChanged += (_, _) =>
@@ -1105,6 +1103,13 @@ internal sealed partial class MainForm
         e.Effect = ReadDraggedIds(e.Data).Count > 0 ? DragDropEffects.Move : DragDropEffects.None;
     }
 
+    private void CategoryNavigationDragEnter(object? sender, DragEventArgs e)
+    {
+        e.Effect = ReadDraggedIds(e.Data).Count > 0 ||
+            (e.Data != null && e.Data.GetDataPresent(CategoryDragDataFormat))
+            ? DragDropEffects.Move : DragDropEffects.None;
+    }
+
     private void ModRowDragEnter(object? sender, DragEventArgs e)
     {
         e.Effect = ReadDraggedIds(e.Data).Count > 0 ? DragDropEffects.Move : DragDropEffects.None;
@@ -1113,6 +1118,12 @@ internal sealed partial class MainForm
     private void DropOnCategory(CategoryData category, DragEventArgs e)
     {
         if (store == null) return;
+        if (e.Data != null && e.Data.GetDataPresent(CategoryDragDataFormat))
+        {
+            string? sourceId = e.Data.GetData(CategoryDragDataFormat) as string;
+            if (!string.IsNullOrWhiteSpace(sourceId)) ReorderCategory(sourceId, category);
+            return;
+        }
         List<string> ids = ReadDraggedIds(e.Data);
         if (ids.Count == 0) return;
         store.AssignCategory(ids, category.Id);
