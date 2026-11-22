@@ -100,6 +100,11 @@ namespace Lilly.IntegratedModManager
                     tagRect.width - 14f, tagRect.height), tag.Name);
                 GUI.color = oldColor;
                 Text.Font = oldFont;
+
+                // 우측 태그 라벨 영역도 체크박스와 동일하게 클릭해 선택 상태를 전환한다.
+                if (Widgets.ButtonInvisible(tagRect) && onToggle != null)
+                    onToggle(tag, !assigned);
+
                 rowIndex++;
             }
             Widgets.EndScrollView();
