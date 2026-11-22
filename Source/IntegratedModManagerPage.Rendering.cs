@@ -419,7 +419,8 @@ namespace Lilly.IntegratedModManager
                                 IsModActiveInManager(mod) && IsModOutdatedForCurrentGameVersion(mod);
 
                             // 시스템 경고를 먼저 배치하고, 사용자 태그는 남은 공간에 표시한다.
-                            List<ModWarningTag> warningTags = new List<ModWarningTag>();
+                            List<ModWarningTag> warningTags = modWarningTagsScratch;
+                            warningTags.Clear();
                             if (rowIssue == ModRowIssue.RequiredMod)
                                 warningTags.Add(new ModWarningTag(ManagerTranslation.Get("LMM_0204"),
                                     new Color(1f, 0.28f, 0.28f, 1f), ManagerTranslation.Get("LMM_0145")));
@@ -458,7 +459,8 @@ namespace Lilly.IntegratedModManager
                                 ? Mathf.Min(22f, maximumTagArea)
                                 : 0f;
                             float chipsCapacity = Mathf.Max(0f, maximumTagArea - ellipsisWidth);
-                            List<ModWarningTag> visibleWarnings = new List<ModWarningTag>();
+                            List<ModWarningTag> visibleWarnings = visibleModWarningTagsScratch;
+                            visibleWarnings.Clear();
                             float visibleWarningWidth = 0f;
                             for (int i = 0; i < warningTags.Count; i++)
                             {
@@ -664,6 +666,11 @@ namespace Lilly.IntegratedModManager
                                 preview.height), label);
                             Text.Anchor = previousAnchor;
                         }
+
+        private static readonly List<ModWarningTag> modWarningTagsScratch =
+            new List<ModWarningTag>(5);
+        private static readonly List<ModWarningTag> visibleModWarningTagsScratch =
+            new List<ModWarningTag>(5);
 
         private struct ModWarningTag
         {
