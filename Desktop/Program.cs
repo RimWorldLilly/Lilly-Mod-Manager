@@ -450,20 +450,43 @@ internal sealed class ModStore
 
     private void RebuildIssues()
     {
-        var installedIds = new HashSet<string>(Mods.Select(m => m.PackageId), StringComparer.OrdinalIgnoreCase);
-        var activeIds = new HashSet<string>(OrderedMods.Where(m => m.Active || m.Official).Select(m => m.PackageId), StringComparer.OrdinalIgnoreCase);
+        var installedIds = new HashSet<string>(Mods.Select(mod => mod.PackageId), StringComparer.OrdinalIgnoreCase);
+        List<ModEntry> active = OrderedMods.Where(mod => mod.Active || mod.Official).ToList();
+        var activeIds = new HashSet<string>(active.Select(mod => mod.PackageId), StringComparer.OrdinalIgnoreCase);
+        var activePositions = active.Select((mod, index) => (mod.PackageId, index))
+            .ToDictionary(item => item.PackageId, item => item.index, StringComparer.OrdinalIgnoreCase);
+
         foreach (ModEntry mod in OrderedMods)
         {
+            var problems = new List<string>();
             if (string.IsNullOrWhiteSpace(mod.Path))
+                problems.Add("설치된 모드 폴더 없음");
+
+            if (mod.Active || mod.Official)
             {
-                mod.Issue = "설치된 모드 폴더 없음";
-                continue;
+                foreach (string dependency in mod.Required)
+                {
+                    if (activeIds.Contains(dependency)) continue;
+                    string state = installedIds.Contains(dependency) ? "비활성" : "미설치";
+                    problems.Add("필수 모드 확인: " + dependency + " (" + state + ")");
+                }
+
+                int position = activePositions.TryGetValue(mod.PackageId, out int found) ? found : -1;
+                if (position >= 0)
+                {
+                    foreach (string dependency in mod.LoadAfter)
+                        if (activePositions.TryGetValue(dependency, out int dependencyPosition) &&
+                            position < dependencyPosition)
+                            problems.Add("불러오기 순서: " + dependency + "보다 뒤에 있어야 함");
+
+                    foreach (string dependency in mod.LoadBefore)
+                        if (activePositions.TryGetValue(dependency, out int dependencyPosition) &&
+                            position > dependencyPosition)
+                            problems.Add("불러오기 순서: " + dependency + "보다 앞에 있어야 함");
+                }
             }
-            var problems = mod.Required
-                .Where(id => !activeIds.Contains(id))
-                .Select(id => installedIds.Contains(id) ? id + " (비활성)" : id + " (미설치)")
-                .ToList();
-            mod.Issue = problems.Count > 0 ? "필수 모드 확인: " + string.Join(", ", problems) : "";
+
+            mod.Issue = string.Join(" / ", problems.Distinct(StringComparer.CurrentCultureIgnoreCase));
         }
     }
 
