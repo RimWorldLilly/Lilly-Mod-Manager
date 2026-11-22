@@ -238,26 +238,6 @@ namespace Lilly.IntegratedModManager
                             Widgets.EndScrollView();
                         }
 
-        private static GUIStyle modNameShadowSourceStyle;
-        private static GUIStyle modNameShadowStyle;
-
-        private static GUIStyle GetModNameShadowStyle()
-        {
-            GUIStyle currentStyle = Text.CurFontStyle;
-            if (modNameShadowStyle == null || !ReferenceEquals(modNameShadowSourceStyle, currentStyle))
-            {
-                modNameShadowSourceStyle = currentStyle;
-                modNameShadowStyle = new GUIStyle(currentStyle);
-                Color shadowColor = new Color(0f, 0f, 0f, 0.88f);
-                modNameShadowStyle.normal.textColor = shadowColor;
-                modNameShadowStyle.hover.textColor = shadowColor;
-                modNameShadowStyle.active.textColor = shadowColor;
-                modNameShadowStyle.focused.textColor = shadowColor;
-            }
-
-            return modNameShadowStyle;
-        }
-
         private void DrawModRow(ModMetaData mod, int visibleIndex, float width, float y)
                         {
                             Color previousGuiColor = GUI.color;
@@ -431,99 +411,119 @@ namespace Lilly.IntegratedModManager
                 
                             Rect nameRect = new Rect(checkRect.xMax + 5f, rowRect.y,
                                 Mathf.Max(0f, rowRect.xMax - checkRect.xMax - 5f), rowRect.height);
+                            string name = GetDisplayName(mod);
+                            ModRowIssue rowIssue = rowIsVisible ? GetModRowIssue(mod) : ModRowIssue.None;
+                            bool conflictingMod = rowIsVisible &&
+                                IsModActiveInManager(mod) && HasActiveIncompatibility(mod);
+                            bool outdatedForGameVersion = rowIsVisible &&
+                                IsModActiveInManager(mod) && IsModOutdatedForCurrentGameVersion(mod);
+
+                            // 시스템 경고를 먼저 배치하고, 사용자 태그는 남은 공간에 표시한다.
+                            List<ModWarningTag> warningTags = new List<ModWarningTag>();
+                            if (rowIssue == ModRowIssue.RequiredMod)
+                                warningTags.Add(new ModWarningTag(ManagerTranslation.Get("LMM_0204"),
+                                    new Color(1f, 0.28f, 0.28f, 1f), ManagerTranslation.Get("LMM_0145")));
+                            if (conflictingMod)
+                                warningTags.Add(new ModWarningTag(ManagerTranslation.Get("LMM_0205"),
+                                    new Color(1f, 0.415f, 0.26f, 1f), "활성 모드와 충돌하는 모드입니다."));
+                            if (rowIssue == ModRowIssue.LoadOrder)
+                                warningTags.Add(new ModWarningTag(ManagerTranslation.Get("LMM_0206"),
+                                    new Color(1f, 0.55f, 0.24f, 1f), ManagerTranslation.Get("LMM_0143")));
+                            if (rowIssue == ModRowIssue.Version)
+                                warningTags.Add(new ModWarningTag(ManagerTranslation.Get("LMM_0207"),
+                                    new Color(1f, 0.685f, 0.22f, 1f), ManagerTranslation.Get("LMM_0146")));
+                            if (outdatedForGameVersion)
+                                warningTags.Add(new ModWarningTag(ManagerTranslation.Get("LMM_0208"),
+                                    new Color(1f, 0.82f, 0.2f, 1f),
+                                    "이 모드는 현재 게임 버전보다 낮은 버전만 지원합니다. 지원 버전: " +
+                                    GetSupportedGameVersionText(mod)));
+
                             ManagerModData modData = FindModState(mod.PackageId);
                             List<ManagerTagData> assignedTags = modData == null || modData.TagIds == null
                                 ? new List<ManagerTagData>()
                                 : modData.TagIds.Select(FindTag).Where(tag => tag != null).ToList();
-                            string tagTooltip = string.Join(", ", assignedTags.Select(tag => tag.Name));
+
                             float maximumTagArea = nameRect.width * 0.55f;
-                            bool hasTagOverflow = assignedTags.Sum(tag => GetTagChipWidth(tag.Name) + 3f) > maximumTagArea;
-                            float ellipsisWidth = hasTagOverflow ? Mathf.Min(22f, maximumTagArea) : 0f;
+                            float ellipsisWidth = Mathf.Min(22f, maximumTagArea);
                             float chipsCapacity = Mathf.Max(0f, maximumTagArea - ellipsisWidth);
-                            List<ManagerTagData> visibleTags = new List<ManagerTagData>();
-                            float visibleTagWidth = 0f;
-                            for (int i = 0; i < assignedTags.Count; i++)
+                            List<ModWarningTag> visibleWarnings = new List<ModWarningTag>();
+                            float visibleWarningWidth = 0f;
+                            for (int i = 0; i < warningTags.Count; i++)
                             {
-                                float chipWidth = GetTagChipWidth(assignedTags[i].Name);
-                                float nextWidth = visibleTagWidth + (visibleTags.Count > 0 ? 3f : 0f) + chipWidth;
+                                float chipWidth = GetWarningChipWidth(warningTags[i].Label);
+                                float nextWidth = visibleWarningWidth +
+                                    (visibleWarnings.Count > 0 ? 3f : 0f) + chipWidth;
                                 if (nextWidth > chipsCapacity)
                                     break;
-                                visibleTags.Add(assignedTags[i]);
-                                visibleTagWidth = nextWidth;
+                                visibleWarnings.Add(warningTags[i]);
+                                visibleWarningWidth = nextWidth;
                             }
-                            float tagAreaWidth = visibleTagWidth + (visibleTags.Count > 0 && hasTagOverflow ? 3f : 0f) +
-                                (hasTagOverflow ? ellipsisWidth : 0f);
+
+                            List<ManagerTagData> visibleTags = new List<ManagerTagData>();
+                            float visibleTagWidth = 0f;
+                            if (visibleWarnings.Count == warningTags.Count)
+                            {
+                                for (int i = 0; i < assignedTags.Count; i++)
+                                {
+                                    float chipWidth = GetTagChipWidth(assignedTags[i].Name);
+                                    float nextWidth = visibleWarningWidth +
+                                        (visibleTags.Count > 0 || visibleWarnings.Count > 0 ? 3f : 0f) +
+                                        visibleTagWidth + chipWidth;
+                                    if (nextWidth > chipsCapacity)
+                                        break;
+                                    visibleTags.Add(assignedTags[i]);
+                                    visibleTagWidth += (visibleTags.Count > 1 ? 3f : 0f) + chipWidth;
+                                }
+                            }
+
+                            bool hasTagOverflow = visibleWarnings.Count < warningTags.Count ||
+                                visibleTags.Count < assignedTags.Count;
+                            float chipContentWidth = visibleWarningWidth + visibleTagWidth +
+                                (visibleWarnings.Count > 0 && visibleTags.Count > 0 ? 3f : 0f);
+                            float tagAreaWidth = chipContentWidth +
+                                (hasTagOverflow && ellipsisWidth > 0f
+                                    ? (chipContentWidth > 0f ? 3f : 0f) + ellipsisWidth
+                                    : 0f);
+
                             if (tagAreaWidth > 0f)
                             {
                                 float tagsX = nameRect.xMax - tagAreaWidth;
                                 nameRect.width = Mathf.Max(0f, tagsX - nameRect.x - 4f);
                                 float chipX = tagsX;
+
+                                for (int i = 0; i < visibleWarnings.Count; i++)
+                                {
+                                    float chipWidth = GetWarningChipWidth(visibleWarnings[i].Label);
+                                    Rect chipRect = new Rect(chipX, rowRect.y + 3f, chipWidth, 21f);
+                                    DrawWarningTagChip(chipRect, visibleWarnings[i]);
+                                    chipX += chipWidth + 3f;
+                                }
+
                                 for (int i = 0; i < visibleTags.Count; i++)
                                 {
                                     float chipWidth = GetTagChipWidth(visibleTags[i].Name);
                                     DrawTagChip(new Rect(chipX, rowRect.y + 3f, chipWidth, 21f), visibleTags[i]);
                                     chipX += chipWidth + 3f;
                                 }
+
                                 if (hasTagOverflow && ellipsisWidth > 0f)
                                 {
-                                    Rect moreRect = new Rect(tagsX + visibleTagWidth +
-                                        (visibleTags.Count > 0 ? 3f : 0f), rowRect.y + 3f,
+                                    Rect moreRect = new Rect(chipX, rowRect.y + 3f,
                                         ellipsisWidth, 21f);
                                     DrawTagOverflowChip(moreRect);
-                                    TooltipHandler.TipRegion(moreRect, tagTooltip);
+                                    string overflowTooltip = string.Join(", ",
+                                        warningTags.Select(tag => tag.Tooltip)
+                                            .Concat(assignedTags.Select(tag => tag.Name)));
+                                    TooltipHandler.TipRegion(moreRect, overflowTooltip);
                                 }
                             }
                             if (Widgets.ButtonInvisible(nameRect))
                                 SelectModByPackageId(mod.PackageId, Event.current.control, Event.current.shift);
-                
-                            string name = GetDisplayName(mod);
-                            // Color previousTextColor = GUI.color;
-                            ModRowIssue rowIssue = rowIsVisible ? GetModRowIssue(mod) : ModRowIssue.None;
-                            bool conflictingMod = rowIsVisible &&
-                                IsModActiveInManager(mod) && HasActiveIncompatibility(mod);
-                            bool outdatedForGameVersion = rowIsVisible &&
-                                IsModActiveInManager(mod) && IsModOutdatedForCurrentGameVersion(mod);
-                
-                            // 일반 모드 이름은 행 배경색에 맞춰 검정/흰색 중 대비가 높은 색을 사용한다.
-                            // 오류/경고가 있는 모드는 기존 의미 색상을 유지한다.
-                            Color rowTextColor = ManagerTagColors.Foreground(finalRowColor);
 
-                            // 강조 우선순위: 필수 모드 누락 > 충돌 > 로드 순서 > 요구 버전 불일치 > 게임 지원 버전 경고.
-                            // 게임 지원 버전 경고는 다른 문제가 없을 때만 표시한다.
-                            if (rowIssue == ModRowIssue.RequiredMod)
-                                rowTextColor = new Color(1f, 0.28f, 0.28f, 1f);
-                            else if (conflictingMod)
-                                rowTextColor = new Color(1f, 0.415f, 0.26f, 1f);
-                            else if (rowIssue == ModRowIssue.LoadOrder)
-                                rowTextColor = new Color(1f, 0.55f, 0.24f, 1f);
-                            else if (rowIssue == ModRowIssue.Version)
-                                rowTextColor = new Color(1f, 0.685f, 0.22f, 1f);
-                            else if (outdatedForGameVersion)
-                                rowTextColor = new Color(1f, 0.82f, 0.2f, 1f);
-
-                            if (rowIssue == ModRowIssue.RequiredMod)
-                                TooltipHandler.TipRegion(nameRect, ManagerTranslation.Get("LMM_0145"));
-                            else if (conflictingMod)
-                                TooltipHandler.TipRegion(nameRect, "활성 모드와 충돌하는 모드입니다.");
-                            else if (rowIssue == ModRowIssue.LoadOrder)
-                                TooltipHandler.TipRegion(nameRect, ManagerTranslation.Get("LMM_0143"));
-                            else if (rowIssue == ModRowIssue.Version)
-                                TooltipHandler.TipRegion(nameRect, ManagerTranslation.Get("LMM_0146"));
-                            else if (outdatedForGameVersion)
-                                TooltipHandler.TipRegion(nameRect,
-                                    "이 모드는 현재 게임 버전보다 낮은 버전만 지원합니다. 지원 버전: " +
-                                    GetSupportedGameVersionText(mod));
                             string rowName = protectedMod ? name + ManagerTranslation.Get("LMM_0001") : name;
-
-                            // 반투명 검정 그림자를 한 픽셀 어긋나게 먼저 그려 배경색과 관계없이 글자를 분리한다.
-                            GUIStyle shadowStyle = GetModNameShadowStyle();
-                            Color previousTextGuiColor = GUI.color;
-                            GUI.color = Color.white;
-                            GUI.Label(new Rect(nameRect.x + 1f, nameRect.y + 1f,
-                                nameRect.width, nameRect.height), rowName, shadowStyle);
-                            GUI.color = rowTextColor;
+                            Color rowTextColor = ManagerTagColors.Foreground(finalRowColor);
                             Widgets.Label(nameRect, rowName);
-                            GUI.color = previousTextGuiColor;
+
                             bool workshopItemMissing = false;
                             if (rowIsVisible && mod.OnSteamWorkshop)
                             {
@@ -649,6 +649,43 @@ namespace Lilly.IntegratedModManager
                             Text.Anchor = previousAnchor;
                         }
 
+        private struct ModWarningTag
+        {
+            internal readonly string Label;
+            internal readonly Color Color;
+            internal readonly string Tooltip;
+
+            internal ModWarningTag(string label, Color color, string tooltip)
+            {
+                Label = label;
+                Color = color;
+                Tooltip = tooltip;
+            }
+        }
+
+        private static float GetWarningChipWidth(string label)
+        {
+            GameFont oldFont = Text.Font;
+            Text.Font = GameFont.Tiny;
+            float width = Mathf.Clamp(Text.CalcSize(label ?? string.Empty).x + 12f, 34f, 112f);
+            Text.Font = oldFont;
+            return width;
+        }
+
+        private static void DrawWarningTagChip(Rect rect, ModWarningTag warning)
+        {
+            Widgets.DrawBoxSolid(rect, Color.black);
+            Color oldColor = GUI.color;
+            GUI.color = warning.Color;
+            Widgets.DrawBox(rect, 1);
+            GameFont oldFont = Text.Font;
+            Text.Font = GameFont.Tiny;
+            Widgets.Label(new Rect(rect.x + 4f, rect.y, rect.width - 8f, rect.height), warning.Label);
+            Text.Font = oldFont;
+            GUI.color = oldColor;
+            TooltipHandler.TipRegion(rect, warning.Tooltip);
+        }
+
         private static float GetTagChipWidth(string name)
                         {
                             GameFont oldFont = Text.Font;
@@ -664,9 +701,10 @@ namespace Lilly.IntegratedModManager
                                 return false;
                 
                             Widgets.DrawBoxSolid(rect, ManagerTagColors.Background(tag.ColorHex));
+                            Color oldColor = GUI.color;
+                            GUI.color = Color.white;
                             Widgets.DrawBox(rect);
                             GameFont oldFont = Text.Font;
-                            Color oldColor = GUI.color;
                             Text.Font = GameFont.Tiny;
                             GUI.color = ManagerTagColors.Foreground(tag.ColorHex);
                             Widgets.Label(new Rect(rect.x + 4f, rect.y, rect.width - 8f, rect.height), tag.Name);
