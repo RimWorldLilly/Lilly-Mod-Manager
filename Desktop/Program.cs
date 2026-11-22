@@ -384,7 +384,7 @@ internal sealed class ModStore
             }
             target.ModIds.Add(id);
             EnsureFolder(target.Folders).ModIds.Add(id);
-            ModEntry? mod = Mods.FirstOrDefault(m => m.PackageId == id);
+            ModEntry? mod = OrderedMods.FirstOrDefault(m => m.PackageId == id);
             if (mod != null) mod.CategoryId = target.Id;
         }
     }
