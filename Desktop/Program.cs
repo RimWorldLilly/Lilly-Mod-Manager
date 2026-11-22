@@ -457,7 +457,7 @@ internal sealed class ModStore
             }
             category.ModIds.Add(id);
             target.ModIds.Add(id);
-            ModEntry? mod = Mods.FirstOrDefault(m => m.PackageId == id);
+            ModEntry? mod = OrderedMods.FirstOrDefault(m => m.PackageId == id);
             if (mod != null) mod.CategoryId = category.Id;
         }
     }
@@ -667,7 +667,7 @@ internal sealed class MainForm : Form
 
     private void BuildUi()
     {
-        var toolbar = new FlowLayoutPanel { Dock = DockStyle.Top, Height = 78, Padding = new Padding(8, 6, 4, 4), WrapContents = true, BackColor = Color.FromArgb(35, 39, 46) };
+        var toolbar = new FlowLayoutPanel { Dock = DockStyle.Top, Height = 108, Padding = new Padding(8, 6, 4, 4), WrapContents = true, BackColor = Color.FromArgb(35, 39, 46) };
         AddToolbarLabel(toolbar, "검색"); toolbar.Controls.Add(search);
         AddToolbarLabel(toolbar, "카테고리"); toolbar.Controls.Add(categoryFilter);
         AddToolbarLabel(toolbar, "태그"); toolbar.Controls.Add(tagFilter);
@@ -684,6 +684,10 @@ internal sealed class MainForm : Form
         AddButton(toolbar, "태그 추가", AddTag);
         AddButton(toolbar, "태그 이름 변경", RenameTag);
         AddButton(toolbar, "태그 삭제", DeleteTag);
+        AddButton(toolbar, "카테고리 색상", PickCategoryColor);
+        AddButton(toolbar, "태그 색상", PickTagColor);
+        AddButton(toolbar, "모드 색상", PickModColor);
+        AddButton(toolbar, "모드 색상 해제", ClearModColor);
         AddButton(toolbar, "경로 설정", ChoosePaths);
         AddButton(toolbar, "게임 실행", LaunchGame);
         var split = new SplitContainer { Dock = DockStyle.Fill, Orientation = Orientation.Horizontal, SplitterDistance = 610, BackColor = Color.FromArgb(23, 26, 31), Panel1MinSize = 240, Panel2MinSize = 100 };
@@ -777,6 +781,8 @@ internal sealed class MainForm : Form
             if (q.Length > 0 && !string.Join(" ", mod.Name, state.DisplayName, mod.PackageId, mod.Author, mod.Description).Contains(q, StringComparison.CurrentCultureIgnoreCase)) continue;
             int index = grid.Rows.Add(mod.Active || mod.Official, string.IsNullOrWhiteSpace(state.DisplayName) ? mod.Name : state.DisplayName, cat?.Name ?? "미분류", folderName, string.Join(", ", names), mod.Version, mod.Official ? "공식" : mod.Workshop ? "창작마당" : "로컬", mod.Issue, mod.PackageId);
             grid.Rows[index].Cells[0].ReadOnly = mod.Official;
+            ApplyCellColor(grid.Rows[index].Cells[1], state.ColorHex);
+            ApplyCellColor(grid.Rows[index].Cells[2], cat?.ColorHex);
             if (mod.Issue.Length > 0) grid.Rows[index].DefaultCellStyle.ForeColor = Color.Salmon;
             grid.Rows[index].Tag = mod;
         }
@@ -868,6 +874,60 @@ internal sealed class MainForm : Form
         menu.Items.Add("모드 폴더 열기", null, (_, _) => OpenSelectedFolder());
         menu.Items.Add("창작마당 페이지 열기", null, (_, _) => OpenWorkshopPage());
         menu.Show(grid, e.Location);
+    }
+
+    private static void ApplyCellColor(DataGridViewCell cell, string? hex)
+    {
+        if (string.IsNullOrWhiteSpace(hex)) return;
+        try
+        {
+            Color color = ColorTranslator.FromHtml(hex);
+            cell.Style.BackColor = color;
+            double luminance = (0.2126 * color.R + 0.7152 * color.G + 0.0722 * color.B) / 255.0;
+            cell.Style.ForeColor = luminance > 0.52 ? Color.Black : Color.White;
+        }
+        catch { }
+    }
+
+    private static Color? ChooseColor(string? current)
+    {
+        using var dialog = new ColorDialog { FullOpen = true, AnyColor = true };
+        if (!string.IsNullOrWhiteSpace(current))
+        {
+            try { dialog.Color = ColorTranslator.FromHtml(current); } catch { }
+        }
+        return dialog.ShowDialog() == DialogResult.OK ? dialog.Color : null;
+    }
+
+    private void PickCategoryColor()
+    {
+        CategoryData? category = SelectedCategory();
+        if (category == null) { MessageBox.Show(this, "카테고리 필터에서 카테고리를 선택하세요."); return; }
+        Color? color = ChooseColor(category.ColorHex);
+        if (color.HasValue) { category.ColorHex = ColorTranslator.ToHtml(color.Value); RefreshGrid(); }
+    }
+
+    private void PickTagColor()
+    {
+        TagData? tag = SelectedTag();
+        if (tag == null || tag.IsSystem) { MessageBox.Show(this, "태그 필터에서 사용자 태그를 선택하세요."); return; }
+        Color? color = ChooseColor(tag.ColorHex);
+        if (color.HasValue) { tag.ColorHex = ColorTranslator.ToHtml(color.Value); RefreshGrid(); }
+    }
+
+    private void PickModColor()
+    {
+        if (store == null || grid.SelectedRows.Count == 0 || grid.SelectedRows[0].Tag is not ModEntry mod) return;
+        ModState state = store.GetState(mod.PackageId);
+        Color? color = ChooseColor(state.ColorHex);
+        if (color.HasValue) { state.ColorHex = ColorTranslator.ToHtml(color.Value); RefreshGrid(); }
+    }
+
+    private void ClearModColor()
+    {
+        if (store == null || grid.SelectedRows.Count == 0 || grid.SelectedRows[0].Tag is not ModEntry mod) return;
+        store.GetState(mod.PackageId).ColorHex = null;
+        RefreshGrid();
     }
 
     private void RenameSelectedMod()
