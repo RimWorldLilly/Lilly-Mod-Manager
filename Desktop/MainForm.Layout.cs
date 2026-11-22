@@ -346,8 +346,8 @@ internal sealed partial class MainForm
                     int count = store.OrderedMods.Count(mod =>
                         folder.ModIds.Contains(mod.PackageId, StringComparer.OrdinalIgnoreCase));
                     string key = "tag:" + tag.Id + ":" + folder.Id;
-                    bool isCurrent = selectedIds.All(id =>
-                        folder.ModIds.Contains(id, StringComparer.OrdinalIgnoreCase));
+                    bool isCurrent = string.Equals(sidebarSelectedTagId, tag.Id, StringComparison.OrdinalIgnoreCase) &&
+                        selectedIds.All(id => folder.ModIds.Contains(id, StringComparer.OrdinalIgnoreCase));
                     targets.Add(new QuickFolderMoveTarget(
                         $"{folder.Name} ({count})",
                         key,
@@ -374,8 +374,8 @@ internal sealed partial class MainForm
                     int count = store.OrderedMods.Count(mod =>
                         folder.ModIds.Contains(mod.PackageId, StringComparer.OrdinalIgnoreCase));
                     string key = "category:" + category.Id + ":" + folder.Id;
-                    bool isCurrent = selectedIds.All(id =>
-                        folder.ModIds.Contains(id, StringComparer.OrdinalIgnoreCase));
+                    bool isCurrent = string.Equals(sidebarSelectedCategoryId, category.Id, StringComparison.OrdinalIgnoreCase) &&
+                        selectedIds.All(id => folder.ModIds.Contains(id, StringComparer.OrdinalIgnoreCase));
                     targets.Add(new QuickFolderMoveTarget(
                         $"{folder.Name} ({count})",
                         key,
@@ -932,7 +932,7 @@ internal sealed partial class MainForm
             ForeColor = Color.White,
             FlatAppearance = { BorderSize = 0 }
         };
-        fold.Click += (_, _) => { folder.Collapsed = !folder.Collapsed; RefreshGameLikeList(); };
+        fold.Click += (_, _) => { folder.Collapsed = !folder.Collapsed; PersistManagerSettings("폴더 접기 상태 변경"); RefreshGameLikeList(); };
         List<ModEntry> eligibleMembers = members.Where(mod => !mod.Official).ToList();
         int activeEligible = eligibleMembers.Count(mod => mod.Active);
         CheckState folderState = eligibleMembers.Count == 0 || activeEligible == 0
