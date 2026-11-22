@@ -246,7 +246,7 @@ internal sealed class ModStore
     {
         XDocument doc = XDocument.Load(Paths.ModsConfig);
         XElement? list = doc.Descendants().FirstOrDefault(e => e.Name.LocalName == "activeMods");
-        return list?.Elements().Where(e => e.Name.LocalName == "li").Select(e => e.Value.Trim()).Where(s => s.Length > 0).ToList() ?? [];
+        return list?.Elements().Where(e => e.Name.LocalName == "li").Select(e => e.Value.Trim()).Where(value => value.Length > 0).Distinct(StringComparer.OrdinalIgnoreCase).ToList() ?? [];
     }
 
     private IEnumerable<ModEntry> ScanMods()
