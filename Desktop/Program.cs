@@ -911,6 +911,7 @@ internal sealed partial class MainForm : Form
     private readonly ComboBox tagFilter = new() { Width = 130, DropDownStyle = ComboBoxStyle.DropDownList };
     private readonly ComboBox activeFilter = new() { Width = 95, DropDownStyle = ComboBoxStyle.DropDownList };
     private readonly ComboBox sourceFilter = new() { Width = 115, DropDownStyle = ComboBoxStyle.DropDownList };
+    private readonly ComboBox issueFilter = new() { Width = 135, DropDownStyle = ComboBoxStyle.DropDownList };
     private readonly RichTextBox details = new() { Dock = DockStyle.Fill, ReadOnly = true, BackColor = Color.FromArgb(28, 31, 37), ForeColor = Color.Gainsboro, BorderStyle = BorderStyle.None };
     private readonly Label status = new() { Dock = DockStyle.Bottom, Height = 26, TextAlign = ContentAlignment.MiddleLeft, Padding = new Padding(8, 0, 0, 0) };
 
