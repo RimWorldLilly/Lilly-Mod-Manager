@@ -232,6 +232,7 @@ internal sealed partial class MainForm
             BackColor = Color.FromArgb(35, 39, 46)
         };
         AddButton(actions, "새로고침", Reload);
+        AddButton(actions, "변경 취소", DiscardChanges);
         AddButton(actions, "적용 / 저장", Apply);
         AddButton(actions, "프리셋 저장", SavePreset);
         AddButton(actions, "프리셋 불러오기", LoadPreset);
@@ -888,12 +889,13 @@ internal sealed partial class MainForm
             GridMouseUp(grid, e);
             contextMenuAnchor = null;
         };
-        row.MouseDown += (_, e) => SelectModRow(mod, e);
-        name.MouseDown += (_, e) => SelectModRow(mod, e);
-        meta.MouseDown += (_, e) => SelectModRow(mod, e);
+        row.MouseDown += (_, e) => { if (e.Button == MouseButtons.Left) SelectModRow(mod, e); };
+        name.MouseDown += (_, e) => { if (e.Button == MouseButtons.Left) SelectModRow(mod, e); };
+        meta.MouseDown += (_, e) => { if (e.Button == MouseButtons.Left) SelectModRow(mod, e); };
         row.MouseUp += rightClick;
         name.MouseUp += rightClick;
         meta.MouseUp += rightClick;
+        check.MouseUp += rightClick;
 
         if (grid.Rows[rowIndex].Selected)
             row.BackColor = Color.FromArgb(44, 91, 112);
@@ -941,6 +943,7 @@ internal sealed partial class MainForm
         primarySelectedPackageId = selected.Contains(mod.PackageId)
             ? mod.PackageId
             : grid.SelectedRows.Count > 0 ? (grid.SelectedRows[0].Tag as ModEntry)?.PackageId : null;
+        modRows.Focus();
         UpdateModRowSelection();
         UpdateDetails();
     }
