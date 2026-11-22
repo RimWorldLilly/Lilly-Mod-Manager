@@ -35,6 +35,9 @@ internal sealed class ModEntry
     public List<string> LoadBefore { get; set; } = [];
     public List<string> Required { get; set; } = [];
     public string Issue { get; set; } = "";
+    public bool HasMissingFolder { get; set; }
+    public bool HasMissingRequiredMod { get; set; }
+    public bool HasLoadOrderIssue { get; set; }
 }
 
 internal sealed class FolderData
@@ -535,7 +538,10 @@ internal sealed class ModStore
         foreach (ModEntry mod in OrderedMods)
         {
             var problems = new List<string>();
-            if (string.IsNullOrWhiteSpace(mod.Path))
+            mod.HasMissingFolder = string.IsNullOrWhiteSpace(mod.Path);
+            mod.HasMissingRequiredMod = false;
+            mod.HasLoadOrderIssue = false;
+            if (mod.HasMissingFolder)
                 problems.Add("설치된 모드 폴더 없음");
 
             if (mod.Active || mod.Official)
@@ -544,6 +550,7 @@ internal sealed class ModStore
                 {
                     if (activeIds.Contains(dependency)) continue;
                     string state = installedIds.Contains(dependency) ? "비활성" : "미설치";
+                    mod.HasMissingRequiredMod = true;
                     problems.Add("필수 모드 확인: " + dependency + " (" + state + ")");
                 }
 
@@ -553,12 +560,18 @@ internal sealed class ModStore
                     foreach (string dependency in mod.LoadAfter)
                         if (activePositions.TryGetValue(dependency, out int dependencyPosition) &&
                             position < dependencyPosition)
+                        {
+                            mod.HasLoadOrderIssue = true;
                             problems.Add("불러오기 순서: " + dependency + "보다 뒤에 있어야 함");
+                        }
 
                     foreach (string dependency in mod.LoadBefore)
                         if (activePositions.TryGetValue(dependency, out int dependencyPosition) &&
                             position > dependencyPosition)
+                        {
+                            mod.HasLoadOrderIssue = true;
                             problems.Add("불러오기 순서: " + dependency + "보다 앞에 있어야 함");
+                        }
                 }
             }
 
