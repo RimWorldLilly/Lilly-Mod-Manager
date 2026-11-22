@@ -655,7 +655,7 @@ internal sealed class MainForm : Form
         grid.DefaultCellStyle.SelectionBackColor = Color.FromArgb(44, 91, 112); grid.DefaultCellStyle.SelectionForeColor = Color.White;
         grid.AlternatingRowsDefaultCellStyle.BackColor = Color.FromArgb(36, 40, 48);
         grid.RowTemplate.Height = 28; grid.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill;
-        grid.Columns[0].FillWeight = 35; grid.Columns[1].FillWeight = 190; grid.Columns[2].FillWeight = 85; grid.Columns[3].FillWeight = 120; grid.Columns[4].FillWeight = 60; grid.Columns[5].FillWeight = 55; grid.Columns[6].FillWeight = 115;
+        grid.Columns[0].FillWeight = 35; grid.Columns[1].FillWeight = 180; grid.Columns[2].FillWeight = 75; grid.Columns[3].FillWeight = 75; grid.Columns[4].FillWeight = 120; grid.Columns[5].FillWeight = 55; grid.Columns[6].FillWeight = 60; grid.Columns[7].FillWeight = 115;
         grid.CurrentCellDirtyStateChanged += (_, _) => { if (grid.IsCurrentCellDirty) grid.CommitEdit(DataGridViewDataErrorContexts.Commit); };
         grid.CellValueChanged += GridCellValueChanged; grid.SelectionChanged += (_, _) => UpdateDetails();
         grid.CellMouseDown += (_, e) => { if (e.Button == MouseButtons.Right && e.RowIndex >= 0 && !grid.Rows[e.RowIndex].Selected) { grid.ClearSelection(); grid.Rows[e.RowIndex].Selected = true; } };
@@ -948,7 +948,11 @@ internal sealed class MainForm : Form
         foreach (string id in ids)
             foreach (FolderData other in tag.Folders.Where(f => f.Id != folder.Id))
                 other.ModIds.RemoveAll(value => value.Equals(id, StringComparison.OrdinalIgnoreCase));
-        store.AssignTag(ids, tag, true);
+        foreach (string id in ids)
+        {
+            ModState state = store.GetState(id);
+            if (!state.TagIds.Contains(tag.Id)) state.TagIds.Add(tag.Id);
+        }
         RefreshGrid();
     }
 
