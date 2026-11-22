@@ -86,7 +86,41 @@ internal sealed class GamePaths
     public string GameRoot { get; set; } = "";
     public string ConfigRoot { get; set; } = "";
     public string ModsConfig => System.IO.Path.Combine(ConfigRoot, "ModsConfig.xml");
-    public string ManagerSettings => System.IO.Path.Combine(ConfigRoot, "ModSettings", "Lilly.ModManager.xml");
+    public string ManagerSettings
+    {
+        get
+        {
+            string[] candidates =
+            [
+                System.IO.Path.Combine(ConfigRoot, "Mod_Lilly.ModManager_IntegratedModManagerSettings.xml"),
+                System.IO.Path.Combine(ConfigRoot, "ModSettings", "Lilly.ModManager.xml"),
+                System.IO.Path.Combine(ConfigRoot, "Mod_Lilly.ModManager.xml"),
+                System.IO.Path.Combine(ConfigRoot, "Lilly.ModManager.xml")
+            ];
+            foreach (string candidate in candidates)
+                if (File.Exists(candidate) && ContainsManagerData(candidate)) return candidate;
+
+            foreach (string directory in new[] { ConfigRoot, System.IO.Path.Combine(ConfigRoot, "ModSettings") })
+            {
+                if (!Directory.Exists(directory)) continue;
+                foreach (string file in Directory.GetFiles(directory, "*.xml"))
+                    if (ContainsManagerData(file)) return file;
+            }
+
+            // RimWorld 1.7 uses a package ID + settings-class filename.
+            return System.IO.Path.Combine(ConfigRoot, "Mod_Lilly.ModManager_IntegratedModManagerSettings.xml");
+        }
+    }
+
+    private static bool ContainsManagerData(string file)
+    {
+        try
+        {
+            XDocument doc = XDocument.Load(file);
+            return doc.Root?.DescendantsAndSelf().Any(e => e.Name.LocalName == "Lilly.ModManager") == true;
+        }
+        catch { return false; }
+    }
     public string PresetDirectory => System.IO.Path.Combine(ConfigRoot, "Lilly Mod Manager Presets");
     public string WorkshopDirectory => System.IO.Path.Combine(GameRoot, "..", "..", "workshop", "content", "294100");
 }
@@ -467,7 +501,7 @@ internal sealed class ModStore
     private void SaveManagerSettings()
     {
         Directory.CreateDirectory(System.IO.Path.GetDirectoryName(Paths.ManagerSettings)!);
-        XDocument doc = File.Exists(Paths.ManagerSettings) ? XDocument.Load(Paths.ManagerSettings) : new XDocument(new XElement("ModSettingsData"));
+        XDocument doc = File.Exists(Paths.ManagerSettings) ? XDocument.Load(Paths.ManagerSettings) : new XDocument(new XElement("ModSettings"));
         XElement root = doc.Root ?? throw new InvalidDataException("ModSettings XML root is missing.");
         XElement manager = root.Name.LocalName == "Lilly.ModManager" ? root : root.Elements().FirstOrDefault(e => e.Name.LocalName == "Lilly.ModManager") ?? new XElement("Lilly.ModManager");
         if (manager.Parent == null) root.Add(manager);
