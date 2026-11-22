@@ -132,6 +132,9 @@ internal sealed partial class MainForm
     private int selectionAnchorRow = -1;
     private Control? contextMenuAnchor;
     private Point contextMenuPoint;
+    private const string ModDragDataFormat = "Lilly.ModManager.Desktop.PackageIds";
+    private string? dragCandidatePackageId;
+    private Point dragStartScreenPoint;
 
     private void BuildGameLikeUi()
     {
@@ -360,6 +363,12 @@ internal sealed partial class MainForm
         select.Left = 31;
         select.Width = Math.Max(90, sidebarItems.ClientSize.Width - 48);
         select.Click += (_, _) => SelectCategoryView(category);
+        row.AllowDrop = true;
+        select.AllowDrop = true;
+        row.DragEnter += NavigationDragEnter;
+        select.DragEnter += NavigationDragEnter;
+        row.DragDrop += (_, e) => DropOnCategory(category, e);
+        select.DragDrop += (_, e) => DropOnCategory(category, e);
         enabled.CheckedChanged += (_, _) =>
         {
             if (rebuildingNavigation) return;
@@ -400,6 +409,12 @@ internal sealed partial class MainForm
         select.Left = 31;
         select.Width = Math.Max(90, sidebarItems.ClientSize.Width - 48);
         select.Click += (_, _) => SelectTagView(tag);
+        row.AllowDrop = true;
+        select.AllowDrop = true;
+        row.DragEnter += NavigationDragEnter;
+        select.DragEnter += NavigationDragEnter;
+        row.DragDrop += (_, e) => DropOnTag(tag, e);
+        select.DragDrop += (_, e) => DropOnTag(tag, e);
         enabled.Click += (_, _) => SetTagEnabled(tag, enabled.CheckState != CheckState.Checked);
         select.ForeColor = ColorForBackground(null, row.BackColor);
         row.Controls.Add(enabled);
@@ -721,6 +736,12 @@ internal sealed partial class MainForm
             FlatAppearance = { BorderSize = 0 }
         };
         fold.Click += (_, _) => { folder.Collapsed = !folder.Collapsed; RefreshGameLikeList(); };
+        row.AllowDrop = true;
+        title.AllowDrop = true;
+        row.DragEnter += NavigationDragEnter;
+        title.DragEnter += NavigationDragEnter;
+        row.DragDrop += (_, e) => DropOnFolder(folder, isTagFolder, category, e);
+        title.DragDrop += (_, e) => DropOnFolder(folder, isTagFolder, category, e);
         int active = members.Count(m => m.Active || m.Official);
         var title = new Label
         {
@@ -850,6 +871,9 @@ internal sealed partial class MainForm
             AutoEllipsis = true,
             Cursor = Cursors.Hand
         };
+        row.AllowDrop = true;
+        row.DragEnter += ModRowDragEnter;
+        row.DragDrop += (_, e) => DropOnModRow(mod, e);
         row.Controls.Add(marker);
         row.Controls.Add(check);
         row.Controls.Add(name);
@@ -892,9 +916,12 @@ internal sealed partial class MainForm
             GridMouseUp(grid, e);
             contextMenuAnchor = null;
         };
-        row.MouseDown += (_, e) => { if (e.Button == MouseButtons.Left) SelectModRow(mod, e); };
-        name.MouseDown += (_, e) => { if (e.Button == MouseButtons.Left) SelectModRow(mod, e); };
-        meta.MouseDown += (_, e) => { if (e.Button == MouseButtons.Left) SelectModRow(mod, e); };
+        row.MouseDown += (source, e) => HandleModRowMouseDown(mod, source, e);
+        name.MouseDown += (source, e) => HandleModRowMouseDown(mod, source, e);
+        meta.MouseDown += (source, e) => HandleModRowMouseDown(mod, source, e);
+        row.MouseMove += HandleModRowMouseMove;
+        name.MouseMove += HandleModRowMouseMove;
+        meta.MouseMove += HandleModRowMouseMove;
         row.MouseUp += rightClick;
         name.MouseUp += rightClick;
         meta.MouseUp += rightClick;
@@ -903,6 +930,128 @@ internal sealed partial class MainForm
         if (grid.Rows[rowIndex].Selected)
             row.BackColor = Color.FromArgb(44, 91, 112);
         AddModListControl(row);
+    }
+
+
+    private void HandleModRowMouseDown(ModEntry mod, object? sender, MouseEventArgs e)
+    {
+        if (e.Button != MouseButtons.Left) return;
+        SelectModRow(mod, e);
+        if (sender is Control control)
+        {
+            dragCandidatePackageId = mod.PackageId;
+            dragStartScreenPoint = control.PointToScreen(e.Location);
+        }
+    }
+
+    private void HandleModRowMouseMove(object? sender, MouseEventArgs e)
+    {
+        if (dragCandidatePackageId == null || sender is not Control source ||
+            (Control.MouseButtons & MouseButtons.Left) != MouseButtons.Left)
+            return;
+
+        Point current = source.PointToScreen(e.Location);
+        Size threshold = SystemInformation.DragSize;
+        if (Math.Abs(current.X - dragStartScreenPoint.X) < threshold.Width / 2 &&
+            Math.Abs(current.Y - dragStartScreenPoint.Y) < threshold.Height / 2)
+            return;
+
+        if (!SelectedIds().Contains(dragCandidatePackageId, StringComparer.OrdinalIgnoreCase))
+        {
+            ModEntry? candidate = store?.OrderedMods.FirstOrDefault(mod => mod.PackageId == dragCandidatePackageId);
+            if (candidate != null) SelectModRow(candidate, e, false);
+        }
+
+        string payload = string.Join("\n", SelectedIds());
+        if (payload.Length == 0)
+        {
+            dragCandidatePackageId = null;
+            return;
+        }
+
+        var data = new DataObject();
+        data.SetData(ModDragDataFormat, payload);
+        dragCandidatePackageId = null;
+        source.DoDragDrop(data, DragDropEffects.Move);
+    }
+
+    private static List<string> ReadDraggedIds(IDataObject? data)
+    {
+        if (data == null || !data.GetDataPresent(ModDragDataFormat)) return new List<string>();
+        string? payload = data.GetData(ModDragDataFormat) as string;
+        return string.IsNullOrWhiteSpace(payload)
+            ? new List<string>()
+            : payload.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+    }
+
+    private void NavigationDragEnter(object? sender, DragEventArgs e)
+    {
+        e.Effect = ReadDraggedIds(e.Data).Count > 0 ? DragDropEffects.Move : DragDropEffects.None;
+    }
+
+    private void ModRowDragEnter(object? sender, DragEventArgs e)
+    {
+        e.Effect = ReadDraggedIds(e.Data).Count > 0 ? DragDropEffects.Move : DragDropEffects.None;
+    }
+
+    private void DropOnCategory(CategoryData category, DragEventArgs e)
+    {
+        if (store == null) return;
+        List<string> ids = ReadDraggedIds(e.Data);
+        if (ids.Count == 0) return;
+        store.AssignCategory(ids, category.Id);
+        RefreshGrid();
+        SetStatus($"선택한 모드 {ids.Count}개를 '{category.Name}' 카테고리로 이동했습니다.");
+    }
+
+    private void DropOnTag(TagData tag, DragEventArgs e)
+    {
+        if (store == null || tag.IsSystem) return;
+        List<string> ids = ReadDraggedIds(e.Data);
+        if (ids.Count == 0) return;
+        store.AssignTag(ids, tag, true);
+        RefreshGrid();
+        SetStatus($"선택한 모드 {ids.Count}개에 '{tag.Name}' 태그를 지정했습니다.");
+    }
+
+    private void DropOnFolder(FolderData folder, bool isTagFolder, CategoryData? category, DragEventArgs e)
+    {
+        if (store == null) return;
+        List<string> ids = ReadDraggedIds(e.Data);
+        if (ids.Count == 0) return;
+        if (isTagFolder)
+        {
+            TagData? tag = SelectedTag();
+            if (tag == null) return;
+            store.AssignToTagFolder(ids, tag, folder);
+        }
+        else
+        {
+            if (category == null) return;
+            store.AssignToCategoryFolder(ids, category, folder);
+        }
+        RefreshGrid();
+        SetStatus($"선택한 모드 {ids.Count}개를 '{folder.Name}' 폴더로 이동했습니다.");
+    }
+
+    private void DropOnModRow(ModEntry target, DragEventArgs e)
+    {
+        if (store == null) return;
+        List<string> ids = ReadDraggedIds(e.Data);
+        var movingIds = new HashSet<string>(ids, StringComparer.OrdinalIgnoreCase);
+        if (movingIds.Count == 0 || movingIds.Contains(target.PackageId)) return;
+
+        List<ModEntry> moving = store.OrderedMods
+            .Where(mod => movingIds.Contains(mod.PackageId) && !mod.Official)
+            .ToList();
+        if (moving.Count == 0) return;
+
+        store.OrderedMods.RemoveAll(mod => movingIds.Contains(mod.PackageId) && !mod.Official);
+        int targetIndex = store.OrderedMods.IndexOf(target);
+        if (targetIndex < 0) targetIndex = store.OrderedMods.Count;
+        store.OrderedMods.InsertRange(targetIndex, moving);
+        RefreshGrid();
+        SetStatus($"{moving.Count}개 모드의 불러오기 순서를 변경했습니다.");
     }
 
     private void SelectModRow(ModEntry mod, MouseEventArgs e, bool applyModifierSelection = true)
