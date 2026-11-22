@@ -719,6 +719,7 @@ internal sealed class ModStore
         SetValue(managerSettings, "autoTagUpdatedMods", AutoTagUpdatedMods);
         BackupFile(Paths.ManagerSettings);
         SaveAtomic(doc, Paths.ManagerSettings);
+        MetadataChanged = false;
     }
 
     private static void ReplaceCollection(XElement parent, string name, IEnumerable<XElement> items)
@@ -953,11 +954,15 @@ internal sealed partial class MainForm : Form
         {
             store!.Load();
             SyncAutoTagOptionControls();
-            if (store.MetadataChanged)
+            bool metadataChanged = store.MetadataChanged;
+            if (metadataChanged)
                 PersistManagerSettings("신규 모드/버전 변경 정보 갱신");
             RefreshFilters();
             RefreshGrid();
-            SetStatus($"모드 {store.Mods.Count}개 검색 · 활성 {store.Mods.Count(m => m.Active)}개");
+            string statusText = $"모드 {store.Mods.Count}개 검색 · 활성 {store.Mods.Count(m => m.Active)}개";
+            if (metadataChanged && GameIsRunning())
+                statusText += " · 자동 태그/버전 정보는 게임 종료 후 저장하세요.";
+            SetStatus(statusText);
         }
         catch (Exception ex)
         {
