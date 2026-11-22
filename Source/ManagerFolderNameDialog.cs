@@ -179,7 +179,7 @@ namespace Lilly.IntegratedModManager
                 return;
             }
 
-            string selectedColor = inputColor;
+            string selectedColor = colorPicker == null ? null : colorPicker.ColorHex;
             if (colorPicker != null)
             {
                 if (colorPicker.HasInvalidInput)
