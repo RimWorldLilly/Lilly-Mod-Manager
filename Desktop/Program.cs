@@ -38,6 +38,7 @@ internal sealed class ModEntry
     public bool HasMissingFolder { get; set; }
     public bool HasMissingRequiredMod { get; set; }
     public bool HasLoadOrderIssue { get; set; }
+    public bool HasVersionMismatch { get; set; }
 }
 
 internal sealed class FolderData
@@ -167,6 +168,7 @@ internal sealed class ModStore
     public bool AutoTagUpdatedMods { get; set; } = true;
     public bool MetadataChanged { get; private set; }
     public List<ModEntry> OrderedMods { get; private set; } = [];
+    public Version? GameVersion { get; private set; }
 
     public ModStore(GamePaths paths) => Paths = paths;
 
@@ -229,6 +231,7 @@ internal sealed class ModStore
             throw new DirectoryNotFoundException("림월드 설치 폴더를 찾지 못했습니다. 게임 설치 폴더를 직접 지정하세요.");
         if (!File.Exists(Paths.ModsConfig)) throw new FileNotFoundException("ModsConfig.xml 파일이 없습니다.", Paths.ModsConfig);
 
+        GameVersion = ReadGameVersion(Paths.GameRoot);
         List<string> activeIds = ReadActiveMods();
         var activeSet = new HashSet<string>(activeIds, StringComparer.OrdinalIgnoreCase);
         Mods = ScanMods().GroupBy(m => m.PackageId, StringComparer.OrdinalIgnoreCase).Select(g => g.First()).ToList();
@@ -251,6 +254,30 @@ internal sealed class ModStore
         LoadManagerData();
         ApplyCategoryAndTagState();
         RebuildIssues();
+    }
+
+    private static Version? ReadGameVersion(string gameRoot)
+    {
+        string[] candidates =
+        {
+            System.IO.Path.Combine(gameRoot, "Version.txt"),
+            System.IO.Path.Combine(gameRoot, "Data", "Version.txt")
+        };
+        foreach (string path in candidates)
+        {
+            if (!File.Exists(path)) continue;
+            try
+            {
+                Match match = Regex.Match(File.ReadAllText(path), @"(?<!\d)(\d+)\.(\d+)(?:\.(\d+))?");
+                if (!match.Success) continue;
+                int major = int.Parse(match.Groups[1].Value);
+                int minor = int.Parse(match.Groups[2].Value);
+                int build = match.Groups[3].Success ? int.Parse(match.Groups[3].Value) : 0;
+                return new Version(major, minor, build);
+            }
+            catch { }
+        }
+        return null;
     }
 
     private List<string> ReadActiveMods()
@@ -550,8 +577,27 @@ internal sealed class ModStore
             mod.HasMissingFolder = string.IsNullOrWhiteSpace(mod.Path);
             mod.HasMissingRequiredMod = false;
             mod.HasLoadOrderIssue = false;
+            mod.HasVersionMismatch = false;
             if (mod.HasMissingFolder)
                 problems.Add("설치된 모드 폴더 없음");
+
+            if (GameVersion != null && mod.SupportedVersions.Count > 0)
+            {
+                bool supportsCurrentOrNewer = mod.SupportedVersions
+                    .Select(value => Regex.Match(value ?? "", @"(?<!d)(d+).(d+)(?:.(d+))?"))
+                    .Where(match => match.Success)
+                    .Select(match => new Version(
+                        int.Parse(match.Groups[1].Value),
+                        int.Parse(match.Groups[2].Value),
+                        match.Groups[3].Success ? int.Parse(match.Groups[3].Value) : 0))
+                    .Any(version => version.Major > GameVersion.Major ||
+                        (version.Major == GameVersion.Major && version.Minor >= GameVersion.Minor));
+                if (!supportsCurrentOrNewer)
+                {
+                    mod.HasVersionMismatch = true;
+                    problems.Add($"게임 버전 불일치: 현재 {GameVersion.Major}.{GameVersion.Minor}");
+                }
+            }
 
             if (mod.Active || mod.Official)
             {
@@ -1408,6 +1454,9 @@ internal sealed partial class MainForm : Form
                 if (activePositions[mod.PackageId] > dependencyIndex)
                     warnings.Add($"{mod.Name}: {dependency}보다 앞에 있어야 합니다 (LoadBefore)");
             }
+
+            if (mod.HasVersionMismatch)
+                warnings.Add($"{mod.Name}: 현재 게임 버전 {store.GameVersion?.Major}.{store.GameVersion?.Minor}을 지원하지 않을 수 있습니다.");
         }
 
         return warnings.Distinct(StringComparer.CurrentCultureIgnoreCase).ToList();
