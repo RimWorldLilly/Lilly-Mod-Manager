@@ -868,7 +868,11 @@ internal sealed partial class MainForm : Form
         RefreshSidebar();
     }
 
-    private void RefreshGrid() => RefreshGameLikeList();
+    private void RefreshGrid()
+    {
+        RefreshSidebar();
+        RefreshGameLikeList();
+    }
 
     private void GridCellValueChanged(object? sender, DataGridViewCellEventArgs e)
     {
@@ -1123,10 +1127,85 @@ internal sealed partial class MainForm : Form
     private void Apply()
     {
         if (store == null) return;
-        if (GameIsRunning()) { MessageBox.Show(this, "림월드가 실행 중일 때는 설정 파일을 덮어쓸 수 없습니다. 게임을 종료한 뒤 적용하세요.", "적용할 수 없음", MessageBoxButtons.OK, MessageBoxIcon.Warning); return; }
-        if (MessageBox.Show(this, "활성화 상태와 모드 순서, 카테고리 및 태그 설정을 저장할까요?\n기존 설정 파일은 백업됩니다.", "적용 확인", MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes) return;
-        try { store.SaveAll(); SetStatus("설정을 저장했습니다. 게임을 다시 시작하면 활성 모드 구성이 적용됩니다."); MessageBox.Show(this, "설정을 저장했습니다. 게임을 다시 시작하면 활성 모드 구성이 적용됩니다.", "저장 완료", MessageBoxButtons.OK, MessageBoxIcon.Information); }
-        catch (Exception ex) { MessageBox.Show(this, ex.ToString(), "저장 실패", MessageBoxButtons.OK, MessageBoxIcon.Error); }
+        if (GameIsRunning())
+        {
+            MessageBox.Show(this, "림월드가 실행 중일 때는 설정 파일을 덮어쓸 수 없습니다. 게임을 종료한 뒤 적용하세요.",
+                "적용할 수 없음", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            return;
+        }
+
+        List<string> warnings = GetApplyWarnings();
+        if (warnings.Count > 0)
+        {
+            string preview = string.Join("\n", warnings.Take(12));
+            if (warnings.Count > 12) preview += $"\n외 {warnings.Count - 12}개 항목";
+            if (MessageBox.Show(this,
+                "모드 의존성 또는 불러오기 순서 문제가 발견되었습니다.\n\n" + preview +
+                "\n\n문제를 확인하지 않고 계속 적용할까요?",
+                "모드 구성 검사", MessageBoxButtons.YesNo, MessageBoxIcon.Warning) != DialogResult.Yes)
+                return;
+        }
+
+        if (MessageBox.Show(this,
+            "활성화 상태와 모드 순서, 카테고리 및 태그 설정을 저장할까요?\n기존 설정 파일은 백업됩니다.",
+            "적용 확인", MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes) return;
+        try
+        {
+            store.SaveAll();
+            SetStatus("설정을 저장했습니다. 게임을 다시 시작하면 활성 모드 구성이 적용됩니다.");
+            MessageBox.Show(this, "설정을 저장했습니다. 게임을 다시 시작하면 활성 모드 구성이 적용됩니다.",
+                "저장 완료", MessageBoxButtons.OK, MessageBoxIcon.Information);
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(this, ex.ToString(), "저장 실패", MessageBoxButtons.OK, MessageBoxIcon.Error);
+        }
+    }
+
+    private List<string> GetApplyWarnings()
+    {
+        if (store == null) return new List<string>();
+        var warnings = new List<string>();
+        var installed = new HashSet<string>(store.Mods.Select(mod => mod.PackageId), StringComparer.OrdinalIgnoreCase);
+        List<ModEntry> active = store.OrderedMods.Where(mod => mod.Active || mod.Official).ToList();
+        var activePositions = active.Select((mod, index) => (mod.PackageId, index))
+            .ToDictionary(item => item.PackageId, item => item.index, StringComparer.OrdinalIgnoreCase);
+        var activeIds = new HashSet<string>(active.Select(mod => mod.PackageId), StringComparer.OrdinalIgnoreCase);
+
+        foreach (ModEntry mod in active)
+        {
+            foreach (string dependency in mod.Required)
+            {
+                if (activeIds.Contains(dependency)) continue;
+                string state = installed.Contains(dependency) ? "비활성" : "미설치";
+                warnings.Add($"{mod.Name}: 필수 모드 {dependency} ({state})");
+            }
+
+            foreach (string dependency in mod.LoadAfter)
+            {
+                if (!activePositions.TryGetValue(dependency, out int dependencyIndex)) continue;
+                if (activePositions[mod.PackageId] < dependencyIndex)
+                    warnings.Add($"{mod.Name}: {dependency}보다 뒤에 있어야 합니다 (LoadAfter)");
+            }
+
+            foreach (string dependency in mod.LoadBefore)
+            {
+                if (!activePositions.TryGetValue(dependency, out int dependencyIndex)) continue;
+                if (activePositions[mod.PackageId] > dependencyIndex)
+                    warnings.Add($"{mod.Name}: {dependency}보다 앞에 있어야 합니다 (LoadBefore)");
+            }
+        }
+
+        return warnings.Distinct(StringComparer.CurrentCultureIgnoreCase).ToList();
+    }
+
+    private void DiscardChanges()
+    {
+        if (store == null) return;
+        if (MessageBox.Show(this,
+            "저장하지 않은 변경 사항을 버리고 디스크에 저장된 모드 설정을 다시 불러올까요?",
+            "변경 취소", MessageBoxButtons.YesNo, MessageBoxIcon.Warning) != DialogResult.Yes) return;
+        Reload();
     }
 
     private static bool GameIsRunning() => new[] { "RimWorldWin64", "RimWorld", "RimWorldLinux" }.Any(name => Process.GetProcessesByName(name).Length > 0);
