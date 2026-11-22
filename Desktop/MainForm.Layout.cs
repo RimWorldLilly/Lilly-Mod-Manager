@@ -219,6 +219,14 @@ internal sealed partial class MainForm
         details.Font = new Font("Segoe UI", 9.5f);
         details.DetectUrls = true;
         details.WordWrap = true;
+        details.LinkClicked += (_, e) =>
+        {
+            if (!Uri.TryCreate(e.LinkText, UriKind.Absolute, out Uri? uri) ||
+                (uri.Scheme != Uri.UriSchemeHttp && uri.Scheme != Uri.UriSchemeHttps))
+                return;
+            try { System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(uri.AbsoluteUri) { UseShellExecute = true }); }
+            catch (Exception ex) { MessageBox.Show(this, ex.Message, "페이지 열기 실패", MessageBoxButtons.OK, MessageBoxIcon.Warning); }
+        };
         infoPanel.Controls.Add(details);
         infoPanel.Controls.Add(previewImage);
         infoPanel.Controls.Add(detailTitle);
