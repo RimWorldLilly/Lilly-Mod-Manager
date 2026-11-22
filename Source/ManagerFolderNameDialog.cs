@@ -1,4 +1,3 @@
-
 using System;
 using RimWorld;
 using UnityEngine;
@@ -10,21 +9,24 @@ namespace Lilly.IntegratedModManager
     {
         private readonly string title;
         private readonly Func<string, string, bool> acceptAction;
-
         private readonly bool allowColorSelection;
+        private readonly bool showNameInput;
+        private readonly ManagerColorPickerControl colorPicker;
 
         private string inputName;
         private string inputColor;
-
         private bool focusNameOnNextDraw = true;
 
         public override Vector2 InitialSize
         {
             get
             {
-return allowColorSelection
-    ? new Vector2(440f, 480f)
-    : new Vector2(420f, 160f);
+                if (!allowColorSelection)
+                    return new Vector2(420f, 160f);
+
+                return showNameInput
+                    ? new Vector2(520f, 560f)
+                    : new Vector2(520f, 520f);
             }
         }
 
@@ -35,13 +37,12 @@ return allowColorSelection
             Func<string, bool> acceptAction)
         {
             this.title = title;
-            inputName = initialName ?? "";
-            inputColor = ManagerTagColors.RandomHex();
-
-            this.acceptAction = (name, color) =>
-                acceptAction(name);
-
+            inputName = initialName ?? string.Empty;
+            inputColor = null;
+            this.acceptAction = (name, color) => acceptAction(name);
             allowColorSelection = false;
+            showNameInput = true;
+            colorPicker = null;
 
             doCloseX = true;
             absorbInputAroundWindow = true;
@@ -49,7 +50,7 @@ return allowColorSelection
             closeOnAccept = false;
         }
 
-        // 색상 선택 기능이 포함된 생성자
+        // 이름과 색상을 한 창에서 함께 편집한다.
         public ManagerFolderNameDialog(
             string title,
             string initialName,
@@ -57,14 +58,38 @@ return allowColorSelection
             Func<string, string, bool> acceptAction)
         {
             this.title = title;
-            inputName = initialName ?? "";
-
-inputColor = ManagerTagColors.IsValidHex(initialColor)
-    ? initialColor
-    : null;
-
+            inputName = initialName ?? string.Empty;
+            inputColor = initialColor;
             this.acceptAction = acceptAction;
             allowColorSelection = true;
+            showNameInput = true;
+            colorPicker = new ManagerColorPickerControl(initialColor);
+
+            doCloseX = true;
+            absorbInputAroundWindow = true;
+            closeOnCancel = true;
+            closeOnAccept = false;
+        }
+
+        // 모드 배경색처럼 이름 편집이 필요 없는 경우에도 동일한 편집 창 안에 색상 컨트롤을 표시한다.
+        public ManagerFolderNameDialog(
+            string title,
+            string initialColor,
+            Action<string> acceptColorAction,
+            bool showOnlyColorControls)
+        {
+            this.title = title;
+            inputName = string.Empty;
+            inputColor = initialColor;
+            this.acceptAction = (name, color) =>
+            {
+                if (acceptColorAction != null)
+                    acceptColorAction(color);
+                return true;
+            };
+            allowColorSelection = true;
+            showNameInput = !showOnlyColorControls;
+            colorPicker = new ManagerColorPickerControl(initialColor);
 
             doCloseX = true;
             absorbInputAroundWindow = true;
@@ -95,50 +120,31 @@ inputColor = ManagerTagColors.IsValidHex(initialColor)
             }
 
             Text.Font = GameFont.Medium;
-            Widgets.Label(
-                new Rect(0f, 0f, rect.width, 32f), title);
-
+            Widgets.Label(new Rect(0f, 0f, rect.width, 32f), title);
             Text.Font = GameFont.Small;
 
-            GUI.SetNextControlName("LillyModManagerNameInput");
-
-            inputName = Widgets.TextField(
-                new Rect(0f, 42f, rect.width, 32f),
-                inputName);
-
-            if (focusNameOnNextDraw)
+            float pickerY = 42f;
+            if (showNameInput)
             {
-                GUI.FocusControl("LillyModManagerNameInput");
-                focusNameOnNextDraw = false;
-            }
+                GUI.SetNextControlName("LillyModManagerNameInput");
+                inputName = Widgets.TextField(
+                    new Rect(0f, 42f, rect.width, 32f),
+                    inputName);
 
-            // 카테고리 색상도 공통 색상 선택 창을 사용한다.
-            if (allowColorSelection)
-            {
-                if (Widgets.ButtonText(new Rect(0f, 84f, 92f, 28f), "색상 없음"))
-                    inputColor = null;
-
-                if (Widgets.ButtonText(
-                    new Rect(98f, 84f, 112f, 28f),
-                    ManagerTranslation.Get("LMM_0192")))
+                if (focusNameOnNextDraw)
                 {
-                    Find.WindowStack.Add(new ManagerColorPickerDialog(
-                        ManagerTranslation.Get("LMM_0192"),
-                        inputColor,
-                        colorHex => inputColor = colorHex));
+                    GUI.FocusControl("LillyModManagerNameInput");
+                    focusNameOnNextDraw = false;
                 }
 
-                if (ManagerTagColors.IsValidHex(inputColor))
-                {
-                    Rect preview = new Rect(218f, 84f, 42f, 28f);
-                    Widgets.DrawBoxSolid(preview, ManagerTagColors.Background(inputColor));
-                    Widgets.DrawBox(preview);
-                    Widgets.Label(new Rect(268f, 84f, rect.width - 268f, 28f), "#" + inputColor);
-                }
+                pickerY = 82f;
             }
+
+            if (allowColorSelection && colorPicker != null)
+                colorPicker.Draw(new Rect(0f, pickerY, rect.width, 340f));
 
             float buttonWidth = 120f;
-            float buttonY = 380f;
+            float buttonY = rect.height - 36f;
 
             if (Widgets.ButtonText(
                 new Rect(
@@ -165,18 +171,35 @@ inputColor = ManagerTagColors.IsValidHex(initialColor)
 
         private void TryAccept()
         {
-            string trimmedName = inputName.Trim();
+            string trimmedName = showNameInput
+                ? (inputName ?? string.Empty).Trim()
+                : string.Empty;
 
-            if (trimmedName.NullOrEmpty())
+            if (showNameInput && trimmedName.NullOrEmpty())
             {
                 Messages.Message(
                     ManagerTranslation.Get("LMM_0064"),
                     MessageTypeDefOf.RejectInput);
-
                 return;
             }
 
-            if (acceptAction(trimmedName, inputColor))
+            string selectedColor = inputColor;
+            if (colorPicker != null)
+            {
+                if (colorPicker.HasInvalidInput)
+                {
+                    Messages.Message(
+                        ManagerTranslation.Get("LMM_0193") + " / " +
+                        ManagerTranslation.Get("LMM_0194"),
+                        MessageTypeDefOf.RejectInput);
+                    return;
+                }
+
+                if (colorPicker.HasChanged)
+                    selectedColor = colorPicker.ColorHex;
+            }
+
+            if (acceptAction(trimmedName, selectedColor))
                 Close();
         }
     }
