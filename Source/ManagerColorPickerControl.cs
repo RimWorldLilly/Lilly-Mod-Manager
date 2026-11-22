@@ -204,24 +204,35 @@ namespace Lilly.IntegratedModManager
             GUI.color = previousGuiColor;
 
             Widgets.Label(
-                new Rect(rect.x + 56f, previewY, 100f, 26f),
+                new Rect(rect.x + 56f, previewY, rect.width - 64f, 26f),
                 colorHex == null ? ManagerTranslation.Get("LMM_0192") : "#" + colorHex);
 
-            float clearWidth = 94f;
-            float randomWidth = 104f;
-            float actionGap = 5f;
-            float actionX = rect.xMax - clearWidth - randomWidth - actionGap;
-            if (Widgets.ButtonText(
-                new Rect(actionX, previewY, clearWidth, 26f),
-                "색상 없음"))
-                Clear();
+            // 무작위 작업은 네 개의 버튼을 같은 폭으로 배치해 서로 겹치지 않게 한다.
+            float actionY = previewY + 27f;
+            float actionGap = 4f;
+            float actionWidth = (rect.width - actionGap * 3f) / 4f;
 
             if (Widgets.ButtonText(
-                new Rect(rect.xMax - randomWidth, previewY, randomWidth, 26f),
+                new Rect(rect.x, actionY, actionWidth, 26f),
+                ManagerTranslation.Get("LMM_0202")))
+                RandomizeLuminance();
+
+            if (Widgets.ButtonText(
+                new Rect(rect.x + actionWidth + actionGap, actionY, actionWidth, 26f),
+                ManagerTranslation.Get("LMM_0203")))
+                RandomizeColorOnly();
+
+            if (Widgets.ButtonText(
+                new Rect(rect.x + (actionWidth + actionGap) * 2f, actionY, actionWidth, 26f),
                 ManagerTranslation.Get("LMM_0066")))
                 SetColor(ManagerTagColors.RandomHex());
 
-            float inputY = previewY + 29f;
+            if (Widgets.ButtonText(
+                new Rect(rect.x + (actionWidth + actionGap) * 3f, actionY, actionWidth, 26f),
+                "색상 없음"))
+                Clear();
+
+            float inputY = actionY + 29f;
             const float labelWidth = 78f;
             Widgets.Label(
                 new Rect(rect.x, inputY, labelWidth, 24f),
@@ -287,6 +298,88 @@ namespace Lilly.IntegratedModManager
             }
 
             return rgbY + 24f;
+        }
+
+        private void RandomizeLuminance()
+        {
+            Color current = colorHex == null
+                ? new Color(0.35f, 0.4f, 0.45f, 1f)
+                : ManagerTagColors.Background(colorHex);
+
+            float hue;
+            float saturation;
+            float value;
+            Color.RGBToHSV(current, out hue, out saturation, out value);
+
+            // 현재 색조와 채도를 가능한 한 유지하고 상대 휘도만 무작위로 바꾼다.
+            float targetLuminance = UnityEngine.Random.Range(0.05f, 0.95f);
+            Color randomized = ColorAtLuminance(hue, saturation, targetLuminance);
+            SetColor(ColorUtility.ToHtmlStringRGB(randomized));
+        }
+
+        private void RandomizeColorOnly()
+        {
+            Color current = colorHex == null
+                ? new Color(0.5f, 0.5f, 0.5f, 1f)
+                : ManagerTagColors.Background(colorHex);
+
+            // 현재 상대 휘도는 고정하고 색조와 채도만 무작위로 바꾼다.
+            float targetLuminance = ManagerTagColors.RelativeLuminance(current);
+            float hue = UnityEngine.Random.value;
+            float saturation = UnityEngine.Random.Range(0.45f, 1f);
+            Color randomized = ColorAtLuminance(hue, saturation, targetLuminance);
+            SetColor(ColorUtility.ToHtmlStringRGB(randomized));
+        }
+
+        private static Color ColorAtLuminance(
+            float hue,
+            float requestedSaturation,
+            float targetLuminance)
+        {
+            targetLuminance = Mathf.Clamp01(targetLuminance);
+            if (targetLuminance <= 0.0001f)
+                return Color.black;
+            if (targetLuminance >= 0.9999f)
+                return Color.white;
+
+            float saturation = Mathf.Clamp01(requestedSaturation);
+
+            // 일부 색조는 최대 채도에서 밝은 휘도에 도달하지 못하므로
+            // 목표 휘도를 맞출 수 있을 때까지 채도를 낮춘다.
+            if (ManagerTagColors.RelativeLuminance(
+                Color.HSVToRGB(hue, saturation, 1f)) < targetLuminance)
+            {
+                float lowSaturation = 0f;
+                float highSaturation = saturation;
+                for (int i = 0; i < 18; i++)
+                {
+                    float middle = (lowSaturation + highSaturation) * 0.5f;
+                    float luminance = ManagerTagColors.RelativeLuminance(
+                        Color.HSVToRGB(hue, middle, 1f));
+                    if (luminance >= targetLuminance)
+                        lowSaturation = middle;
+                    else
+                        highSaturation = middle;
+                }
+
+                saturation = lowSaturation;
+            }
+
+            float lowValue = 0f;
+            float highValue = 1f;
+            for (int i = 0; i < 20; i++)
+            {
+                float middle = (lowValue + highValue) * 0.5f;
+                float luminance = ManagerTagColors.RelativeLuminance(
+                    Color.HSVToRGB(hue, saturation, middle));
+                if (luminance < targetLuminance)
+                    lowValue = middle;
+                else
+                    highValue = middle;
+            }
+
+            return Color.HSVToRGB(
+                hue, saturation, (lowValue + highValue) * 0.5f);
         }
 
         private void DrawModeButton(Rect rect, string label, int mode)
