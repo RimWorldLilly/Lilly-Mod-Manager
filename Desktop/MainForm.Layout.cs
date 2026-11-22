@@ -132,6 +132,23 @@ internal sealed partial class MainForm
     private int selectionAnchorRow = -1;
     private readonly List<ModEntry> visibleMods = [];
     private readonly HashSet<string> selectedPackageIds = new(StringComparer.OrdinalIgnoreCase);
+    private readonly CheckBox autoTagNewModsOption = new()
+    {
+        Text = "신규 모드 자동 태그",
+        AutoSize = true,
+        ForeColor = Color.Gainsboro,
+        BackColor = Color.Transparent,
+        Margin = new Padding(12, 7, 3, 0)
+    };
+    private readonly CheckBox autoTagUpdatedModsOption = new()
+    {
+        Text = "버전 변경 자동 태그",
+        AutoSize = true,
+        ForeColor = Color.Gainsboro,
+        BackColor = Color.Transparent,
+        Margin = new Padding(8, 7, 3, 0)
+    };
+    private bool syncingAutoTagOptions;
     private Control? contextMenuAnchor;
     private Point contextMenuPoint;
     private const string ModDragDataFormat = "Lilly.ModManager.Desktop.PackageIds";
@@ -177,6 +194,20 @@ internal sealed partial class MainForm
         sourceFilter.Items.AddRange(new object[] { "전체", "로컬", "창작마당", "공식" });
         sourceFilter.SelectedIndex = 0;
         top.Controls.Add(sourceFilter);
+        top.Controls.Add(autoTagNewModsOption);
+        top.Controls.Add(autoTagUpdatedModsOption);
+        autoTagNewModsOption.CheckedChanged += (_, _) =>
+        {
+            if (syncingAutoTagOptions || store == null) return;
+            store.AutoTagNewMods = autoTagNewModsOption.Checked;
+            PersistManagerSettings("신규 모드 자동 태그 설정");
+        };
+        autoTagUpdatedModsOption.CheckedChanged += (_, _) =>
+        {
+            if (syncingAutoTagOptions || store == null) return;
+            store.AutoTagUpdatedMods = autoTagUpdatedModsOption.Checked;
+            PersistManagerSettings("버전 변경 자동 태그 설정");
+        };
 
         var sidebar = new Panel { Dock = DockStyle.Fill, BackColor = Color.FromArgb(27, 30, 36) };
         navModeTabs.Controls.Add(categoryModeButton);
@@ -363,6 +394,15 @@ internal sealed partial class MainForm
             store.RecentFolderKeys,
             () => PersistManagerSettings("폴더 바로가기 즐겨찾기/최근 기록"));
         dialog.ShowDialog(this);
+    }
+
+    private void SyncAutoTagOptionControls()
+    {
+        if (store == null) return;
+        syncingAutoTagOptions = true;
+        autoTagNewModsOption.Checked = store.AutoTagNewMods;
+        autoTagUpdatedModsOption.Checked = store.AutoTagUpdatedMods;
+        syncingAutoTagOptions = false;
     }
 
     private void MainFormKeyDown(object? sender, KeyEventArgs e)
