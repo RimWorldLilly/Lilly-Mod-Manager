@@ -357,7 +357,10 @@ namespace Lilly.IntegratedModManager
                         {
                             if (tag == null || tag.IsSystem)
                                 return;
-                            Find.WindowStack.Add(new ManagerTagColorDialog(tag, colorHex =>
+                            Find.WindowStack.Add(new ManagerColorPickerDialog(
+                                ManagerTranslation.Get("LMM_0081") + tag.Name,
+                                tag.ColorHex,
+                                colorHex =>
                             {
                                 tag.ColorHex = colorHex;
                                 PersistTagData();
