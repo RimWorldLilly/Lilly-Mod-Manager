@@ -591,6 +591,11 @@ internal sealed class ModStore
         SaveAtomic(doc, Paths.ModsConfig);
     }
 
+    public void SaveManagerDataImmediately()
+    {
+        SaveManagerSettings();
+    }
+
     private void SaveManagerSettings()
     {
         Directory.CreateDirectory(System.IO.Path.GetDirectoryName(Paths.ManagerSettings)!);
@@ -1095,6 +1100,11 @@ internal sealed class MainForm : Form
     private void DeleteSelectedLocalModFolder()
     {
         if (store == null || grid.SelectedRows.Count == 0 || grid.SelectedRows[0].Tag is not ModEntry mod) return;
+        if (GameIsRunning())
+        {
+            MessageBox.Show(this, "림월드가 실행 중일 때는 모드 폴더를 삭제할 수 없습니다.");
+            return;
+        }
         if (mod.Official || mod.Workshop)
         {
             MessageBox.Show(this, "이 작업은 로컬 모드 폴더에만 사용할 수 있습니다. 창작마당 파일은 Steam에서 관리하세요.");
@@ -1117,6 +1127,8 @@ internal sealed class MainForm : Form
         {
             Directory.Delete(mod.Path, true);
             store.RemoveFromManager(mod.PackageId);
+            // Removing files is irreversible, so persist the matching exclusion immediately.
+            store.SaveManagerDataImmediately();
             RefreshFilters();
             RefreshGrid();
             SetStatus("로컬 모드 폴더를 삭제했습니다.");
