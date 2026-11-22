@@ -976,7 +976,8 @@ internal sealed partial class MainForm : Form
         menu.Items.Add(tagMenu);
 
         var folderMenu = new ToolStripMenuItem("카테고리 폴더로 이동");
-        ModEntry? currentMod = grid.SelectedRows.Count > 0 ? grid.SelectedRows[0].Tag as ModEntry : null;
+        ModEntry? currentMod = contextMenuAnchor?.Tag as ModEntry ??
+            (grid.SelectedRows.Count > 0 ? grid.SelectedRows[0].Tag as ModEntry : null);
         CategoryData? currentCategory = currentMod == null ? null : store.Categories.FirstOrDefault(c => c.Id == currentMod.CategoryId);
         if (currentCategory != null)
         {
