@@ -720,6 +720,7 @@ internal sealed class MainForm : Form
     private readonly ComboBox categoryFilter = new() { Width = 145, DropDownStyle = ComboBoxStyle.DropDownList };
     private readonly ComboBox tagFilter = new() { Width = 130, DropDownStyle = ComboBoxStyle.DropDownList };
     private readonly ComboBox activeFilter = new() { Width = 95, DropDownStyle = ComboBoxStyle.DropDownList };
+    private readonly ComboBox sourceFilter = new() { Width = 115, DropDownStyle = ComboBoxStyle.DropDownList };
     private readonly DataGridView grid = new() { Dock = DockStyle.Fill, AllowUserToAddRows = false, AllowUserToDeleteRows = false, MultiSelect = true, SelectionMode = DataGridViewSelectionMode.FullRowSelect, RowHeadersVisible = false, AutoGenerateColumns = false, BackgroundColor = Color.FromArgb(28, 31, 37), BorderStyle = BorderStyle.None, EnableHeadersVisualStyles = false };
     private readonly RichTextBox details = new() { Dock = DockStyle.Fill, ReadOnly = true, BackColor = Color.FromArgb(28, 31, 37), ForeColor = Color.Gainsboro, BorderStyle = BorderStyle.None };
     private readonly Label status = new() { Dock = DockStyle.Bottom, Height = 26, TextAlign = ContentAlignment.MiddleLeft, Padding = new Padding(8, 0, 0, 0) };
@@ -752,6 +753,7 @@ internal sealed class MainForm : Form
         AddToolbarLabel(toolbar, "카테고리"); toolbar.Controls.Add(categoryFilter);
         AddToolbarLabel(toolbar, "태그"); toolbar.Controls.Add(tagFilter);
         AddToolbarLabel(toolbar, "상태"); activeFilter.Items.AddRange(new object[] { "모두", "활성", "비활성" }); activeFilter.SelectedIndex = 0; toolbar.Controls.Add(activeFilter);
+        AddToolbarLabel(toolbar, "설치 위치"); sourceFilter.Items.AddRange(new object[] { "전체", "로컬", "창작마당", "공식" }); sourceFilter.SelectedIndex = 0; toolbar.Controls.Add(sourceFilter);
         AddButton(toolbar, "새로고침", Reload);
         AddButton(toolbar, "적용 / 저장", Apply);
         AddButton(toolbar, "프리셋 저장", SavePreset);
@@ -802,7 +804,7 @@ internal sealed class MainForm : Form
         };
         grid.CellMouseDown += (_, e) => { if (e.Button == MouseButtons.Right && e.RowIndex >= 0 && !grid.Rows[e.RowIndex].Selected) { grid.ClearSelection(); grid.Rows[e.RowIndex].Selected = true; } };
         grid.MouseUp += GridMouseUp;
-        search.TextChanged += (_, _) => RefreshGrid(); categoryFilter.SelectedIndexChanged += (_, _) => RefreshGrid(); tagFilter.SelectedIndexChanged += (_, _) => RefreshGrid(); activeFilter.SelectedIndexChanged += (_, _) => RefreshGrid();
+        search.TextChanged += (_, _) => RefreshGrid(); categoryFilter.SelectedIndexChanged += (_, _) => RefreshGrid(); tagFilter.SelectedIndexChanged += (_, _) => RefreshGrid(); activeFilter.SelectedIndexChanged += (_, _) => RefreshGrid(); sourceFilter.SelectedIndexChanged += (_, _) => RefreshGrid();
     }
 
     private static void AddToolbarLabel(FlowLayoutPanel panel, string text) => panel.Controls.Add(new Label { Text = text, AutoSize = true, Margin = new Padding(5, 9, 1, 0), ForeColor = Color.Silver });
@@ -870,6 +872,10 @@ internal sealed class MainForm : Form
             string stateName = activeFilter.SelectedItem?.ToString() ?? "모두";
             if (stateName == "활성" && !mod.Active && !mod.Official) continue;
             if (stateName == "비활성" && (mod.Active || mod.Official)) continue;
+            string sourceName = sourceFilter.SelectedItem?.ToString() ?? "전체";
+            if (sourceName == "로컬" && (mod.Workshop || mod.Official)) continue;
+            if (sourceName == "창작마당" && (!mod.Workshop || mod.Official)) continue;
+            if (sourceName == "공식" && !mod.Official) continue;
             if (q.Length > 0 && !string.Join(" ", mod.Name, state.DisplayName, mod.PackageId, mod.Author, mod.Description, mod.Version, cat?.Name, string.Join(" ", names)).Contains(q, StringComparison.CurrentCultureIgnoreCase)) continue;
             int index = grid.Rows.Add(mod.Active || mod.Official, string.IsNullOrWhiteSpace(state.DisplayName) ? mod.Name : state.DisplayName, cat?.Name ?? "미분류", folderName, string.Join(", ", names), mod.Version, mod.Official ? "공식" : mod.Workshop ? "창작마당" : "로컬", mod.Issue, mod.PackageId);
             grid.Rows[index].Cells[0].ReadOnly = mod.Official;
@@ -966,6 +972,7 @@ internal sealed class MainForm : Form
         menu.Items.Add("현재 태그 폴더 이름 변경", null, (_, _) => RenameSelectedTagFolder());
         menu.Items.Add("현재 태그 폴더 삭제", null, (_, _) => DeleteSelectedTagFolder());
         menu.Items.Add("관리 목록에서 제거", null, (_, _) => RemoveSelectedFromManager());
+        menu.Items.Add("로컬 모드 폴더 삭제", null, (_, _) => DeleteSelectedLocalModFolder());
         menu.Items.Add("표시 이름 변경", null, (_, _) => RenameSelectedMod());
         menu.Items.Add("표시 이름 초기화", null, (_, _) => ResetSelectedModName());
         menu.Items.Add("모드 폴더 열기", null, (_, _) => OpenSelectedFolder());
@@ -1025,6 +1032,41 @@ internal sealed class MainForm : Form
         if (store == null || grid.SelectedRows.Count == 0 || grid.SelectedRows[0].Tag is not ModEntry mod) return;
         store.GetState(mod.PackageId).ColorHex = null;
         RefreshGrid();
+    }
+
+    private void DeleteSelectedLocalModFolder()
+    {
+        if (store == null || grid.SelectedRows.Count == 0 || grid.SelectedRows[0].Tag is not ModEntry mod) return;
+        if (mod.Official || mod.Workshop)
+        {
+            MessageBox.Show(this, "이 작업은 로컬 모드 폴더에만 사용할 수 있습니다. 창작마당 파일은 Steam에서 관리하세요.");
+            return;
+        }
+        if (mod.Active)
+        {
+            MessageBox.Show(this, "활성화된 모드는 먼저 비활성화하고 적용한 뒤 삭제하세요.");
+            return;
+        }
+        if (!Directory.Exists(mod.Path))
+        {
+            MessageBox.Show(this, "모드 폴더가 이미 존재하지 않습니다.");
+            return;
+        }
+        if (MessageBox.Show(this,
+            $"'{mod.Name}'의 로컬 모드 폴더와 모든 파일을 삭제할까요?\n이 작업은 되돌릴 수 없습니다.",
+            "로컬 모드 폴더 삭제", MessageBoxButtons.YesNo, MessageBoxIcon.Warning) != DialogResult.Yes) return;
+        try
+        {
+            Directory.Delete(mod.Path, true);
+            store.RemoveFromManager(mod.PackageId);
+            RefreshFilters();
+            RefreshGrid();
+            SetStatus("로컬 모드 폴더를 삭제했습니다.");
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(this, ex.Message, "모드 폴더 삭제 실패", MessageBoxButtons.OK, MessageBoxIcon.Error);
+        }
     }
 
     private void RemoveSelectedFromManager()
