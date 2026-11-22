@@ -13,7 +13,6 @@ internal sealed partial class MainForm
     {
         Dock = DockStyle.Fill,
         Orientation = Orientation.Vertical,
-        SplitterDistance = 245,
         Panel1MinSize = 190,
         Panel2MinSize = 700,
         BackColor = Color.FromArgb(23, 26, 31)
@@ -22,7 +21,6 @@ internal sealed partial class MainForm
     {
         Dock = DockStyle.Fill,
         Orientation = Orientation.Vertical,
-        SplitterDistance = 430,
         Panel1MinSize = 300,
         Panel2MinSize = 320,
         BackColor = Color.FromArgb(23, 26, 31)
