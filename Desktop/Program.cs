@@ -1266,11 +1266,32 @@ internal sealed partial class MainForm : Form
         store.LoadPreset(dialog.Selected); RefreshFilters(); RefreshGrid(); SetStatus("프리셋을 편집 상태로 불러왔습니다. '적용 / 저장'을 눌러 게임 설정에 반영하세요.");
     }
 
+    private void PersistManagerSettings(string operation)
+    {
+        if (store == null) return;
+        try { store.SaveManagerDataImmediately(); }
+        catch (Exception ex)
+        {
+            MessageBox.Show(this, operation + "\n" + ex.Message,
+                "관리자 설정 저장 실패", MessageBoxButtons.OK, MessageBoxIcon.Error);
+        }
+    }
+
     private void AddCategory()
     {
         if (store == null) return;
-        string? name = Prompt.Show(this, "새 카테고리 이름", "카테고리 추가"); if (string.IsNullOrWhiteSpace(name)) return;
-        string id = "custom-" + Guid.NewGuid().ToString("N"); store.Categories.Add(new CategoryData { Id = id, Name = name.Trim(), Folders = [new FolderData()] }); RefreshFilters();
+        string? name = Prompt.Show(this, "새 카테고리 이름", "카테고리 추가");
+        if (string.IsNullOrWhiteSpace(name)) return;
+        string trimmedName = name.Trim();
+        if (store.Categories.Any(category => category.Name.Equals(trimmedName, StringComparison.CurrentCultureIgnoreCase)))
+        {
+            MessageBox.Show(this, "같은 이름의 카테고리가 이미 있습니다.");
+            return;
+        }
+        string id = "custom-" + Guid.NewGuid().ToString("N");
+        store.Categories.Add(new CategoryData { Id = id, Name = trimmedName, Folders = [new FolderData()] });
+        PersistManagerSettings("카테고리 추가");
+        RefreshFilters();
     }
 
     private void AddTag()
@@ -1278,7 +1299,9 @@ internal sealed partial class MainForm : Form
         if (store == null) return;
         string? name = Prompt.Show(this, "새 태그 이름", "태그 추가"); if (string.IsNullOrWhiteSpace(name)) return;
         if (store.Tags.Any(t => t.Name.Equals(name.Trim(), StringComparison.CurrentCultureIgnoreCase))) { MessageBox.Show(this, "같은 이름의 태그가 이미 있습니다."); return; }
-        store.Tags.Add(new TagData { Id = "tag-" + Guid.NewGuid().ToString("N"), Name = name.Trim(), Folders = [new FolderData()] }); RefreshFilters();
+        store.Tags.Add(new TagData { Id = "tag-" + Guid.NewGuid().ToString("N"), Name = name.Trim(), Folders = [new FolderData()] });
+        PersistManagerSettings("태그 추가");
+        RefreshFilters();
     }
 
     private CategoryData? SelectedCategory()
@@ -1303,7 +1326,15 @@ internal sealed partial class MainForm : Form
         if (category == null) { MessageBox.Show(this, "카테고리 필터에서 변경할 카테고리를 먼저 선택하세요."); return; }
         string? name = Prompt.Show(this, "새 카테고리 이름", "카테고리 이름 변경");
         if (string.IsNullOrWhiteSpace(name)) return;
-        category.Name = name.Trim(); RefreshFilters(); RefreshGrid();
+        string trimmedName = name.Trim();
+        if (store!.Categories.Any(other => other != category && other.Name.Equals(trimmedName, StringComparison.CurrentCultureIgnoreCase)))
+        {
+            MessageBox.Show(this, "같은 이름의 카테고리가 이미 있습니다.");
+            return;
+        }
+        category.Name = trimmedName;
+        PersistManagerSettings("카테고리 이름 변경");
+        RefreshFilters(); RefreshGrid();
     }
 
     private void DeleteCategory()
@@ -1317,7 +1348,9 @@ internal sealed partial class MainForm : Form
         }
         if (MessageBox.Show(this, "이 카테고리를 삭제하고 포함된 모드를 '일반 모드'로 이동할까요?", "카테고리 삭제", MessageBoxButtons.YesNo) != DialogResult.Yes) return;
         store.AssignCategory(category.ModIds.ToList(), "normal");
-        store.Categories.Remove(category); RefreshFilters(); RefreshGrid();
+        store.Categories.Remove(category);
+        PersistManagerSettings("카테고리 삭제");
+        RefreshFilters(); RefreshGrid();
     }
 
     private void RenameTag()
@@ -1326,7 +1359,15 @@ internal sealed partial class MainForm : Form
         if (tag == null || tag.IsSystem) { MessageBox.Show(this, "태그 필터에서 사용자 태그를 선택하세요."); return; }
         string? name = Prompt.Show(this, "새 태그 이름", "태그 이름 변경");
         if (string.IsNullOrWhiteSpace(name)) return;
-        tag.Name = name.Trim(); RefreshFilters(); RefreshGrid();
+        string trimmedName = name.Trim();
+        if (store!.Tags.Any(other => other != tag && other.Name.Equals(trimmedName, StringComparison.CurrentCultureIgnoreCase)))
+        {
+            MessageBox.Show(this, "같은 이름의 태그가 이미 있습니다.");
+            return;
+        }
+        tag.Name = trimmedName;
+        PersistManagerSettings("태그 이름 변경");
+        RefreshFilters(); RefreshGrid();
     }
 
     private void DeleteTag()
@@ -1335,7 +1376,9 @@ internal sealed partial class MainForm : Form
         TagData? tag = SelectedTag();
         if (tag == null || tag.IsSystem) { MessageBox.Show(this, "태그 필터에서 삭제할 사용자 태그를 선택하세요."); return; }
         if (MessageBox.Show(this, "이 태그를 삭제하고 모든 모드에서 연결을 해제할까요?", "태그 삭제", MessageBoxButtons.YesNo) != DialogResult.Yes) return;
-        store.RemoveTag(tag); RefreshFilters(); RefreshGrid();
+        store.RemoveTag(tag);
+        PersistManagerSettings("태그 삭제");
+        RefreshFilters(); RefreshGrid();
     }
 
     private void CreateFolderForSelected()
@@ -1346,9 +1389,16 @@ internal sealed partial class MainForm : Form
         CategoryData? category = store.Categories.FirstOrDefault(c => c.Id == first.CategoryId); if (category == null) return;
         string? name = Prompt.Show(this, "새 폴더 이름", "폴더 추가"); if (string.IsNullOrWhiteSpace(name)) return;
         string folderId = "folder-" + Guid.NewGuid().ToString("N");
-        var folder = new FolderData { Id = folderId, Name = name.Trim(), ModIds = [] };
+        string folderName = name.Trim();
+        if (category.Folders.Any(existing => existing.Name.Equals(folderName, StringComparison.CurrentCultureIgnoreCase)))
+        {
+            MessageBox.Show(this, "같은 이름의 폴더가 이미 있습니다.");
+            return;
+        }
+        var folder = new FolderData { Id = folderId, Name = folderName, ModIds = [] };
         category.Folders.Add(folder);
         store.AssignToCategoryFolder(ids, category, folder);
+        PersistManagerSettings("폴더 추가 및 모드 이동");
         RefreshGrid();
     }
 
@@ -1364,16 +1414,17 @@ internal sealed partial class MainForm : Form
         }
         string? name = Prompt.Show(this, "새 태그 폴더 이름", "태그 폴더 추가");
         if (string.IsNullOrWhiteSpace(name)) return;
-        var folder = new FolderData { Id = "folder-" + Guid.NewGuid().ToString("N"), Name = name.Trim(), ModIds = ids };
-        tag.Folders.Add(folder);
-        foreach (string id in ids)
-            foreach (FolderData other in tag.Folders.Where(f => f.Id != folder.Id))
-                other.ModIds.RemoveAll(value => value.Equals(id, StringComparison.OrdinalIgnoreCase));
-        foreach (string id in ids)
+        string folderName = name.Trim();
+        FolderData? folder = tag.Folders.FirstOrDefault(existing =>
+            existing.Name.Equals(folderName, StringComparison.CurrentCultureIgnoreCase));
+        if (folder == null)
         {
-            ModState state = store.GetState(id);
-            if (!state.TagIds.Contains(tag.Id)) state.TagIds.Add(tag.Id);
+            folder = new FolderData { Id = "folder-" + Guid.NewGuid().ToString("N"), Name = folderName, ModIds = [] };
+            tag.Folders.Add(folder);
         }
+        store.AssignToTagFolder(ids, tag, folder);
+        PersistManagerSettings("태그 폴더 추가 및 모드 이동");
+        RefreshSidebar();
         RefreshGrid();
     }
 
@@ -1395,7 +1446,14 @@ internal sealed partial class MainForm : Form
         }
         string? name = Prompt.Show(this, "새 폴더 이름", "폴더 이름 변경");
         if (string.IsNullOrWhiteSpace(name)) return;
-        folder.Name = name.Trim();
+        string folderName = name.Trim();
+        if (category!.Folders.Any(other => other != folder && other.Name.Equals(folderName, StringComparison.CurrentCultureIgnoreCase)))
+        {
+            MessageBox.Show(this, "같은 이름의 폴더가 이미 있습니다.");
+            return;
+        }
+        folder.Name = folderName;
+        PersistManagerSettings("폴더 이름 변경");
         RefreshGrid();
     }
 
@@ -1414,8 +1472,10 @@ internal sealed partial class MainForm : Form
             target = new FolderData();
             category.Folders.Insert(0, target);
         }
-        foreach (string id in folder.ModIds.ToList()) target.ModIds.Add(id);
+        foreach (string id in folder.ModIds.ToList())
+            if (!target.ModIds.Contains(id, StringComparer.OrdinalIgnoreCase)) target.ModIds.Add(id);
         category.Folders.Remove(folder);
+        PersistManagerSettings("폴더 삭제");
         RefreshGrid();
     }
 
@@ -1438,7 +1498,14 @@ internal sealed partial class MainForm : Form
         }
         string? name = Prompt.Show(this, "새 태그 폴더 이름", "태그 폴더 이름 변경");
         if (string.IsNullOrWhiteSpace(name)) return;
-        folder.Name = name.Trim();
+        string folderName = name.Trim();
+        if (tag!.Folders.Any(other => other != folder && other.Name.Equals(folderName, StringComparison.CurrentCultureIgnoreCase)))
+        {
+            MessageBox.Show(this, "같은 이름의 폴더가 이미 있습니다.");
+            return;
+        }
+        folder.Name = folderName;
+        PersistManagerSettings("태그 폴더 이름 변경");
         RefreshGrid();
     }
 
@@ -1463,6 +1530,7 @@ internal sealed partial class MainForm : Form
             if (!target.ModIds.Contains(id, StringComparer.OrdinalIgnoreCase))
                 target.ModIds.Add(id);
         tag.Folders.Remove(folder);
+        PersistManagerSettings("태그 폴더 삭제");
         RefreshGrid();
     }
 
