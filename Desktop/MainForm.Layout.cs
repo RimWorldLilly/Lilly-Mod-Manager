@@ -255,6 +255,7 @@ internal sealed partial class MainForm
         AddButton(actions, "위로", () => MoveSelected(-1));
         AddButton(actions, "아래로", () => MoveSelected(1));
         AddButton(actions, "폴더 만들기", CreateFolderForSelected);
+        AddButton(actions, "폴더 바로가기", OpenQuickFolderMoveDialog);
         AddButton(actions, "태그 폴더 만들기", CreateTagFolderForSelected);
         AddButton(actions, "카테고리 색상", PickCategoryColor);
         AddButton(actions, "태그 색상", PickTagColor);
@@ -301,6 +302,82 @@ internal sealed partial class MainForm
             try { contentSplit.SplitterDistance = Math.Max(330, (int)(contentSplit.Width * 0.36)); } catch { }
         };
         RefreshSidebar();
+    }
+
+
+    private void OpenQuickFolderMoveDialog()
+    {
+        if (store == null) return;
+        List<string> selectedIds = SelectedIds();
+        if (selectedIds.Count == 0)
+        {
+            MessageBox.Show(this, "폴더를 이동할 모드를 먼저 선택하세요.", "폴더 바로가기");
+            return;
+        }
+
+        var columns = new List<QuickFolderMoveColumn>();
+        if (sidebarTagMode)
+        {
+            foreach (TagData tag in store.Tags)
+            {
+                var targets = new List<QuickFolderMoveTarget>();
+                foreach (FolderData folder in tag.Folders)
+                {
+                    int count = store.OrderedMods.Count(mod =>
+                        folder.ModIds.Contains(mod.PackageId, StringComparer.OrdinalIgnoreCase));
+                    string key = "tag:" + tag.Id + ":" + folder.Id;
+                    bool isCurrent = selectedIds.All(id =>
+                        folder.ModIds.Contains(id, StringComparer.OrdinalIgnoreCase));
+                    targets.Add(new QuickFolderMoveTarget(
+                        $"{folder.Name} ({count})",
+                        key,
+                        isCurrent,
+                        () =>
+                        {
+                            store.AssignToTagFolder(selectedIds, tag, folder);
+                            RefreshSidebar();
+                            RefreshGameLikeList();
+                            SetStatus($"{selectedIds.Count}개 모드를 '{tag.Name}/{folder.Name}'으로 이동했습니다.");
+                        }));
+                }
+                columns.Add(new QuickFolderMoveColumn(tag.Name, targets));
+            }
+        }
+        else
+        {
+            foreach (CategoryData category in store.Categories)
+            {
+                var targets = new List<QuickFolderMoveTarget>();
+                foreach (FolderData folder in category.Folders)
+                {
+                    int count = store.OrderedMods.Count(mod =>
+                        folder.ModIds.Contains(mod.PackageId, StringComparer.OrdinalIgnoreCase));
+                    string key = "category:" + category.Id + ":" + folder.Id;
+                    bool isCurrent = selectedIds.All(id =>
+                        folder.ModIds.Contains(id, StringComparer.OrdinalIgnoreCase));
+                    targets.Add(new QuickFolderMoveTarget(
+                        $"{folder.Name} ({count})",
+                        key,
+                        isCurrent,
+                        () =>
+                        {
+                            store.AssignToCategoryFolder(selectedIds, category, folder);
+                            RefreshSidebar();
+                            RefreshGameLikeList();
+                            SetStatus($"{selectedIds.Count}개 모드를 '{category.Name}/{folder.Name}'으로 이동했습니다.");
+                        }));
+                }
+                columns.Add(new QuickFolderMoveColumn(category.Name, targets));
+            }
+        }
+
+        if (columns.Count == 0) return;
+        using var dialog = new QuickFolderMoveForm(
+            columns,
+            store.FavoriteFolderKeys,
+            store.RecentFolderKeys,
+            store.SaveManagerDataImmediately);
+        dialog.ShowDialog(this);
     }
 
     private void MainFormKeyDown(object? sender, KeyEventArgs e)
@@ -1403,5 +1480,243 @@ internal sealed partial class MainForm
         currentPreviewImage = image;
         previewImage.Image = image;
         if (old != null && !ReferenceEquals(old, image)) old.Dispose();
+    }
+}
+
+internal sealed class QuickFolderMoveColumn
+{
+    public string Name { get; }
+    public List<QuickFolderMoveTarget> Targets { get; }
+
+    public QuickFolderMoveColumn(string name, List<QuickFolderMoveTarget> targets)
+    {
+        Name = name;
+        Targets = targets;
+    }
+}
+
+internal sealed class QuickFolderMoveTarget
+{
+    public string Title { get; }
+    public string Key { get; }
+    public bool IsCurrent { get; }
+    public Action Move { get; }
+
+    public QuickFolderMoveTarget(string title, string key, bool isCurrent, Action move)
+    {
+        Title = title;
+        Key = key;
+        IsCurrent = isCurrent;
+        Move = move;
+    }
+}
+
+internal sealed class QuickFolderMoveForm : Form
+{
+    private readonly List<QuickFolderMoveColumn> columns;
+    private readonly List<string> favorites;
+    private readonly List<string> recents;
+    private readonly Action savePreferences;
+    private readonly FlowLayoutPanel columnsHost = new()
+    {
+        Dock = DockStyle.Fill,
+        AutoScroll = true,
+        FlowDirection = FlowDirection.LeftToRight,
+        WrapContents = false,
+        Padding = new Padding(8),
+        BackColor = Color.FromArgb(23, 26, 31)
+    };
+    private readonly TextBox search = new()
+    {
+        Width = 320,
+        PlaceholderText = "폴더 이름 검색"
+    };
+
+    public QuickFolderMoveForm(
+        List<QuickFolderMoveColumn> columns,
+        List<string> favorites,
+        List<string> recents,
+        Action savePreferences)
+    {
+        this.columns = columns ?? new List<QuickFolderMoveColumn>();
+        this.favorites = favorites ?? new List<string>();
+        this.recents = recents ?? new List<string>();
+        this.savePreferences = savePreferences ?? (() => { });
+
+        Text = "폴더 바로가기";
+        Width = 1120;
+        Height = 650;
+        MinimumSize = new Size(760, 440);
+        StartPosition = FormStartPosition.CenterParent;
+        BackColor = Color.FromArgb(23, 26, 31);
+        ForeColor = Color.Gainsboro;
+
+        var header = new FlowLayoutPanel
+        {
+            Dock = DockStyle.Top,
+            Height = 44,
+            FlowDirection = FlowDirection.LeftToRight,
+            WrapContents = false,
+            Padding = new Padding(10, 7, 8, 4),
+            BackColor = Color.FromArgb(35, 39, 46)
+        };
+        header.Controls.Add(new Label
+        {
+            Text = "검색",
+            AutoSize = true,
+            ForeColor = Color.Silver,
+            Margin = new Padding(1, 7, 6, 0)
+        });
+        header.Controls.Add(search);
+        var close = new Button
+        {
+            Text = "닫기",
+            Width = 80,
+            Height = 28,
+            Anchor = AnchorStyles.Right | AnchorStyles.Top,
+            FlatStyle = FlatStyle.Flat,
+            BackColor = Color.FromArgb(54, 63, 74),
+            ForeColor = Color.White,
+            Margin = new Padding(12, 0, 0, 0)
+        };
+        close.Click += (_, _) => Close();
+        header.Controls.Add(close);
+
+        Controls.Add(columnsHost);
+        Controls.Add(header);
+        search.TextChanged += (_, _) => RebuildColumns();
+        Shown += (_, _) => RebuildColumns();
+    }
+
+    private void RebuildColumns()
+    {
+        columnsHost.SuspendLayout();
+        foreach (Control old in columnsHost.Controls.Cast<Control>().ToArray()) old.Dispose();
+        columnsHost.Controls.Clear();
+
+        string query = search.Text.Trim();
+        foreach (QuickFolderMoveColumn column in columns)
+        {
+            var visibleTargets = column.Targets
+                .Where(target => query.Length == 0 ||
+                    target.Title.Contains(query, StringComparison.CurrentCultureIgnoreCase))
+                .OrderByDescending(target => favorites.Contains(target.Key, StringComparer.OrdinalIgnoreCase))
+                .ThenBy(target =>
+                {
+                    int index = recents.FindIndex(key =>
+                        key.Equals(target.Key, StringComparison.OrdinalIgnoreCase));
+                    return index < 0 ? int.MaxValue : index;
+                })
+                .ToList();
+
+            var panel = new Panel
+            {
+                Width = 300,
+                Height = Math.Max(280, columnsHost.ClientSize.Height - 22),
+                Margin = new Padding(4),
+                BackColor = Color.FromArgb(30, 34, 41),
+                BorderStyle = BorderStyle.FixedSingle
+            };
+            var heading = new Label
+            {
+                Text = column.Name,
+                Dock = DockStyle.Top,
+                Height = 34,
+                ForeColor = Color.White,
+                BackColor = Color.FromArgb(45, 51, 60),
+                Font = new Font("Segoe UI", 9.5f, FontStyle.Bold),
+                TextAlign = ContentAlignment.MiddleLeft,
+                Padding = new Padding(9, 0, 0, 0)
+            };
+            var list = new FlowLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                FlowDirection = FlowDirection.TopDown,
+                WrapContents = false,
+                AutoScroll = true,
+                Padding = new Padding(5),
+                BackColor = Color.FromArgb(30, 34, 41)
+            };
+            panel.Controls.Add(list);
+            panel.Controls.Add(heading);
+
+            foreach (QuickFolderMoveTarget target in visibleTargets)
+                AddTargetRow(list, target);
+
+            if (visibleTargets.Count == 0)
+            {
+                list.Controls.Add(new Label
+                {
+                    Text = query.Length == 0 ? "폴더가 없습니다." : "검색 결과가 없습니다.",
+                    Width = 260,
+                    Height = 42,
+                    ForeColor = Color.Silver,
+                    TextAlign = ContentAlignment.MiddleCenter,
+                    Margin = new Padding(4, 8, 4, 2)
+                });
+            }
+
+            columnsHost.Controls.Add(panel);
+        }
+
+        columnsHost.ResumeLayout();
+    }
+
+    private void AddTargetRow(FlowLayoutPanel list, QuickFolderMoveTarget target)
+    {
+        var row = new Panel
+        {
+            Width = 268,
+            Height = 33,
+            Margin = new Padding(1, 1, 1, 2),
+            BackColor = target.IsCurrent
+                ? Color.FromArgb(45, 78, 96)
+                : Color.FromArgb(38, 43, 51)
+        };
+        var choose = new Button
+        {
+            Text = target.Title,
+            Left = 2,
+            Top = 1,
+            Width = 219,
+            Height = 30,
+            TextAlign = ContentAlignment.MiddleLeft,
+            FlatStyle = FlatStyle.Flat,
+            BackColor = Color.Transparent,
+            ForeColor = Color.Gainsboro,
+            Padding = new Padding(7, 0, 0, 0),
+            FlatAppearance = { BorderSize = 0, MouseOverBackColor = Color.FromArgb(58, 66, 77) }
+        };
+        var favorite = new Button
+        {
+            Text = favorites.Contains(target.Key, StringComparer.OrdinalIgnoreCase) ? "★" : "☆",
+            Left = 223,
+            Top = 1,
+            Width = 42,
+            Height = 30,
+            FlatStyle = FlatStyle.Flat,
+            BackColor = Color.Transparent,
+            ForeColor = Color.Gold,
+            FlatAppearance = { BorderSize = 0 }
+        };
+        choose.Click += (_, _) =>
+        {
+            recents.RemoveAll(key => key.Equals(target.Key, StringComparison.OrdinalIgnoreCase));
+            recents.Insert(0, target.Key);
+            if (recents.Count > 10) recents.RemoveRange(10, recents.Count - 10);
+            savePreferences();
+            target.Move();
+            Close();
+        };
+        favorite.Click += (_, _) =>
+        {
+            if (favorites.RemoveAll(key => key.Equals(target.Key, StringComparison.OrdinalIgnoreCase)) == 0)
+                favorites.Add(target.Key);
+            savePreferences();
+            RebuildColumns();
+        };
+        row.Controls.Add(choose);
+        row.Controls.Add(favorite);
+        list.Controls.Add(row);
     }
 }
