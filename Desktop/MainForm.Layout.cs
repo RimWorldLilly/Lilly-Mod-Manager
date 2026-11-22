@@ -196,7 +196,7 @@ internal sealed partial class MainForm
         top.Controls.Add(sourceFilter);
         AddToolbarLabel(top, "문제");
         issueFilter.Items.Clear();
-        issueFilter.Items.AddRange(new object[] { "전체", "문제 있음", "필수 모드", "불러오기 순서", "설치 폴더 없음" });
+        issueFilter.Items.AddRange(new object[] { "전체", "문제 있음", "필수 모드", "불러오기 순서", "게임 버전 불일치", "설치 폴더 없음" });
         issueFilter.SelectedIndex = 0;
         top.Controls.Add(issueFilter);
         top.Controls.Add(autoTagNewModsOption);
@@ -800,6 +800,7 @@ internal sealed partial class MainForm
             if (issueMode == "문제 있음" && string.IsNullOrWhiteSpace(mod.Issue)) return false;
             if (issueMode == "필수 모드" && !mod.HasMissingRequiredMod) return false;
             if (issueMode == "불러오기 순서" && !mod.HasLoadOrderIssue) return false;
+            if (issueMode == "게임 버전 불일치" && !mod.HasVersionMismatch) return false;
             if (issueMode == "설치 폴더 없음" && !mod.HasMissingFolder) return false;
             if (query.Length == 0) return true;
             ModState state = store.GetState(mod.PackageId);
