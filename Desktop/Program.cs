@@ -488,7 +488,7 @@ internal sealed class ModStore
 
     public void SavePreset(string name)
     {
-        string safe = string.Concat(name.Trim().Select(c => System.IO.Path.GetInvalidFileNameChars().Contains(c) ? '_' : c)).Trim().Trim('.');
+        string safe = new string(name.Trim().Select(c => System.IO.Path.GetInvalidFileNameChars().Contains(c) ? '_' : c).ToArray()).Trim().Trim('.');
         if (safe.Length == 0) throw new InvalidOperationException("프리셋 이름이 올바르지 않습니다.");
         Directory.CreateDirectory(Paths.PresetDirectory);
         var preset = new PresetData { Id = Guid.NewGuid().ToString("N"), Name = safe, Categories = CloneCategories(), Tags = CloneTags(), Mods = CloneStates() };
@@ -894,6 +894,7 @@ internal sealed class MainForm : Form
     private void OpenSelectedFolder()
     {
         if (grid.SelectedRows.Count == 0 || grid.SelectedRows[0].Tag is not ModEntry mod) return;
+        if (!Directory.Exists(mod.Path)) { MessageBox.Show(this, "이 모드의 설치 폴더를 찾지 못했습니다."); return; }
         try { Process.Start(new ProcessStartInfo("explorer.exe", "\"" + mod.Path + "\"") { UseShellExecute = true }); } catch (Exception ex) { MessageBox.Show(ex.Message); }
     }
 
