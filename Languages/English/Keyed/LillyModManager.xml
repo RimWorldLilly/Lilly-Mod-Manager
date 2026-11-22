@@ -71,7 +71,7 @@
   <LMM_0067>Auto sort</LMM_0067>
   <LMM_0068>Restart</LMM_0068>
   <LMM_0069>No saved presets.</LMM_0069>
-  <LMM_0070>Apply</LMM_0070>
+  <LMM_0070>Apply Changes</LMM_0070>
   <LMM_0071>Collapse</LMM_0071>
   <LMM_0072>Author: </LMM_0072>
   <LMM_0073>Supported game versions: </LMM_0073>
@@ -186,8 +186,8 @@
   <LMM_0183>Description</LMM_0183>
   <LMM_0184>Author</LMM_0184>
   <LMM_0185>Check missing items</LMM_0185>
-  <LMM_0186>Open folder</LMM_0186>
-  <LMM_0187>Mod options</LMM_0187>
+  <LMM_0186>Open Mod Folder</LMM_0186>
+  <LMM_0187>Manager Options</LMM_0187>
   <LMM_0188>Automatically add the 'New' tag to newly added mods</LMM_0188>
   <LMM_0189>Automatically add the 'Updated' tag when a mod version changes</LMM_0189>
   <LMM_0190>All</LMM_0190>
