@@ -446,6 +446,8 @@ internal sealed class ModStore
         }
     }
 
+    public void RefreshIssues() => RebuildIssues();
+
     private void RebuildIssues()
     {
         var installedIds = new HashSet<string>(Mods.Select(m => m.PackageId), StringComparer.OrdinalIgnoreCase);
