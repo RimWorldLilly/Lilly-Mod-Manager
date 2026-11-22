@@ -749,14 +749,6 @@ internal sealed partial class MainForm
             FlatAppearance = { BorderSize = 0 }
         };
         fold.Click += (_, _) => { folder.Collapsed = !folder.Collapsed; RefreshGameLikeList(); };
-        title.MouseDown += (_, e) => HandleFolderHeaderMouseDown(folder, isTagFolder, category, title, e);
-        title.MouseMove += HandleFolderHeaderMouseMove;
-        row.AllowDrop = true;
-        title.AllowDrop = true;
-        row.DragEnter += FolderDragEnter;
-        title.DragEnter += FolderDragEnter;
-        row.DragDrop += (_, e) => DropOnFolder(folder, isTagFolder, category, e);
-        title.DragDrop += (_, e) => DropOnFolder(folder, isTagFolder, category, e);
         int active = members.Count(m => m.Active || m.Official);
         var title = new Label
         {
@@ -769,6 +761,14 @@ internal sealed partial class MainForm
             TextAlign = ContentAlignment.MiddleLeft,
             Font = new Font("Segoe UI", 9f, FontStyle.Bold)
         };
+        title.MouseDown += (_, e) => HandleFolderHeaderMouseDown(folder, isTagFolder, category, title, e);
+        title.MouseMove += HandleFolderHeaderMouseMove;
+        row.AllowDrop = true;
+        title.AllowDrop = true;
+        row.DragEnter += FolderDragEnter;
+        title.DragEnter += FolderDragEnter;
+        row.DragDrop += (_, e) => DropOnFolder(folder, isTagFolder, category, e);
+        title.DragDrop += (_, e) => DropOnFolder(folder, isTagFolder, category, e);
         row.Controls.Add(fold);
         row.Controls.Add(title);
         var menu = new ContextMenuStrip();
