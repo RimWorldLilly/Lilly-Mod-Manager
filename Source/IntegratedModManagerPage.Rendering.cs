@@ -247,7 +247,9 @@ namespace Lilly.IntegratedModManager
                             Rect rowRect = new Rect(0f, y, Mathf.Max(0f, width - 5f), RowHeight);
                             bool rowIsVisible = y + RowHeight >= modListScroll.y &&
                                 y <= modListScroll.y + modListViewportHeight;
-                            Rect checkboxHitRect = new Rect(rowRect.x, rowRect.y, 32f, rowRect.height);
+                            float categoryColumnWidth = settings.UseImprovedLayout ? 112f : 0f;
+                            Rect checkboxHitRect = new Rect(rowRect.x + categoryColumnWidth,
+                                rowRect.y, 32f, rowRect.height);
                 
                 // 기존 교차 배경색
                 Color baseRowColor = visibleIndex % 2 == 0
@@ -369,7 +371,28 @@ namespace Lilly.IntegratedModManager
                                 OpenModContextMenu(mod);
                                 Event.current.Use();
                             }
-                            Rect checkRect = new Rect(rowRect.x + 3f, rowRect.y + 3f, 24f, 24f);
+                            if (categoryColumnWidth > 0f)
+                            {
+                                ManagerCategoryData assignedCategory = FindCategoryForPackage(mod.PackageId);
+                                if (assignedCategory != null)
+                                {
+                                    Rect categoryChipRect = new Rect(rowRect.x + 4f, rowRect.y + 3f,
+                                        categoryColumnWidth - 10f, 21f);
+                                    Color previousCategoryGuiColor = GUI.color;
+                                    TextAnchor previousCategoryAnchor = Text.Anchor;
+                                    Widgets.DrawBoxSolid(categoryChipRect,
+                                        ManagerTagColors.Background(assignedCategory.ColorHex));
+                                    GUI.color = ManagerTagColors.Foreground(assignedCategory.ColorHex);
+                                    Text.Anchor = TextAnchor.MiddleCenter;
+                                    Widgets.Label(categoryChipRect.ContractedBy(3f), assignedCategory.Name);
+                                    GUI.color = previousCategoryGuiColor;
+                                    Text.Anchor = previousCategoryAnchor;
+                                    TooltipHandler.TipRegion(categoryChipRect, assignedCategory.Name);
+                                }
+                            }
+
+                            Rect checkRect = new Rect(rowRect.x + categoryColumnWidth + 3f,
+                                rowRect.y + 3f, 24f, 24f);
                             bool checkedValue = state != null && state.Enabled;
                             bool protectedMod = IsProtected(mod);
                             Widgets.Checkbox(checkRect.position, ref checkedValue, checkRect.width, protectedMod);
@@ -380,7 +403,7 @@ namespace Lilly.IntegratedModManager
                             }
                 
                             Rect nameRect = new Rect(checkRect.xMax + 5f, rowRect.y,
-                                rowRect.width - checkRect.width - 12f, rowRect.height);
+                                Mathf.Max(0f, rowRect.xMax - checkRect.xMax - 5f), rowRect.height);
                             ManagerModData modData = FindModState(mod.PackageId);
                             List<ManagerTagData> assignedTags = modData == null || modData.TagIds == null
                                 ? new List<ManagerTagData>()
