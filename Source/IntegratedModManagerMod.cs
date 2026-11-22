@@ -34,12 +34,14 @@ namespace Lilly.IntegratedModManager
         public List<string> ExcludedPackageIds = new List<string>();
         public bool AutoTagNewMods = true;
         public bool AutoTagUpdatedMods = true;
+        public bool UseImprovedLayout = false;
 
         public override void ExposeData()
         {
             base.ExposeData();
             Scribe_Values.Look(ref AutoTagNewMods, "autoTagNewMods", true);
             Scribe_Values.Look(ref AutoTagUpdatedMods, "autoTagUpdatedMods", true);
+            Scribe_Values.Look(ref UseImprovedLayout, "useImprovedLayout", false);
             Scribe_Collections.Look(ref Categories, "categories", LookMode.Deep);
             Scribe_Collections.Look(ref Tags, "tags", LookMode.Deep);
             Scribe_Collections.Look(ref Mods, "mods", LookMode.Deep);
