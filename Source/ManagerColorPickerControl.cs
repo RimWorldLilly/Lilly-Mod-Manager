@@ -11,8 +11,8 @@ namespace Lilly.IntegratedModManager
         private const int PickerMode = 0;
         private const int PresetMode = 1;
         private const int LuminanceMode = 2;
-        private const int GridColumns = 8;
-        private const int GridRows = 7;
+        private const int GridColumns = 16;
+        private const int GridRows = 10;
 
         private string colorHex;
         private string hexInput;
@@ -46,6 +46,8 @@ namespace Lilly.IntegratedModManager
                 float saturation;
                 float value;
                 ToHsv(initial, out selectedHue, out saturation, out value);
+                if (saturation <= 0.0001f)
+                    selectedHue = 0f;
             }
             else
             {
@@ -76,8 +78,11 @@ namespace Lilly.IntegratedModManager
             {
                 float saturation;
                 float brightness;
+                float hue;
                 ToHsv(ManagerTagColors.Background(normalized),
-                    out selectedHue, out saturation, out brightness);
+                    out hue, out saturation, out brightness);
+                if (saturation > 0.0001f)
+                    selectedHue = hue;
             }
             HasChanged = true;
             HasInvalidInput = false;
@@ -130,9 +135,12 @@ namespace Lilly.IntegratedModManager
 
             DrawColorGrid(rect, gridY);
 
-            const float cellHeight = 19f;
-            const float cellGap = 2f;
-            float gridBottom = gridY + GridRows * (cellHeight + cellGap) - cellGap;
+            const float cellHeight = 14f;
+            const float cellGap = 1.5f;
+            int visibleRows = selectedMode == PresetMode
+                ? Mathf.CeilToInt(ManagerTagColors.Palette.Length / (float)GridColumns)
+                : GridRows;
+            float gridBottom = gridY + visibleRows * (cellHeight + cellGap) - cellGap;
             float customY = gridBottom + 3f;
             Widgets.Label(
                 new Rect(rect.x, customY, rect.width, 18f),
@@ -192,7 +200,10 @@ namespace Lilly.IntegratedModManager
                     UpdateRgbInputs(parsed);
                     float saturation;
                     float brightness;
-                    ToHsv(parsed, out selectedHue, out saturation, out brightness);
+                    float hue;
+                    ToHsv(parsed, out hue, out saturation, out brightness);
+                    if (saturation > 0.0001f)
+                        selectedHue = hue;
                     HasInvalidInput = false;
                 }
                 else
@@ -234,7 +245,10 @@ namespace Lilly.IntegratedModManager
                     hexInput = colorHex;
                     float saturation;
                     float brightness;
-                    ToHsv(parsed, out selectedHue, out saturation, out brightness);
+                    float hue;
+                    ToHsv(parsed, out hue, out saturation, out brightness);
+                    if (saturation > 0.0001f)
+                        selectedHue = hue;
                     HasInvalidInput = false;
                 }
                 else
@@ -310,11 +324,14 @@ namespace Lilly.IntegratedModManager
 
         private void DrawColorGrid(Rect rect, float gridY)
         {
-            const float cellHeight = 19f;
-            const float cellGap = 2f;
+            const float cellHeight = 14f;
+            const float cellGap = 1.5f;
             float cellWidth = (rect.width - cellGap * (GridColumns - 1)) / GridColumns;
 
-            for (int row = 0; row < GridRows; row++)
+            int visibleRows = selectedMode == PresetMode
+                ? Mathf.CeilToInt(ManagerTagColors.Palette.Length / (float)GridColumns)
+                : GridRows;
+            for (int row = 0; row < visibleRows; row++)
             {
                 for (int column = 0; column < GridColumns; column++)
                 {
