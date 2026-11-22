@@ -426,7 +426,8 @@ namespace Lilly.IntegratedModManager
                             if (conflictingMod)
                                 warningTags.Add(new ModWarningTag(ManagerTranslation.Get("LMM_0205"),
                                     new Color(1f, 0.415f, 0.26f, 1f), "활성 모드와 충돌하는 모드입니다."));
-                            if (rowIssue == ModRowIssue.LoadOrder)
+                            if (IsLoadOrderCheckTarget(mod) &&
+                                loadOrderIssuePackageIds.Contains(mod.PackageId))
                                 warningTags.Add(new ModWarningTag(ManagerTranslation.Get("LMM_0206"),
                                     new Color(1f, 0.55f, 0.24f, 1f), ManagerTranslation.Get("LMM_0143")));
                             if (rowIssue == ModRowIssue.Version)
