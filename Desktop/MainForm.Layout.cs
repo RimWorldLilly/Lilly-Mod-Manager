@@ -803,9 +803,19 @@ internal sealed partial class MainForm
             if (issueMode == "설치 폴더 없음" && !mod.HasMissingFolder) return false;
             if (query.Length == 0) return true;
             ModState state = store.GetState(mod.PackageId);
-            string tags = string.Join(" ", state.TagIds.Select(id => store.Tags.FirstOrDefault(t => t.Id == id)?.Name));
+            string tags = string.Join(" ", state.TagIds
+                .Select(id => store.Tags.FirstOrDefault(tag => tag.Id == id)?.Name)
+                .Where(name => !string.IsNullOrWhiteSpace(name)));
+            string categories = string.Join(" ", store.Categories
+                .Where(category => category.ModIds.Contains(mod.PackageId, StringComparer.OrdinalIgnoreCase))
+                .Select(category => category.Name));
+            string folders = string.Join(" ", store.Categories
+                .SelectMany(category => category.Folders)
+                .Concat(store.Tags.SelectMany(tag => tag.Folders))
+                .Where(folder => folder.ModIds.Contains(mod.PackageId, StringComparer.OrdinalIgnoreCase))
+                .Select(folder => folder.Name));
             string haystack = string.Join(" ", mod.Name, state.DisplayName, mod.PackageId, mod.Author,
-                mod.Description, mod.Version, currentCategory?.Name, currentTag?.Name, tags);
+                mod.Description, mod.Version, currentCategory?.Name, currentTag?.Name, categories, folders, tags);
             return haystack.Contains(query, StringComparison.CurrentCultureIgnoreCase);
         }).ToList();
 
@@ -885,7 +895,9 @@ internal sealed partial class MainForm
         var shown = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (FolderData folder in folders)
         {
-            List<ModEntry> members = filtered.Where(mod => folder.ModIds.Contains(mod.PackageId, StringComparer.OrdinalIgnoreCase)).ToList();
+            List<ModEntry> members = filtered.Where(mod =>
+                !shown.Contains(mod.PackageId) &&
+                folder.ModIds.Contains(mod.PackageId, StringComparer.OrdinalIgnoreCase)).ToList();
             if (members.Count == 0 && folder.Id != "uncategorized") continue;
             AddFolderHeader(folder, members, isTagFolder, category);
             foreach (ModEntry mod in members)
