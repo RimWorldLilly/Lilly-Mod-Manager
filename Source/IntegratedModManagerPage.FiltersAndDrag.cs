@@ -492,20 +492,19 @@ namespace Lilly.IntegratedModManager
                     if (filterLoadOrderIssue)
                     {
                         selectedCount++;
-                        if (IsLoadOrderCheckTarget(mod) &&
-                            loadOrderIssuePackageIds.Contains(mod.PackageId)) matchedCount++;
+                        if (GetModRowIssue(mod) == ModRowIssue.LoadOrder) matchedCount++;
                         else if (filterUseAnd) return false;
                     }
                     if (filterMissingRequired)
                     {
                         selectedCount++;
-                        if (HasUnsatisfiedRequirement(mod, false)) matchedCount++;
+                        if (GetModRowIssue(mod) == ModRowIssue.RequiredMod) matchedCount++;
                         else if (filterUseAnd) return false;
                     }
                     if (filterVersionMismatch)
                     {
                         selectedCount++;
-                        if (HasUnsatisfiedRequirement(mod, true)) matchedCount++;
+                        if (GetModRowIssue(mod) == ModRowIssue.Version) matchedCount++;
                         else if (filterUseAnd) return false;
                     }
                     if (filterLocal)
