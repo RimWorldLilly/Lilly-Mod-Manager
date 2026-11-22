@@ -133,6 +133,10 @@ internal sealed partial class MainForm
     private Control? contextMenuAnchor;
     private Point contextMenuPoint;
     private const string ModDragDataFormat = "Lilly.ModManager.Desktop.PackageIds";
+    private const string CategoryDragDataFormat = "Lilly.ModManager.Desktop.Category";
+    private const string FolderDragDataFormat = "Lilly.ModManager.Desktop.Folder";
+    private string? dragCandidateCategoryId;
+    private string? dragCandidateFolderPayload;
     private string? dragCandidatePackageId;
     private Point dragStartScreenPoint;
 
@@ -363,10 +367,21 @@ internal sealed partial class MainForm
         select.Left = 31;
         select.Width = Math.Max(90, sidebarItems.ClientSize.Width - 48);
         select.Click += (_, _) => SelectCategoryView(category);
+        select.MouseDown += (_, e) =>
+        {
+            if (e.Button == MouseButtons.Left)
+            {
+                dragCandidateCategoryId = category.Id;
+                dragStartScreenPoint = select.PointToScreen(e.Location);
+            }
+        };
+        select.MouseMove += HandleCategoryMouseMove;
         row.AllowDrop = true;
         select.AllowDrop = true;
         row.DragEnter += NavigationDragEnter;
         select.DragEnter += NavigationDragEnter;
+        row.DragDrop += (_, e) => DropOnCategory(category, e);
+        select.DragDrop += (_, e) => DropOnCategory(category, e);
         row.DragDrop += (_, e) => DropOnCategory(category, e);
         select.DragDrop += (_, e) => DropOnCategory(category, e);
         enabled.CheckedChanged += (_, _) =>
@@ -736,10 +751,12 @@ internal sealed partial class MainForm
             FlatAppearance = { BorderSize = 0 }
         };
         fold.Click += (_, _) => { folder.Collapsed = !folder.Collapsed; RefreshGameLikeList(); };
+        title.MouseDown += (_, e) => HandleFolderHeaderMouseDown(folder, isTagFolder, category, title, e);
+        title.MouseMove += HandleFolderHeaderMouseMove;
         row.AllowDrop = true;
         title.AllowDrop = true;
-        row.DragEnter += NavigationDragEnter;
-        title.DragEnter += NavigationDragEnter;
+        row.DragEnter += FolderDragEnter;
+        title.DragEnter += FolderDragEnter;
         row.DragDrop += (_, e) => DropOnFolder(folder, isTagFolder, category, e);
         title.DragDrop += (_, e) => DropOnFolder(folder, isTagFolder, category, e);
         int active = members.Count(m => m.Active || m.Official);
@@ -933,6 +950,105 @@ internal sealed partial class MainForm
     }
 
 
+
+    private void HandleCategoryMouseMove(object? sender, MouseEventArgs e)
+    {
+        if (dragCandidateCategoryId == null || sender is not Control source ||
+            (Control.MouseButtons & MouseButtons.Left) != MouseButtons.Left)
+            return;
+        Point current = source.PointToScreen(e.Location);
+        Size threshold = SystemInformation.DragSize;
+        if (Math.Abs(current.X - dragStartScreenPoint.X) < threshold.Width / 2 &&
+            Math.Abs(current.Y - dragStartScreenPoint.Y) < threshold.Height / 2)
+            return;
+        string id = dragCandidateCategoryId;
+        dragCandidateCategoryId = null;
+        var data = new DataObject();
+        data.SetData(CategoryDragDataFormat, id);
+        source.DoDragDrop(data, DragDropEffects.Move);
+    }
+
+    private void ReorderCategory(string sourceId, CategoryData target)
+    {
+        if (store == null || sourceId.Equals(target.Id, StringComparison.OrdinalIgnoreCase)) return;
+        int sourceIndex = store.Categories.FindIndex(item => item.Id.Equals(sourceId, StringComparison.OrdinalIgnoreCase));
+        int targetIndex = store.Categories.IndexOf(target);
+        if (sourceIndex < 0 || targetIndex < 0) return;
+        CategoryData moving = store.Categories[sourceIndex];
+        store.Categories.RemoveAt(sourceIndex);
+        targetIndex = store.Categories.IndexOf(target);
+        store.Categories.Insert(targetIndex, moving);
+        RefreshSidebar();
+        RefreshGameLikeList();
+        SetStatus($"'{moving.Name}' 카테고리 순서를 변경했습니다.");
+    }
+
+    private void HandleFolderHeaderMouseDown(FolderData folder, bool isTagFolder,
+        CategoryData? category, Control source, MouseEventArgs e)
+    {
+        if (e.Button != MouseButtons.Left) return;
+        string ownerId = isTagFolder ? sidebarSelectedTagId ?? string.Empty : category?.Id ?? string.Empty;
+        if (ownerId.Length == 0) return;
+        dragCandidateFolderPayload = (isTagFolder ? "T" : "C") + "\n" + ownerId + "\n" + folder.Id;
+        dragStartScreenPoint = source.PointToScreen(e.Location);
+    }
+
+    private void HandleFolderHeaderMouseMove(object? sender, MouseEventArgs e)
+    {
+        if (dragCandidateFolderPayload == null || sender is not Control source ||
+            (Control.MouseButtons & MouseButtons.Left) != MouseButtons.Left)
+            return;
+        Point current = source.PointToScreen(e.Location);
+        Size threshold = SystemInformation.DragSize;
+        if (Math.Abs(current.X - dragStartScreenPoint.X) < threshold.Width / 2 &&
+            Math.Abs(current.Y - dragStartScreenPoint.Y) < threshold.Height / 2)
+            return;
+        string payload = dragCandidateFolderPayload;
+        dragCandidateFolderPayload = null;
+        var data = new DataObject();
+        data.SetData(FolderDragDataFormat, payload);
+        source.DoDragDrop(data, DragDropEffects.Move);
+    }
+
+    private static (bool IsTag, string OwnerId, string FolderId)? ReadFolderDrag(IDataObject? data)
+    {
+        if (data == null || !data.GetDataPresent(FolderDragDataFormat)) return null;
+        string? raw = data.GetData(FolderDragDataFormat) as string;
+        if (string.IsNullOrWhiteSpace(raw)) return null;
+        string[] parts = raw.Split('\n');
+        if (parts.Length != 3 || (parts[0] != "T" && parts[0] != "C")) return null;
+        return (parts[0] == "T", parts[1], parts[2]);
+    }
+
+    private void FolderDragEnter(object? sender, DragEventArgs e)
+    {
+        e.Effect = ReadFolderDrag(e.Data).HasValue || ReadDraggedIds(e.Data).Count > 0
+            ? DragDropEffects.Move : DragDropEffects.None;
+    }
+
+    private void ReorderFolder((bool IsTag, string OwnerId, string FolderId) source, FolderData target,
+        bool targetIsTag, CategoryData? targetCategory)
+    {
+        if (store == null || source.IsTag != targetIsTag) return;
+        string targetOwnerId = targetIsTag ? sidebarSelectedTagId ?? string.Empty : targetCategory?.Id ?? string.Empty;
+        if (!source.OwnerId.Equals(targetOwnerId, StringComparison.OrdinalIgnoreCase)) return;
+
+        List<FolderData>? folders = targetIsTag
+            ? store.Tags.FirstOrDefault(tag => tag.Id == targetOwnerId)?.Folders
+            : targetCategory?.Folders;
+        if (folders == null) return;
+        FolderData? moving = folders.FirstOrDefault(folder =>
+            folder.Id.Equals(source.FolderId, StringComparison.OrdinalIgnoreCase));
+        if (moving == null || moving == target) return;
+
+        int targetIndex = folders.IndexOf(target);
+        folders.Remove(moving);
+        targetIndex = folders.IndexOf(target);
+        folders.Insert(targetIndex, moving);
+        RefreshGameLikeList();
+        SetStatus($"'{moving.Name}' 폴더 순서를 변경했습니다.");
+    }
+
     private void HandleModRowMouseDown(ModEntry mod, object? sender, MouseEventArgs e)
     {
         if (e.Button != MouseButtons.Left) return;
@@ -1017,6 +1133,12 @@ internal sealed partial class MainForm
     private void DropOnFolder(FolderData folder, bool isTagFolder, CategoryData? category, DragEventArgs e)
     {
         if (store == null) return;
+        var draggedFolder = ReadFolderDrag(e.Data);
+        if (draggedFolder.HasValue)
+        {
+            ReorderFolder(draggedFolder.Value, folder, isTagFolder, category);
+            return;
+        }
         List<string> ids = ReadDraggedIds(e.Data);
         if (ids.Count == 0) return;
         if (isTagFolder)
