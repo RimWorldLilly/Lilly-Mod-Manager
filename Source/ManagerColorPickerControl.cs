@@ -178,7 +178,7 @@ namespace Lilly.IntegratedModManager
             float controlWidth = Mathf.Max(80f, rect.xMax - controlX);
             Widgets.Label(
                 new Rect(controlX, y + 12f, controlWidth, 24f),
-                "명도 / Value");
+                ManagerTranslation.Get("LMM_0201"));
 
             float updatedValue = Widgets.HorizontalSlider(
                 new Rect(controlX, y + 38f, controlWidth, 18f),
