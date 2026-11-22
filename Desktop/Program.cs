@@ -1442,9 +1442,11 @@ internal sealed partial class MainForm : Form
 
     private CategoryData? SelectedCategory()
     {
-        if (store == null) return null;
+        if (store == null || sidebarTagMode) return null;
+        if (!string.IsNullOrEmpty(sidebarSelectedCategoryId))
+            return store.Categories.FirstOrDefault(category => category.Id == sidebarSelectedCategoryId);
         string name = categoryFilter.SelectedItem?.ToString() ?? "전체";
-        return name == "전체" ? null : store.Categories.FirstOrDefault(c => c.Name == name);
+        return name == "전체" ? null : store.Categories.FirstOrDefault(category => category.Name == name);
     }
 
     private TagData? SelectedTag()
