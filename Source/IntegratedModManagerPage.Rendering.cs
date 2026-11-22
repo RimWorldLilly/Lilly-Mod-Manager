@@ -444,7 +444,18 @@ namespace Lilly.IntegratedModManager
                                 : modData.TagIds.Select(FindTag).Where(tag => tag != null).ToList();
 
                             float maximumTagArea = nameRect.width * 0.55f;
-                            float ellipsisWidth = Mathf.Min(22f, maximumTagArea);
+                            float fullWarningWidth = warningTags.Sum(tag => GetWarningChipWidth(tag.Label) + 3f);
+                            if (warningTags.Count > 0)
+                                fullWarningWidth -= 3f;
+                            float fullUserTagWidth = assignedTags.Sum(tag => GetTagChipWidth(tag.Name) + 3f);
+                            if (assignedTags.Count > 0)
+                                fullUserTagWidth -= 3f;
+                            float fullCombinedWidth = fullWarningWidth + fullUserTagWidth +
+                                (warningTags.Count > 0 && assignedTags.Count > 0 ? 3f : 0f);
+                            bool needsOverflowChip = fullCombinedWidth > maximumTagArea;
+                            float ellipsisWidth = needsOverflowChip
+                                ? Mathf.Min(22f, maximumTagArea)
+                                : 0f;
                             float chipsCapacity = Mathf.Max(0f, maximumTagArea - ellipsisWidth);
                             List<ModWarningTag> visibleWarnings = new List<ModWarningTag>();
                             float visibleWarningWidth = 0f;
@@ -491,18 +502,19 @@ namespace Lilly.IntegratedModManager
                                 nameRect.width = Mathf.Max(0f, tagsX - nameRect.x - 4f);
                                 float chipX = tagsX;
 
+                                // 사용자 태그를 먼저 배치하고, 경고 태그는 그 오른쪽 끝에 표시한다.
+                                for (int i = 0; i < visibleTags.Count; i++)
+                                {
+                                    float chipWidth = GetTagChipWidth(visibleTags[i].Name);
+                                    DrawTagChip(new Rect(chipX, rowRect.y + 3f, chipWidth, 21f), visibleTags[i]);
+                                    chipX += chipWidth + 3f;
+                                }
+
                                 for (int i = 0; i < visibleWarnings.Count; i++)
                                 {
                                     float chipWidth = GetWarningChipWidth(visibleWarnings[i].Label);
                                     Rect chipRect = new Rect(chipX, rowRect.y + 3f, chipWidth, 21f);
                                     DrawWarningTagChip(chipRect, visibleWarnings[i]);
-                                    chipX += chipWidth + 3f;
-                                }
-
-                                for (int i = 0; i < visibleTags.Count; i++)
-                                {
-                                    float chipWidth = GetTagChipWidth(visibleTags[i].Name);
-                                    DrawTagChip(new Rect(chipX, rowRect.y + 3f, chipWidth, 21f), visibleTags[i]);
                                     chipX += chipWidth + 3f;
                                 }
 
