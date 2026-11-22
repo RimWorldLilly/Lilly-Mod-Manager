@@ -154,6 +154,7 @@ internal sealed class ModStore
     public List<CategoryData> Categories { get; private set; } = [];
     public List<TagData> Tags { get; private set; } = [];
     public List<ModState> States { get; private set; } = [];
+    public List<string> ExcludedPackageIds { get; private set; } = [];
     public List<ModEntry> OrderedMods { get; private set; } = [];
 
     public ModStore(GamePaths paths) => Paths = paths;
@@ -309,6 +310,7 @@ internal sealed class ModStore
         Categories = [];
         Tags = [];
         States = [];
+        ExcludedPackageIds = [];
         if (File.Exists(Paths.ManagerSettings))
         {
             try
@@ -320,6 +322,7 @@ internal sealed class ModStore
                     Categories = ParseCategories(Child(managerSettings, "categories"));
                     Tags = ParseTags(Child(managerSettings, "tags"));
                     States = ParseStates(Child(managerSettings, "mods"));
+                    ExcludedPackageIds = ListValues(managerSettings, "excludedPackageIds");
                 }
             }
             catch { }
@@ -338,6 +341,21 @@ internal sealed class ModStore
         {
             Tags.Insert(0, new TagData { Id = "untagged", Name = "태그 없음", IsSystem = true, Folders = [NewFolder()] });
         }
+
+        var excluded = new HashSet<string>(ExcludedPackageIds, StringComparer.OrdinalIgnoreCase);
+        Mods.RemoveAll(mod => excluded.Contains(mod.PackageId));
+        OrderedMods.RemoveAll(mod => excluded.Contains(mod.PackageId));
+        foreach (CategoryData category in Categories)
+        {
+            category.ModIds.RemoveAll(excluded.Contains);
+            foreach (FolderData folder in category.Folders)
+                folder.ModIds.RemoveAll(excluded.Contains);
+        }
+        foreach (TagData tag in Tags)
+            foreach (FolderData folder in tag.Folders)
+                folder.ModIds.RemoveAll(excluded.Contains);
+        States.RemoveAll(state => excluded.Contains(state.PackageId));
+
         var stateIds = new HashSet<string>(States.Select(s => s.PackageId), StringComparer.OrdinalIgnoreCase);
         foreach (ModEntry mod in OrderedMods)
         {
@@ -477,6 +495,29 @@ internal sealed class ModStore
             state.TagIds.RemoveAll(id => id.Equals(tag.Id, StringComparison.OrdinalIgnoreCase));
     }
 
+    public bool RemoveFromManager(string packageId)
+    {
+        ModEntry? mod = OrderedMods.FirstOrDefault(item => item.PackageId.Equals(packageId, StringComparison.OrdinalIgnoreCase));
+        if (mod == null || mod.Active || mod.Official) return false;
+
+        if (!ExcludedPackageIds.Contains(packageId, StringComparer.OrdinalIgnoreCase))
+            ExcludedPackageIds.Add(packageId);
+
+        Mods.RemoveAll(item => item.PackageId.Equals(packageId, StringComparison.OrdinalIgnoreCase));
+        OrderedMods.RemoveAll(item => item.PackageId.Equals(packageId, StringComparison.OrdinalIgnoreCase));
+        foreach (CategoryData category in Categories)
+        {
+            category.ModIds.RemoveAll(id => id.Equals(packageId, StringComparison.OrdinalIgnoreCase));
+            foreach (FolderData folder in category.Folders)
+                folder.ModIds.RemoveAll(id => id.Equals(packageId, StringComparison.OrdinalIgnoreCase));
+        }
+        foreach (TagData tag in Tags)
+            foreach (FolderData folder in tag.Folders)
+                folder.ModIds.RemoveAll(id => id.Equals(packageId, StringComparison.OrdinalIgnoreCase));
+        States.RemoveAll(state => state.PackageId.Equals(packageId, StringComparison.OrdinalIgnoreCase));
+        return true;
+    }
+
     public void AssignToCategoryFolder(IEnumerable<string> packageIds, CategoryData category, FolderData target)
     {
         foreach (string id in packageIds)
@@ -545,6 +586,7 @@ internal sealed class ModStore
         ReplaceCollection(managerSettings, "categories", Categories.Select(WriteCategory));
         ReplaceCollection(managerSettings, "tags", Tags.Select(WriteTag));
         ReplaceCollection(managerSettings, "mods", States.Select(WriteState));
+        ReplaceCollection(managerSettings, "excludedPackageIds", ExcludedPackageIds.Select(id => new XElement("li", id)));
         BackupFile(Paths.ManagerSettings);
         SaveAtomic(doc, Paths.ManagerSettings);
     }
@@ -923,6 +965,7 @@ internal sealed class MainForm : Form
         menu.Items.Add("현재 카테고리 폴더 삭제", null, (_, _) => DeleteSelectedFolder());
         menu.Items.Add("현재 태그 폴더 이름 변경", null, (_, _) => RenameSelectedTagFolder());
         menu.Items.Add("현재 태그 폴더 삭제", null, (_, _) => DeleteSelectedTagFolder());
+        menu.Items.Add("관리 목록에서 제거", null, (_, _) => RemoveSelectedFromManager());
         menu.Items.Add("표시 이름 변경", null, (_, _) => RenameSelectedMod());
         menu.Items.Add("표시 이름 초기화", null, (_, _) => ResetSelectedModName());
         menu.Items.Add("모드 폴더 열기", null, (_, _) => OpenSelectedFolder());
@@ -982,6 +1025,25 @@ internal sealed class MainForm : Form
         if (store == null || grid.SelectedRows.Count == 0 || grid.SelectedRows[0].Tag is not ModEntry mod) return;
         store.GetState(mod.PackageId).ColorHex = null;
         RefreshGrid();
+    }
+
+    private void RemoveSelectedFromManager()
+    {
+        if (store == null || grid.SelectedRows.Count == 0 || grid.SelectedRows[0].Tag is not ModEntry mod) return;
+        if (mod.Active || mod.Official)
+        {
+            MessageBox.Show(this, "활성 모드와 Core/DLC는 관리 목록에서 제외할 수 없습니다.");
+            return;
+        }
+        if (MessageBox.Show(this,
+            $"'{mod.Name}' 모드를 관리 목록에서 제외할까요?\n설치된 모드 파일과 Steam 구독 상태는 변경되지 않습니다.",
+            "관리 목록에서 제거", MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes) return;
+        if (store.RemoveFromManager(mod.PackageId))
+        {
+            RefreshFilters();
+            RefreshGrid();
+            SetStatus("모드를 관리 목록에서 제외했습니다. 설치 파일과 구독 상태는 유지됩니다.");
+        }
     }
 
     private void SetSelectedActive(bool active)
