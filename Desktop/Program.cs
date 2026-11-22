@@ -409,6 +409,28 @@ internal sealed class ModStore
             state.TagIds.RemoveAll(id => id.Equals(tag.Id, StringComparison.OrdinalIgnoreCase));
     }
 
+    public void AssignToCategoryFolder(IEnumerable<string> packageIds, CategoryData category, FolderData target)
+    {
+        foreach (string id in packageIds)
+        {
+            foreach (FolderData folder in category.Folders)
+                folder.ModIds.RemoveAll(value => value.Equals(id, StringComparison.OrdinalIgnoreCase));
+            target.ModIds.Add(id);
+        }
+    }
+
+    public void AssignToTagFolder(IEnumerable<string> packageIds, TagData tag, FolderData target)
+    {
+        foreach (string id in packageIds)
+        {
+            foreach (FolderData folder in tag.Folders)
+                folder.ModIds.RemoveAll(value => value.Equals(id, StringComparison.OrdinalIgnoreCase));
+            target.ModIds.Add(id);
+            ModState state = GetState(id);
+            if (!state.TagIds.Contains(tag.Id)) state.TagIds.Add(tag.Id);
+        }
+    }
+
     public void SaveAll()
     {
         foreach (ModEntry mod in OrderedMods) GetState(mod.PackageId).Enabled = mod.Active || mod.Official;
