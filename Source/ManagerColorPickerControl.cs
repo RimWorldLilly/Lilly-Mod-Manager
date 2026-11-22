@@ -135,11 +135,11 @@ namespace Lilly.IntegratedModManager
 
             DrawColorGrid(rect, gridY);
 
-            const float cellHeight = 14f;
-            const float cellGap = 1.5f;
             int visibleRows = selectedMode == PresetMode
-                ? Mathf.CeilToInt(ManagerTagColors.Palette.Length / (float)GridColumns)
+                ? 7
                 : GridRows;
+            float cellHeight = selectedMode == PresetMode ? 19f : 14f;
+            float cellGap = selectedMode == PresetMode ? 2f : 1.5f;
             float gridBottom = gridY + visibleRows * (cellHeight + cellGap) - cellGap;
             float customY = gridBottom + 3f;
             Widgets.Label(
@@ -324,21 +324,20 @@ namespace Lilly.IntegratedModManager
 
         private void DrawColorGrid(Rect rect, float gridY)
         {
-            const float cellHeight = 14f;
-            const float cellGap = 1.5f;
-            float cellWidth = (rect.width - cellGap * (GridColumns - 1)) / GridColumns;
+            int columns = selectedMode == PresetMode ? 8 : GridColumns;
+            int visibleRows = selectedMode == PresetMode ? 7 : GridRows;
+            float cellHeight = selectedMode == PresetMode ? 19f : 14f;
+            float cellGap = selectedMode == PresetMode ? 2f : 1.5f;
+            float cellWidth = (rect.width - cellGap * (columns - 1)) / columns;
 
-            int visibleRows = selectedMode == PresetMode
-                ? Mathf.CeilToInt(ManagerTagColors.Palette.Length / (float)GridColumns)
-                : GridRows;
             for (int row = 0; row < visibleRows; row++)
             {
-                for (int column = 0; column < GridColumns; column++)
+                for (int column = 0; column < columns; column++)
                 {
                     string candidate;
                     if (selectedMode == PresetMode)
                     {
-                        int index = row * GridColumns + column;
+                        int index = row * columns + column;
                         if (index >= ManagerTagColors.Palette.Length)
                             continue;
                         candidate = ManagerTagColors.Palette[index];
