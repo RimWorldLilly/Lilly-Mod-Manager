@@ -148,30 +148,10 @@ namespace Lilly.IntegratedModManager
                                 }));
                         }
 
-        private void OpenSelectedTagMenu(IEnumerable<string> packageIds)
+        private void OpenSelectedTagEditor(IEnumerable<string> packageIds)
                         {
-                            List<string> selectedIds = packageIds == null
-                                ? new List<string>()
-                                : packageIds.Distinct(StringComparer.OrdinalIgnoreCase).ToList();
-                            if (selectedIds.Count == 0)
-                                return;
-                
-                            List<FloatMenuOption> options = new List<FloatMenuOption>();
-                            for (int i = 0; i < tags.Count; i++)
-                            {
-                                ManagerTagData tag = tags[i];
-                                if (tag == null || tag.IsSystem)
-                                    continue;
-                
-                                ManagerTagData target = tag;
-                                bool allHaveTag = selectedIds.All(id => HasTag(id, target.Id));
-                                string action = allHaveTag ? ManagerTranslation.Get("LMM_0085") : ManagerTranslation.Get("LMM_0087");
-                                options.Add(new FloatMenuOption(action + target.Name,
-                                    () => SetTagForSelection(selectedIds, target, !allHaveTag)));
-                            }
-                            options.Add(new FloatMenuOption(ManagerTranslation.Get("LMM_0048"),
-                                () => OpenCreateTagDialog(selectedIds)));
-                            Find.WindowStack.Add(new FloatMenu(options));
+                            // 우클릭 메뉴에서 별도의 서브 메뉴 대신 태그 편집창을 바로 연다.
+                            OpenCreateTagDialog(packageIds);
                         }
 
         private void OpenFastFolderMoveDialog()
