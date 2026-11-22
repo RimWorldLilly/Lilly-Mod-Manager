@@ -24,6 +24,8 @@ internal sealed class ModEntry
     public string Author { get; set; } = "";
     public string Version { get; set; } = "";
     public string Description { get; set; } = "";
+    public string Url { get; set; } = "";
+    public List<string> SupportedVersions { get; set; } = [];
     public string Path { get; set; } = "";
     public bool Workshop { get; set; }
     public bool Official { get; set; }
@@ -281,6 +283,8 @@ internal sealed class ModStore
                 Author = Value(root, "author"),
                 Version = Value(root, "modVersion"),
                 Description = Value(root, "description"),
+                Url = Value(root, "url"),
+                SupportedVersions = ListValues(root, "supportedVersions"),
                 Path = item.Path,
                 Workshop = item.Workshop,
                 Official = item.Official || packageId.StartsWith("ludeon.rimworld", StringComparison.OrdinalIgnoreCase)
