@@ -126,7 +126,11 @@ namespace Lilly.IntegratedModManager
         if (HasCategoryLoadOrderIssue(category))
             GUI.contentColor = new Color(1f, 0.28f, 0.28f, 1f);
         
+        // 긴 이름은 여러 줄로 줄바꿈하지 않고 한 줄로 표시 가능한 부분까지 보여준다.
+        bool previousWordWrap = Text.WordWrap;
+        Text.WordWrap = false;
         Widgets.Label(labelRect, label);
+        Text.WordWrap = previousWordWrap;
         GUI.contentColor = previousContentColor;
         
         
@@ -556,7 +560,11 @@ namespace Lilly.IntegratedModManager
         GUI.contentColor = ManagerTagColors.IsValidHex(tag.ColorHex)
             ? ManagerTagColors.Foreground(tag.ColorHex)
             : Color.white;
+        // 긴 이름은 여러 줄로 줄바꿈하지 않고 한 줄로 표시 가능한 부분까지 보여준다.
+        bool previousTagWordWrap = Text.WordWrap;
+        Text.WordWrap = false;
         Widgets.Label(labelRect, label);
+        Text.WordWrap = previousTagWordWrap;
         GUI.contentColor = previousTagContentColor;
         
                         TooltipHandler.TipRegion(labelRect, label);
