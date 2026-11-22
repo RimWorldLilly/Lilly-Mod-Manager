@@ -926,7 +926,10 @@ internal sealed partial class MainForm : Form
         details.Text =
             $"{displayName}\n{mod.PackageId}\n제작자: {mod.Author}\n버전: {mod.Version}\n" +
             $"설치 위치: {(mod.Official ? "공식" : mod.Workshop ? "Steam 창작마당" : "로컬")}\n" +
-            $"경로: {mod.Path}\n\n{mod.Description}\n\n" +
+            $"지원 버전: {(mod.SupportedVersions.Count == 0 ? "정보 없음" : string.Join(", ", mod.SupportedVersions))}\n" +
+            $"경로: {mod.Path}\n" +
+            (string.IsNullOrWhiteSpace(mod.Url) ? "" : $"프로젝트 페이지: {mod.Url}\n") +
+            $"\n{mod.Description}\n\n" +
             $"필수 모드: {string.Join(", ", mod.Required)}\n" +
             $"LoadAfter: {string.Join(", ", mod.LoadAfter)}\n" +
             $"LoadBefore: {string.Join(", ", mod.LoadBefore)}\n\n{mod.Issue}";
