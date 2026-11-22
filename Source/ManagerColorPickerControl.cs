@@ -307,11 +307,19 @@ namespace Lilly.IntegratedModManager
                 ToHsv(ManagerTagColors.Background(colorHex),
                     out hue, out saturation, out value);
 
+            // 무채색이나 검정을 선택한 상태에서도 색상 띠를 누르면 새 색조가 보이도록 한다.
+            if (saturation <= 0.0001f)
+                saturation = 1f;
+            if (value <= 0.0001f)
+                value = 1f;
+
             Color selected;
             if (selectedMode == LuminanceMode && colorHex != null)
             {
                 float luminance = ManagerTagColors.RelativeLuminance(
                     ManagerTagColors.Background(colorHex));
+                if (luminance <= 0.0001f)
+                    luminance = 0.5f;
                 selected = ColorAtLuminance(selectedHue, saturation, luminance);
             }
             else
