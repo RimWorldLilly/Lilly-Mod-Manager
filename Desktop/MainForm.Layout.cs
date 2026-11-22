@@ -724,6 +724,7 @@ internal sealed partial class MainForm
             mod.Active = enabled;
             store.GetState(mod.PackageId).Enabled = enabled;
         }
+        PersistManagerSettings("카테고리 활성화 상태 변경");
         RefreshSidebar();
         RefreshGameLikeList();
         SetStatus($"'{category.Name}' 카테고리의 모드를 {(enabled ? "활성화" : "비활성화")}할 예정입니다.");
