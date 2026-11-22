@@ -159,6 +159,9 @@ internal sealed class ModStore
     public List<string> ExcludedPackageIds { get; private set; } = [];
     public List<string> FavoriteFolderKeys { get; private set; } = [];
     public List<string> RecentFolderKeys { get; private set; } = [];
+    public bool AutoTagNewMods { get; set; } = true;
+    public bool AutoTagUpdatedMods { get; set; } = true;
+    public bool MetadataChanged { get; private set; }
     public List<ModEntry> OrderedMods { get; private set; } = [];
 
     public ModStore(GamePaths paths) => Paths = paths;
@@ -319,6 +322,9 @@ internal sealed class ModStore
         ExcludedPackageIds = [];
         FavoriteFolderKeys = [];
         RecentFolderKeys = [];
+        AutoTagNewMods = true;
+        AutoTagUpdatedMods = true;
+        MetadataChanged = false;
         if (File.Exists(Paths.ManagerSettings))
         {
             try
@@ -333,6 +339,8 @@ internal sealed class ModStore
                     ExcludedPackageIds = ListValues(managerSettings, "excludedPackageIds");
                     FavoriteFolderKeys = ListValues(managerSettings, "favoriteFolderKeys");
                     RecentFolderKeys = ListValues(managerSettings, "recentFolderKeys");
+                    AutoTagNewMods = BoolValue(managerSettings, "autoTagNewMods", true);
+                    AutoTagUpdatedMods = BoolValue(managerSettings, "autoTagUpdatedMods", true);
                 }
             }
             catch { }
@@ -366,13 +374,71 @@ internal sealed class ModStore
                 folder.ModIds.RemoveAll(excluded.Contains);
         States.RemoveAll(state => excluded.Contains(state.PackageId));
 
-        var stateIds = new HashSet<string>(States.Select(s => s.PackageId), StringComparer.OrdinalIgnoreCase);
+        // An empty state list is the initial baseline, not a batch of newly installed mods.
+        // Once at least one saved state exists, missing installed package IDs are genuinely new.
+        bool hasExistingBaseline = States.Count > 0;
+        var stateById = States.ToDictionary(state => state.PackageId, StringComparer.OrdinalIgnoreCase);
         foreach (ModEntry mod in OrderedMods)
         {
-            if (stateIds.Contains(mod.PackageId)) continue;
-            States.Add(new ModState { PackageId = mod.PackageId, Enabled = mod.Active, InstalledVersion = mod.Version });
+            if (!stateById.TryGetValue(mod.PackageId, out ModState? state))
+            {
+                state = new ModState
+                {
+                    PackageId = mod.PackageId,
+                    Enabled = mod.Active,
+                    InstalledVersion = NullIfEmpty(mod.Version)
+                };
+                States.Add(state);
+                stateById[mod.PackageId] = state;
+                MetadataChanged = true;
+
+                if (hasExistingBaseline && !string.IsNullOrWhiteSpace(mod.Path) && AutoTagNewMods)
+                    AddAutomaticTag(state, "auto-new", "신규");
+                continue;
+            }
+
+            if (string.IsNullOrWhiteSpace(mod.Path) || string.IsNullOrWhiteSpace(mod.Version))
+                continue;
+
+            if (!string.IsNullOrWhiteSpace(state.InstalledVersion) &&
+                !state.InstalledVersion.Equals(mod.Version, StringComparison.OrdinalIgnoreCase))
+            {
+                if (AutoTagUpdatedMods)
+                    AddAutomaticTag(state, "auto-updated", "변경됨");
+                MetadataChanged = true;
+            }
+
+            if (!string.Equals(state.InstalledVersion, mod.Version, StringComparison.OrdinalIgnoreCase))
+            {
+                state.InstalledVersion = mod.Version;
+                MetadataChanged = true;
+            }
         }
         AssignUnclassifiedMods();
+    }
+
+    private void AddAutomaticTag(ModState state, string tagId, string tagName)
+    {
+        TagData? tag = Tags.FirstOrDefault(candidate =>
+            candidate.Id.Equals(tagId, StringComparison.OrdinalIgnoreCase));
+        tag ??= Tags.FirstOrDefault(candidate =>
+            candidate.Name.Equals(tagName, StringComparison.OrdinalIgnoreCase));
+        if (tag == null)
+        {
+            tag = new TagData
+            {
+                Id = tagId,
+                Name = tagName,
+                Folders = [NewFolder()]
+            };
+            Tags.Add(tag);
+            MetadataChanged = true;
+        }
+        if (!state.TagIds.Contains(tag.Id, StringComparer.OrdinalIgnoreCase))
+        {
+            state.TagIds.Add(tag.Id);
+            MetadataChanged = true;
+        }
     }
 
     private static CategoryData NewCategory(string id, string name) => new() { Id = id, Name = name, Folders = [NewFolder()] };
@@ -649,6 +715,8 @@ internal sealed class ModStore
         ReplaceCollection(managerSettings, "excludedPackageIds", ExcludedPackageIds.Select(id => new XElement("li", id)));
         ReplaceCollection(managerSettings, "favoriteFolderKeys", FavoriteFolderKeys.Select(key => new XElement("li", key)));
         ReplaceCollection(managerSettings, "recentFolderKeys", RecentFolderKeys.Select(key => new XElement("li", key)));
+        SetValue(managerSettings, "autoTagNewMods", AutoTagNewMods);
+        SetValue(managerSettings, "autoTagUpdatedMods", AutoTagUpdatedMods);
         BackupFile(Paths.ManagerSettings);
         SaveAtomic(doc, Paths.ManagerSettings);
     }
@@ -658,6 +726,14 @@ internal sealed class ModStore
         XElement collection = new(name, items);
         XElement? existing = parent.Elements().FirstOrDefault(e => e.Name.LocalName == name);
         if (existing == null) parent.Add(collection); else existing.ReplaceWith(collection);
+    }
+
+    private static void SetValue(XElement parent, string name, bool value)
+    {
+        XElement? existing = Child(parent, name);
+        string text = value.ToString().ToLowerInvariant();
+        if (existing == null) parent.Add(new XElement(name, text));
+        else existing.Value = text;
     }
     private static XElement WriteCategory(CategoryData c) => new("li", new XElement("id", c.Id), new XElement("name", c.Name), new XElement("enabled", c.Enabled.ToString().ToLowerInvariant()), HexElement("colorHex", c.ColorHex), StringList("mods", c.ModIds), new XElement("folders", c.Folders.Select(WriteFolder)));
     private static XElement WriteTag(TagData t) => new("li", new XElement("id", t.Id), new XElement("name", t.Name), new XElement("isSystem", t.IsSystem.ToString().ToLowerInvariant()), HexElement("colorHex", t.ColorHex), new XElement("folders", t.Folders.Select(WriteFolder)));
