@@ -130,6 +130,8 @@ internal sealed partial class MainForm
     private string? sidebarSelectedTagId;
     private string? primarySelectedPackageId;
     private int selectionAnchorRow = -1;
+    private readonly List<ModEntry> visibleMods = [];
+    private readonly HashSet<string> selectedPackageIds = new(StringComparer.OrdinalIgnoreCase);
     private Control? contextMenuAnchor;
     private Point contextMenuPoint;
     private const string ModDragDataFormat = "Lilly.ModManager.Desktop.PackageIds";
@@ -150,25 +152,6 @@ internal sealed partial class MainForm
         BackColor = Color.FromArgb(23, 26, 31);
         ForeColor = Color.Gainsboro;
         Icon = LoadIcon();
-
-        // Hidden model grid is retained only as a selection/data adapter for existing actions.
-        // It is never added to the visible layout.
-        grid.Visible = false;
-        grid.Size = new Size(1, 1);
-        grid.Location = new Point(-10, -10);
-        grid.Columns.Clear();
-        grid.Columns.Add(new DataGridViewCheckBoxColumn { Name = "active", HeaderText = "활성" });
-        grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "name", HeaderText = "이름" });
-        grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "category", HeaderText = "카테고리" });
-        grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "folder", HeaderText = "폴더" });
-        grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "tags", HeaderText = "태그" });
-        grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "version", HeaderText = "버전" });
-        grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "source", HeaderText = "출처" });
-        grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "issue", HeaderText = "검사" });
-        grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "package", HeaderText = "PackageId" });
-        grid.MultiSelect = true;
-        grid.SelectionMode = DataGridViewSelectionMode.FullRowSelect;
-        grid.SelectionChanged += (_, _) => UpdateDetails();
 
         var top = new FlowLayoutPanel
         {
@@ -388,11 +371,11 @@ internal sealed partial class MainForm
 
         if (e.Control && e.KeyCode == Keys.A)
         {
-            grid.ClearSelection();
-            foreach (DataGridViewRow row in grid.Rows) row.Selected = true;
-            primarySelectedPackageId = grid.Rows.Count > 0
-                ? (grid.Rows[0].Tag as ModEntry)?.PackageId
-                : null;
+            selectedPackageIds.Clear();
+            foreach (ModEntry mod in visibleMods)
+                selectedPackageIds.Add(mod.PackageId);
+            primarySelectedPackageId = visibleMods.FirstOrDefault()?.PackageId;
+            selectionAnchorRow = visibleMods.Count > 0 ? 0 : -1;
             UpdateModRowSelection();
             UpdateDetails();
             e.Handled = true;
@@ -401,27 +384,24 @@ internal sealed partial class MainForm
 
         if (e.KeyCode == Keys.Up || e.KeyCode == Keys.Down || e.KeyCode == Keys.Home || e.KeyCode == Keys.End)
         {
-            if (grid.Rows.Count == 0) return;
-            int current = grid.Rows.Cast<DataGridViewRow>().ToList()
-                .FindIndex(row => (row.Tag as ModEntry)?.PackageId.Equals(
-                    primarySelectedPackageId, StringComparison.OrdinalIgnoreCase) == true);
+            if (visibleMods.Count == 0) return;
+            int current = visibleMods.FindIndex(mod =>
+                mod.PackageId.Equals(primarySelectedPackageId, StringComparison.OrdinalIgnoreCase));
             if (current < 0) current = 0;
             int target = e.KeyCode switch
             {
                 Keys.Home => 0,
-                Keys.End => grid.Rows.Count - 1,
+                Keys.End => visibleMods.Count - 1,
                 Keys.Up => Math.Max(0, current - 1),
-                _ => Math.Min(grid.Rows.Count - 1, current + 1)
+                _ => Math.Min(visibleMods.Count - 1, current + 1)
             };
-            if (grid.Rows[target].Tag is ModEntry mod)
-            {
-                SelectModRow(mod, new MouseEventArgs(MouseButtons.Left, 1, 0, 0, 0));
-                Control? rowControl = modRows.Controls.Cast<Control>()
-                    .FirstOrDefault(control => control is Panel panel &&
-                        panel.Tag is ModEntry item &&
-                        item.PackageId.Equals(mod.PackageId, StringComparison.OrdinalIgnoreCase));
-                if (rowControl != null) modRows.ScrollControlIntoView(rowControl);
-            }
+            ModEntry mod = visibleMods[target];
+            SelectModRow(mod, new MouseEventArgs(MouseButtons.Left, 1, 0, 0, 0));
+            Control? rowControl = modRows.Controls.Cast<Control>()
+                .FirstOrDefault(control => control is Panel panel &&
+                    panel.Tag is ModEntry item &&
+                    item.PackageId.Equals(mod.PackageId, StringComparison.OrdinalIgnoreCase));
+            if (rowControl != null) modRows.ScrollControlIntoView(rowControl);
             e.Handled = true;
             e.SuppressKeyPress = true;
         }
@@ -778,10 +758,8 @@ internal sealed partial class MainForm
             return haystack.Contains(query, StringComparison.CurrentCultureIgnoreCase);
         }).ToList();
 
-        string[] preserveSelection = grid.SelectedRows.Cast<DataGridViewRow>()
-            .Select(row => (row.Tag as ModEntry)?.PackageId)
-            .Where(id => !string.IsNullOrEmpty(id)).Cast<string>().ToArray();
-        grid.Rows.Clear();
+        string[] preserveSelection = SelectedIds().ToArray();
+        visibleMods.Clear();
         modRows.SuspendLayout();
         foreach (Control oldControl in modRows.Controls.Cast<Control>().ToArray()) oldControl.Dispose();
         modRows.Controls.Clear();
@@ -807,23 +785,28 @@ internal sealed partial class MainForm
         if (filtered.Count == 0)
             AddMessageRow(query.Length == 0 ? "표시할 모드가 없습니다." : "검색 결과가 없습니다.");
 
-        var visibleIds = grid.Rows.Cast<DataGridViewRow>()
-            .Select(row => (row.Tag as ModEntry)?.PackageId)
-            .Where(id => !string.IsNullOrEmpty(id)).Cast<string>()
-            .ToHashSet(StringComparer.OrdinalIgnoreCase);
-        var nextSelection = preserveSelection.Where(visibleIds.Contains).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var visibleIds = new HashSet<string>(
+            visibleMods.Select(mod => mod.PackageId), StringComparer.OrdinalIgnoreCase);
+        selectedPackageIds.Clear();
+        selectedPackageIds.UnionWith(preserveSelection.Where(visibleIds.Contains));
         if (primarySelectedPackageId != null && !visibleIds.Contains(primarySelectedPackageId))
             primarySelectedPackageId = null;
-        grid.ClearSelection();
-        foreach (DataGridViewRow row in grid.Rows)
-            if (row.Tag is ModEntry mod && nextSelection.Contains(mod.PackageId)) row.Selected = true;
-        if (primarySelectedPackageId != null && !nextSelection.Contains(primarySelectedPackageId))
+        if (primarySelectedPackageId != null &&
+            !selectedPackageIds.Contains(primarySelectedPackageId))
             primarySelectedPackageId = null;
-        if (primarySelectedPackageId == null && grid.Rows.Count > 0)
+        if (primarySelectedPackageId == null)
         {
-            grid.Rows[0].Selected = true;
-            primarySelectedPackageId = (grid.Rows[0].Tag as ModEntry)?.PackageId;
+            ModEntry? firstSelected = visibleMods.FirstOrDefault(mod => selectedPackageIds.Contains(mod.PackageId));
+            ModEntry? firstVisible = firstSelected ?? visibleMods.FirstOrDefault();
+            if (firstVisible != null)
+            {
+                selectedPackageIds.Add(firstVisible.PackageId);
+                primarySelectedPackageId = firstVisible.PackageId;
+            }
         }
+        selectionAnchorRow = primarySelectedPackageId == null
+            ? -1
+            : visibleMods.FindIndex(mod => mod.PackageId.Equals(primarySelectedPackageId, StringComparison.OrdinalIgnoreCase));
         modRows.ResumeLayout();
         ResizeModRows();
         UpdateModRowSelection();
@@ -984,14 +967,8 @@ internal sealed partial class MainForm
     {
         ModState state = store!.GetState(mod.PackageId);
         CategoryData? category = store.Categories.FirstOrDefault(c => c.ModIds.Contains(mod.PackageId, StringComparer.OrdinalIgnoreCase));
-        string tagNamesForGrid = string.Join(", ", state.TagIds.Select(id => store.Tags.FirstOrDefault(t => t.Id == id)?.Name).Where(n => !string.IsNullOrWhiteSpace(n)));
-        string folderNameForGrid = category?.Folders.FirstOrDefault(f => f.ModIds.Contains(mod.PackageId, StringComparer.OrdinalIgnoreCase))?.Name ?? "미분류";
-        grid.Rows.Add(mod.Active || mod.Official,
-            string.IsNullOrWhiteSpace(state.DisplayName) ? mod.Name : state.DisplayName,
-            category?.Name ?? "미분류", folderNameForGrid, tagNamesForGrid, mod.Version,
-            mod.Official ? "공식" : mod.Workshop ? "창작마당" : "로컬", mod.Issue, mod.PackageId);
-        int rowIndex = grid.Rows.Count - 1;
-        grid.Rows[rowIndex].Tag = mod;
+        visibleMods.Add(mod);
+        int rowIndex = visibleMods.Count - 1;
 
         var row = new Panel
         {
@@ -1110,14 +1087,12 @@ internal sealed partial class MainForm
         MouseEventHandler rightClick = (source, e) =>
         {
             if (e.Button != MouseButtons.Right) return;
-            int selectedIndex = grid.Rows.Cast<DataGridViewRow>().ToList()
-                .FindIndex(item => (item.Tag as ModEntry)?.PackageId.Equals(mod.PackageId, StringComparison.OrdinalIgnoreCase) == true);
-            if (selectedIndex >= 0 && !grid.Rows[selectedIndex].Selected)
+            if (!selectedPackageIds.Contains(mod.PackageId))
                 SelectModRow(mod, e, false);
             Control sourceControl = source as Control ?? row;
             contextMenuAnchor = row;
             contextMenuPoint = row.PointToClient(sourceControl.PointToScreen(e.Location));
-            GridMouseUp(grid, e);
+            GridMouseUp(this, e);
             contextMenuAnchor = null;
         };
         foreach (Control chip in meta.Controls) chip.MouseUp += rightClick;
@@ -1133,7 +1108,7 @@ internal sealed partial class MainForm
         meta.MouseUp += rightClick;
         check.MouseUp += rightClick;
 
-        if (grid.Rows[rowIndex].Selected)
+        if (selectedPackageIds.Contains(mod.PackageId))
             row.BackColor = Color.FromArgb(44, 91, 112);
         AddModListControl(row);
     }
@@ -1385,24 +1360,21 @@ internal sealed partial class MainForm
 
     private void SelectModRow(ModEntry mod, MouseEventArgs e, bool applyModifierSelection = true)
     {
-        int index = grid.Rows.Cast<DataGridViewRow>()
-            .ToList().FindIndex(row => (row.Tag as ModEntry)?.PackageId.Equals(mod.PackageId, StringComparison.OrdinalIgnoreCase) == true);
+        int index = visibleMods.FindIndex(item =>
+            item.PackageId.Equals(mod.PackageId, StringComparison.OrdinalIgnoreCase));
         if (index < 0) return;
 
         bool control = applyModifierSelection && (ModifierKeys & Keys.Control) == Keys.Control;
         bool shift = applyModifierSelection && (ModifierKeys & Keys.Shift) == Keys.Shift;
-        var selected = grid.SelectedRows.Cast<DataGridViewRow>()
-            .Select(row => (row.Tag as ModEntry)?.PackageId)
-            .Where(id => !string.IsNullOrEmpty(id)).Cast<string>()
-            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var selected = new HashSet<string>(selectedPackageIds, StringComparer.OrdinalIgnoreCase);
 
-        if (shift && selectionAnchorRow >= 0)
+        if (shift && selectionAnchorRow >= 0 && selectionAnchorRow < visibleMods.Count)
         {
             if (!control) selected.Clear();
             int start = Math.Min(selectionAnchorRow, index);
             int end = Math.Max(selectionAnchorRow, index);
-            for (int i = start; i <= end && i < grid.Rows.Count; i++)
-                if (grid.Rows[i].Tag is ModEntry rangeMod) selected.Add(rangeMod.PackageId);
+            for (int i = start; i <= end; i++)
+                selected.Add(visibleMods[i].PackageId);
         }
         else if (control)
         {
@@ -1416,14 +1388,11 @@ internal sealed partial class MainForm
             selectionAnchorRow = index;
         }
 
-        grid.ClearSelection();
-        for (int i = 0; i < grid.Rows.Count; i++)
-            if (grid.Rows[i].Tag is ModEntry rowMod && selected.Contains(rowMod.PackageId))
-                grid.Rows[i].Selected = true;
-
+        selectedPackageIds.Clear();
+        selectedPackageIds.UnionWith(selected);
         primarySelectedPackageId = selected.Contains(mod.PackageId)
             ? mod.PackageId
-            : grid.SelectedRows.Count > 0 ? (grid.SelectedRows[0].Tag as ModEntry)?.PackageId : null;
+            : visibleMods.FirstOrDefault(item => selected.Contains(item.PackageId))?.PackageId;
         modRows.Focus();
         UpdateModRowSelection();
         UpdateDetails();
@@ -1431,14 +1400,10 @@ internal sealed partial class MainForm
 
     private void UpdateModRowSelection()
     {
-        var selected = grid.SelectedRows.Cast<DataGridViewRow>()
-            .Select(row => (row.Tag as ModEntry)?.PackageId)
-            .Where(id => !string.IsNullOrEmpty(id))
-            .ToHashSet(StringComparer.OrdinalIgnoreCase);
         foreach (Control control in modRows.Controls)
         {
             if (control is not Panel panel || panel.Tag is not ModEntry mod) continue;
-            panel.BackColor = selected.Contains(mod.PackageId)
+            panel.BackColor = selectedPackageIds.Contains(mod.PackageId)
                 ? Color.FromArgb(44, 91, 112)
                 : modRows.Controls.GetChildIndex(panel) % 2 == 0
                     ? Color.FromArgb(31, 35, 42)
@@ -1480,7 +1445,7 @@ internal sealed partial class MainForm
                 mod.PackageId.Equals(primarySelectedPackageId, StringComparison.OrdinalIgnoreCase));
             if (primary != null) return primary;
         }
-        return grid.SelectedRows.Count > 0 ? grid.SelectedRows[0].Tag as ModEntry : null;
+        return visibleMods.FirstOrDefault(mod => selectedPackageIds.Contains(mod.PackageId));
     }
 
     private void UpdateDetailsPane()
