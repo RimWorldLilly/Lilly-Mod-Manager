@@ -644,6 +644,7 @@ internal sealed class MainForm : Form
     private readonly TextBox search = new() { Width = 190, PlaceholderText = "모드 이름 / 제작자 / PackageId 검색" };
     private readonly ComboBox categoryFilter = new() { Width = 145, DropDownStyle = ComboBoxStyle.DropDownList };
     private readonly ComboBox tagFilter = new() { Width = 130, DropDownStyle = ComboBoxStyle.DropDownList };
+    private readonly ComboBox activeFilter = new() { Width = 95, DropDownStyle = ComboBoxStyle.DropDownList };
     private readonly DataGridView grid = new() { Dock = DockStyle.Fill, AllowUserToAddRows = false, AllowUserToDeleteRows = false, MultiSelect = true, SelectionMode = DataGridViewSelectionMode.FullRowSelect, RowHeadersVisible = false, AutoGenerateColumns = false, BackgroundColor = Color.FromArgb(28, 31, 37), BorderStyle = BorderStyle.None, EnableHeadersVisualStyles = false };
     private readonly RichTextBox details = new() { Dock = DockStyle.Fill, ReadOnly = true, BackColor = Color.FromArgb(28, 31, 37), ForeColor = Color.Gainsboro, BorderStyle = BorderStyle.None };
     private readonly Label status = new() { Dock = DockStyle.Bottom, Height = 26, TextAlign = ContentAlignment.MiddleLeft, Padding = new Padding(8, 0, 0, 0) };
@@ -675,6 +676,7 @@ internal sealed class MainForm : Form
         AddToolbarLabel(toolbar, "검색"); toolbar.Controls.Add(search);
         AddToolbarLabel(toolbar, "카테고리"); toolbar.Controls.Add(categoryFilter);
         AddToolbarLabel(toolbar, "태그"); toolbar.Controls.Add(tagFilter);
+        AddToolbarLabel(toolbar, "상태"); activeFilter.Items.AddRange(new object[] { "모두", "활성", "비활성" }); activeFilter.SelectedIndex = 0; toolbar.Controls.Add(activeFilter);
         AddButton(toolbar, "새로고침", Reload);
         AddButton(toolbar, "적용 / 저장", Apply);
         AddButton(toolbar, "프리셋 저장", SavePreset);
@@ -717,7 +719,7 @@ internal sealed class MainForm : Form
         grid.CellValueChanged += GridCellValueChanged; grid.SelectionChanged += (_, _) => UpdateDetails();
         grid.CellMouseDown += (_, e) => { if (e.Button == MouseButtons.Right && e.RowIndex >= 0 && !grid.Rows[e.RowIndex].Selected) { grid.ClearSelection(); grid.Rows[e.RowIndex].Selected = true; } };
         grid.MouseUp += GridMouseUp;
-        search.TextChanged += (_, _) => RefreshGrid(); categoryFilter.SelectedIndexChanged += (_, _) => RefreshGrid(); tagFilter.SelectedIndexChanged += (_, _) => RefreshGrid();
+        search.TextChanged += (_, _) => RefreshGrid(); categoryFilter.SelectedIndexChanged += (_, _) => RefreshGrid(); tagFilter.SelectedIndexChanged += (_, _) => RefreshGrid(); activeFilter.SelectedIndexChanged += (_, _) => RefreshGrid();
     }
 
     private static void AddToolbarLabel(FlowLayoutPanel panel, string text) => panel.Controls.Add(new Label { Text = text, AutoSize = true, Margin = new Padding(5, 9, 1, 0), ForeColor = Color.Silver });
@@ -782,6 +784,9 @@ internal sealed class MainForm : Form
             string folderName = cat?.Folders.FirstOrDefault(f => f.ModIds.Contains(mod.PackageId, StringComparer.OrdinalIgnoreCase))?.Name ?? "미분류";
             if (catName != "전체" && cat?.Name != catName) continue;
             if (tagName != "모든 태그" && !names.Contains(tagName)) continue;
+            string stateName = activeFilter.SelectedItem?.ToString() ?? "모두";
+            if (stateName == "활성" && !mod.Active && !mod.Official) continue;
+            if (stateName == "비활성" && (mod.Active || mod.Official)) continue;
             if (q.Length > 0 && !string.Join(" ", mod.Name, state.DisplayName, mod.PackageId, mod.Author, mod.Description).Contains(q, StringComparison.CurrentCultureIgnoreCase)) continue;
             int index = grid.Rows.Add(mod.Active || mod.Official, string.IsNullOrWhiteSpace(state.DisplayName) ? mod.Name : state.DisplayName, cat?.Name ?? "미분류", folderName, string.Join(", ", names), mod.Version, mod.Official ? "공식" : mod.Workshop ? "창작마당" : "로컬", mod.Issue, mod.PackageId);
             grid.Rows[index].Cells[0].ReadOnly = mod.Official;
