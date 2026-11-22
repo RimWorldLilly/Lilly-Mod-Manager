@@ -549,15 +549,21 @@ internal sealed class ModStore
 
     private void ApplyCategoryAndTagState()
     {
-        foreach (ModEntry mod in Mods)
+        foreach (ModEntry mod in OrderedMods)
         {
-            CategoryData? category = Categories.FirstOrDefault(c => c.ModIds.Contains(mod.PackageId, StringComparer.OrdinalIgnoreCase));
+            CategoryData? category = Categories.FirstOrDefault(item =>
+                item.ModIds.Contains(mod.PackageId, StringComparer.OrdinalIgnoreCase));
             mod.CategoryId = category?.Id ?? "normal";
-        }
-        foreach (ModEntry mod in Mods)
-        {
+
             ModState? state = FindState(mod.PackageId);
-            if (state != null) state.Enabled = mod.Active;
+            if (state == null)
+                continue;
+
+            // The in-game manager stores per-mod Enabled separately from category.Enabled.
+            // The category checkbox is a master switch; never overwrite the saved per-mod choice
+            // with the current ModsConfig.xml state during startup.
+            bool categoryEnabled = category?.Enabled ?? true;
+            mod.Active = mod.Official || (categoryEnabled && state.Enabled);
         }
     }
 
