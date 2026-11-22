@@ -335,6 +335,7 @@ internal sealed partial class MainForm
                         () =>
                         {
                             store.AssignToTagFolder(selectedIds, tag, folder);
+                            PersistManagerSettings("빠른 태그 폴더 이동");
                             RefreshSidebar();
                             RefreshGameLikeList();
                             SetStatus($"{selectedIds.Count}개 모드를 '{tag.Name}/{folder.Name}'으로 이동했습니다.");
@@ -362,6 +363,7 @@ internal sealed partial class MainForm
                         () =>
                         {
                             store.AssignToCategoryFolder(selectedIds, category, folder);
+                            PersistManagerSettings("빠른 카테고리 폴더 이동");
                             RefreshSidebar();
                             RefreshGameLikeList();
                             SetStatus($"{selectedIds.Count}개 모드를 '{category.Name}/{folder.Name}'으로 이동했습니다.");
@@ -376,7 +378,7 @@ internal sealed partial class MainForm
             columns,
             store.FavoriteFolderKeys,
             store.RecentFolderKeys,
-            store.SaveManagerDataImmediately);
+            () => PersistManagerSettings("폴더 바로가기 즐겨찾기/최근 기록"));
         dialog.ShowDialog(this);
     }
 
@@ -1165,6 +1167,7 @@ internal sealed partial class MainForm
         store.Categories.RemoveAt(sourceIndex);
         targetIndex = store.Categories.IndexOf(target);
         store.Categories.Insert(targetIndex, moving);
+        PersistManagerSettings("카테고리 순서 변경");
         RefreshSidebar();
         RefreshGameLikeList();
         SetStatus($"'{moving.Name}' 카테고리 순서를 변경했습니다.");
@@ -1232,6 +1235,7 @@ internal sealed partial class MainForm
         folders.Remove(moving);
         targetIndex = folders.IndexOf(target);
         folders.Insert(targetIndex, moving);
+        PersistManagerSettings("폴더 순서 변경");
         RefreshGameLikeList();
         SetStatus($"'{moving.Name}' 폴더 순서를 변경했습니다.");
     }
@@ -1316,6 +1320,7 @@ internal sealed partial class MainForm
         List<string> ids = ReadDraggedIds(e.Data);
         if (ids.Count == 0) return;
         store.AssignCategory(ids, category.Id);
+        PersistManagerSettings("카테고리 이동");
         RefreshGrid();
         SetStatus($"선택한 모드 {ids.Count}개를 '{category.Name}' 카테고리로 이동했습니다.");
     }
@@ -1326,6 +1331,7 @@ internal sealed partial class MainForm
         List<string> ids = ReadDraggedIds(e.Data);
         if (ids.Count == 0) return;
         store.AssignTag(ids, tag, true);
+        PersistManagerSettings("태그 지정");
         RefreshGrid();
         SetStatus($"선택한 모드 {ids.Count}개에 '{tag.Name}' 태그를 지정했습니다.");
     }
@@ -1352,6 +1358,7 @@ internal sealed partial class MainForm
             if (category == null) return;
             store.AssignToCategoryFolder(ids, category, folder);
         }
+        PersistManagerSettings("폴더 이동");
         RefreshGrid();
         SetStatus($"선택한 모드 {ids.Count}개를 '{folder.Name}' 폴더로 이동했습니다.");
     }
