@@ -950,7 +950,12 @@ internal sealed partial class MainForm : Form
         foreach (CategoryData category in store.Categories)
         {
             CategoryData captured = category;
-            categoryMenu.DropDownItems.Add(category.Name, null, (_, _) => { store.AssignCategory(SelectedIds(), captured.Id); RefreshGrid(); });
+            categoryMenu.DropDownItems.Add(category.Name, null, (_, _) =>
+            {
+                store.AssignCategory(SelectedIds(), captured.Id);
+                PersistManagerSettings("카테고리 이동");
+                RefreshGrid();
+            });
         }
         menu.Items.Add("선택 모드 활성화", null, (_, _) => SetSelectedActive(true));
         menu.Items.Add("선택 모드 비활성화", null, (_, _) => SetSelectedActive(false));
@@ -960,7 +965,12 @@ internal sealed partial class MainForm : Form
         {
             TagData captured = tag;
             var item = new ToolStripMenuItem(tag.Name) { CheckOnClick = true, Checked = SelectedIds().Any(id => store.GetState(id).TagIds.Contains(captured.Id)) };
-            item.Click += (_, _) => { store.AssignTag(SelectedIds(), captured, item.Checked); RefreshGrid(); };
+            item.Click += (_, _) =>
+            {
+                store.AssignTag(SelectedIds(), captured, item.Checked);
+                PersistManagerSettings("태그 지정");
+                RefreshGrid();
+            };
             tagMenu.DropDownItems.Add(item);
         }
         menu.Items.Add(tagMenu);
@@ -977,6 +987,7 @@ internal sealed partial class MainForm : Form
                 folderMenu.DropDownItems.Add(folder.Name, null, (_, _) =>
                 {
                     store.AssignToCategoryFolder(SelectedIds(), targetCategory, targetFolder);
+                    PersistManagerSettings("카테고리 폴더 이동");
                     RefreshGrid();
                 });
             }
@@ -994,6 +1005,7 @@ internal sealed partial class MainForm : Form
                 tagFolderMenu.DropDownItems.Add(folder.Name, null, (_, _) =>
                 {
                     store.AssignToTagFolder(SelectedIds(), targetTag, targetFolder);
+                    PersistManagerSettings("태그 폴더 이동");
                     RefreshGrid();
                 });
             }
@@ -1123,6 +1135,7 @@ internal sealed partial class MainForm : Form
             "관리 목록에서 제거", MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes) return;
         if (store.RemoveFromManager(mod.PackageId))
         {
+            PersistManagerSettings("관리 목록에서 모드 제거");
             RefreshFilters();
             RefreshGrid();
             SetStatus("모드를 관리 목록에서 제외했습니다. 설치 파일과 구독 상태는 유지됩니다.");
