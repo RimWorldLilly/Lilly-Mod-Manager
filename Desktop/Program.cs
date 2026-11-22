@@ -382,7 +382,8 @@ internal sealed class ModStore
 
     private void RebuildIssues()
     {
-        var ids = new HashSet<string>(Mods.Select(m => m.PackageId), StringComparer.OrdinalIgnoreCase);
+        var installedIds = new HashSet<string>(Mods.Select(m => m.PackageId), StringComparer.OrdinalIgnoreCase);
+        var activeIds = new HashSet<string>(OrderedMods.Where(m => m.Active || m.Official).Select(m => m.PackageId), StringComparer.OrdinalIgnoreCase);
         foreach (ModEntry mod in OrderedMods)
         {
             if (string.IsNullOrWhiteSpace(mod.Path))
@@ -390,8 +391,11 @@ internal sealed class ModStore
                 mod.Issue = "설치된 모드 폴더 없음";
                 continue;
             }
-            var missing = mod.Required.Where(id => !ids.Contains(id)).ToList();
-            mod.Issue = missing.Count > 0 ? "필수 모드 누락: " + string.Join(", ", missing) : "";
+            var problems = mod.Required
+                .Where(id => !activeIds.Contains(id))
+                .Select(id => installedIds.Contains(id) ? id + " (비활성)" : id + " (미설치)")
+                .ToList();
+            mod.Issue = problems.Count > 0 ? "필수 모드 확인: " + string.Join(", ", problems) : "";
         }
     }
 
@@ -504,7 +508,7 @@ internal sealed class ModStore
         XDocument doc = File.Exists(Paths.ManagerSettings) ? XDocument.Load(Paths.ManagerSettings) : new XDocument(new XElement("ModSettings"));
         XElement root = doc.Root ?? throw new InvalidDataException("ModSettings XML root is missing.");
         XElement manager = root.DescendantsAndSelf().FirstOrDefault(e => e.Name.LocalName == "Lilly.ModManager") ?? new XElement("Lilly.ModManager");
-        if (manager.Parent == null) root.Add(manager);
+        if (manager != root && manager.Parent == null) root.Add(manager);
         ReplaceCollection(manager, "categories", Categories.Select(WriteCategory));
         ReplaceCollection(manager, "tags", Tags.Select(WriteTag));
         ReplaceCollection(manager, "mods", States.Select(WriteState));
@@ -1052,7 +1056,7 @@ internal sealed class MainForm : Form
     {
         if (store == null) return;
         List<string> ids = SelectedIds(); if (ids.Count == 0) return;
-        ModEntry? first = store.Mods.FirstOrDefault(m => m.PackageId == ids[0]); if (first == null) return;
+        ModEntry? first = store.OrderedMods.FirstOrDefault(m => m.PackageId == ids[0]); if (first == null) return;
         CategoryData? category = store.Categories.FirstOrDefault(c => c.Id == first.CategoryId); if (category == null) return;
         string? name = Prompt.Show(this, "새 폴더 이름", "폴더 추가"); if (string.IsNullOrWhiteSpace(name)) return;
         string folderId = "folder-" + Guid.NewGuid().ToString("N");
