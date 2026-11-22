@@ -13,16 +13,12 @@ internal sealed partial class MainForm
     {
         Dock = DockStyle.Fill,
         Orientation = Orientation.Vertical,
-        Panel1MinSize = 190,
-        Panel2MinSize = 700,
         BackColor = Color.FromArgb(23, 26, 31)
     };
     private readonly SplitContainer contentSplit = new()
     {
         Dock = DockStyle.Fill,
         Orientation = Orientation.Vertical,
-        Panel1MinSize = 300,
-        Panel2MinSize = 320,
         BackColor = Color.FromArgb(23, 26, 31)
     };
     private readonly FlowLayoutPanel sidebarItems = new()
@@ -316,8 +312,21 @@ internal sealed partial class MainForm
         KeyDown += MainFormKeyDown;
         Shown += (_, _) =>
         {
-            try { outerSplit.SplitterDistance = Math.Max(205, (int)(ClientSize.Width * 0.17)); } catch { }
-            try { contentSplit.SplitterDistance = Math.Max(330, (int)(contentSplit.Width * 0.36)); } catch { }
+            try
+            {
+                outerSplit.Panel1MinSize = 190;
+                outerSplit.Panel2MinSize = 700;
+                outerSplit.SplitterDistance = Math.Max(205, (int)(outerSplit.ClientSize.Width * 0.17));
+            }
+            catch { }
+
+            try
+            {
+                contentSplit.Panel1MinSize = 300;
+                contentSplit.Panel2MinSize = 320;
+                contentSplit.SplitterDistance = Math.Max(330, (int)(contentSplit.ClientSize.Width * 0.36));
+            }
+            catch { }
         };
         RefreshSidebar();
     }
