@@ -396,8 +396,10 @@ internal sealed class ModStore
             ModState state = GetState(id);
             if (add && !state.TagIds.Contains(tag.Id)) state.TagIds.Add(tag.Id);
             if (!add) state.TagIds.RemoveAll(t => t.Equals(tag.Id, StringComparison.OrdinalIgnoreCase));
-            if (add) EnsureFolder(tag.Folders).ModIds.Add(id);
-            else foreach (var folder in tag.Folders) folder.ModIds.RemoveAll(m => m.Equals(id, StringComparison.OrdinalIgnoreCase));
+            if (add && !tag.Folders.Any(folder => folder.ModIds.Contains(id, StringComparer.OrdinalIgnoreCase)))
+                EnsureFolder(tag.Folders).ModIds.Add(id);
+            else if (!add)
+                foreach (var folder in tag.Folders) folder.ModIds.RemoveAll(m => m.Equals(id, StringComparison.OrdinalIgnoreCase));
         }
     }
 
@@ -413,9 +415,16 @@ internal sealed class ModStore
     {
         foreach (string id in packageIds)
         {
-            foreach (FolderData folder in category.Folders)
-                folder.ModIds.RemoveAll(value => value.Equals(id, StringComparison.OrdinalIgnoreCase));
+            foreach (CategoryData existingCategory in Categories)
+            {
+                existingCategory.ModIds.RemoveAll(value => value.Equals(id, StringComparison.OrdinalIgnoreCase));
+                foreach (FolderData folder in existingCategory.Folders)
+                    folder.ModIds.RemoveAll(value => value.Equals(id, StringComparison.OrdinalIgnoreCase));
+            }
+            category.ModIds.Add(id);
             target.ModIds.Add(id);
+            ModEntry? mod = Mods.FirstOrDefault(m => m.PackageId == id);
+            if (mod != null) mod.CategoryId = category.Id;
         }
     }
 
@@ -433,7 +442,13 @@ internal sealed class ModStore
 
     public void SaveAll()
     {
-        foreach (ModEntry mod in OrderedMods) GetState(mod.PackageId).Enabled = mod.Active || mod.Official;
+        foreach (ModEntry mod in OrderedMods)
+            GetState(mod.PackageId).Enabled = mod.Active || mod.Official;
+        foreach (CategoryData category in Categories)
+        {
+            if (OrderedMods.Any(mod => (mod.Active || mod.Official) && category.ModIds.Contains(mod.PackageId, StringComparer.OrdinalIgnoreCase)))
+                category.Enabled = true;
+        }
         SaveModsConfig();
         SaveManagerSettings();
     }
@@ -1007,7 +1022,11 @@ internal sealed class MainForm : Form
     private void MoveSelected(int direction)
     {
         if (store == null || grid.SelectedRows.Count == 0) return;
-        var selected = grid.SelectedRows.Cast<DataGridViewRow>().Select(r => store.OrderedMods.IndexOf((ModEntry)r.Tag!)).Where(i => i >= 0).OrderBy(i => i).ToList();
+        var selected = grid.SelectedRows.Cast<DataGridViewRow>()
+            .Select(r => r.Tag as ModEntry)
+            .Where(mod => mod != null && !mod.Official)
+            .Select(mod => store.OrderedMods.IndexOf(mod!))
+            .Where(i => i >= 0).OrderBy(i => i).ToList();
         var selectedSet = new HashSet<int>(selected);
         if (direction < 0)
         {
