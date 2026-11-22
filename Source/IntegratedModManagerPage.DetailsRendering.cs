@@ -723,5 +723,6 @@ namespace Lilly.IntegratedModManager
 
                             if (Widgets.ButtonText(new Rect(x, rect.y, buttonWidth, rect.height), ManagerTranslation.Get("LMM_0070")))
                                 ApplyChanges();
-                        }    }
+                        }
+    }
 }
