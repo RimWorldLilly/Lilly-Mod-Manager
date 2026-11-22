@@ -620,9 +620,8 @@ namespace Lilly.IntegratedModManager
                 {
                     if (tag == null)
                         return 6f;
-                    string label = tag.Name + " (" +
-            GetActiveCount(tag) + "/" +
-            GetInstalledCount(tag) + ")";
+                    string label = "(" + GetActiveCount(tag) + "/" +
+            GetInstalledCount(tag) + ") " + tag.Name;
                     return Mathf.Max(130f, Text.CalcSize(label).x + 43f) + 6f;
                 }
         
@@ -664,7 +663,7 @@ namespace Lilly.IntegratedModManager
                         if (Widgets.ButtonText(labelRect,
                             "(" + GetInstalledCount(tag) + ") " + tag.Name))
                             SelectTag(tag);
-                        TooltipHandler.TipRegion(labelRect, tag.Name + " (" + GetInstalledCount(tag) + ")");
+                        TooltipHandler.TipRegion(labelRect, "(" + GetInstalledCount(tag) + ") " + tag.Name);
                         return;
                     }
         
