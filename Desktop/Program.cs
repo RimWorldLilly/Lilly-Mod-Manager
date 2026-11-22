@@ -821,7 +821,6 @@ internal sealed partial class MainForm : Form
     private readonly ComboBox tagFilter = new() { Width = 130, DropDownStyle = ComboBoxStyle.DropDownList };
     private readonly ComboBox activeFilter = new() { Width = 95, DropDownStyle = ComboBoxStyle.DropDownList };
     private readonly ComboBox sourceFilter = new() { Width = 115, DropDownStyle = ComboBoxStyle.DropDownList };
-    private readonly DataGridView grid = new() { Dock = DockStyle.Fill, AllowUserToAddRows = false, AllowUserToDeleteRows = false, MultiSelect = true, SelectionMode = DataGridViewSelectionMode.FullRowSelect, RowHeadersVisible = false, AutoGenerateColumns = false, BackgroundColor = Color.FromArgb(28, 31, 37), BorderStyle = BorderStyle.None, EnableHeadersVisualStyles = false };
     private readonly RichTextBox details = new() { Dock = DockStyle.Fill, ReadOnly = true, BackColor = Color.FromArgb(28, 31, 37), ForeColor = Color.Gainsboro, BorderStyle = BorderStyle.None };
     private readonly Label status = new() { Dock = DockStyle.Bottom, Height = 26, TextAlign = ContentAlignment.MiddleLeft, Padding = new Padding(8, 0, 0, 0) };
 
@@ -907,15 +906,6 @@ internal sealed partial class MainForm : Form
         RefreshGameLikeList();
     }
 
-    private void GridCellValueChanged(object? sender, DataGridViewCellEventArgs e)
-    {
-        if (store == null || e.RowIndex < 0 || e.ColumnIndex != 0) return;
-        if (grid.Rows[e.RowIndex].Tag is not ModEntry mod) return;
-        mod.Active = mod.Official || Convert.ToBoolean(grid.Rows[e.RowIndex].Cells[0].Value);
-        store.GetState(mod.PackageId).Enabled = mod.Active;
-        SetStatus($"{mod.Name}: {(mod.Active ? "활성화" : "비활성화")} 예정 · '적용 / 저장'을 눌러 반영하세요.");
-    }
-
     private void UpdateDetails()
     {
         ModEntry? mod = GetPrimarySelectedMod();
@@ -940,7 +930,7 @@ internal sealed partial class MainForm : Form
         UpdateDetailsPane();
     }
 
-    private List<string> SelectedIds() => grid.SelectedRows.Cast<DataGridViewRow>().Select(r => (r.Tag as ModEntry)?.PackageId).Where(x => !string.IsNullOrEmpty(x)).Cast<string>().ToList();
+    private List<string> SelectedIds() => visibleMods.Where(mod => selectedPackageIds.Contains(mod.PackageId)).Select(mod => mod.PackageId).ToList();
 
     private void GridMouseUp(object? sender, MouseEventArgs e)
     {
@@ -977,7 +967,7 @@ internal sealed partial class MainForm : Form
 
         var folderMenu = new ToolStripMenuItem("카테고리 폴더로 이동");
         ModEntry? currentMod = contextMenuAnchor?.Tag as ModEntry ??
-            (grid.SelectedRows.Count > 0 ? grid.SelectedRows[0].Tag as ModEntry : null);
+            GetPrimarySelectedMod();
         CategoryData? currentCategory = currentMod == null ? null : store.Categories.FirstOrDefault(c => c.Id == currentMod.CategoryId);
         if (currentCategory != null)
         {
@@ -1024,20 +1014,7 @@ internal sealed partial class MainForm : Form
         menu.Items.Add("표시 이름 초기화", null, (_, _) => ResetSelectedModName());
         menu.Items.Add("모드 폴더 열기", null, (_, _) => OpenSelectedFolder());
         menu.Items.Add("창작마당 페이지 열기", null, (_, _) => OpenWorkshopPage());
-        menu.Show(contextMenuAnchor ?? grid, contextMenuAnchor == null ? e.Location : contextMenuPoint);
-    }
-
-    private static void ApplyCellColor(DataGridViewCell cell, string? hex)
-    {
-        if (string.IsNullOrWhiteSpace(hex)) return;
-        try
-        {
-            Color color = ColorTranslator.FromHtml(hex);
-            cell.Style.BackColor = color;
-            double luminance = (0.2126 * color.R + 0.7152 * color.G + 0.0722 * color.B) / 255.0;
-            cell.Style.ForeColor = luminance > 0.52 ? Color.Black : Color.White;
-        }
-        catch { }
+        menu.Show(contextMenuAnchor ?? (Control)modRows, contextMenuAnchor == null ? e.Location : contextMenuPoint);
     }
 
     private static Color? ChooseColor(string? current)
@@ -1068,7 +1045,7 @@ internal sealed partial class MainForm : Form
 
     private void PickModColor()
     {
-        if (store == null || grid.SelectedRows.Count == 0 || grid.SelectedRows[0].Tag is not ModEntry mod) return;
+        if (store == null || GetPrimarySelectedMod() is not ModEntry mod) return;
         ModState state = store.GetState(mod.PackageId);
         Color? color = ChooseColor(state.ColorHex);
         if (color.HasValue) { state.ColorHex = ColorTranslator.ToHtml(color.Value); RefreshGrid(); }
@@ -1076,14 +1053,14 @@ internal sealed partial class MainForm : Form
 
     private void ClearModColor()
     {
-        if (store == null || grid.SelectedRows.Count == 0 || grid.SelectedRows[0].Tag is not ModEntry mod) return;
+        if (store == null || GetPrimarySelectedMod() is not ModEntry mod) return;
         store.GetState(mod.PackageId).ColorHex = null;
         RefreshGrid();
     }
 
     private void DeleteSelectedLocalModFolder()
     {
-        if (store == null || grid.SelectedRows.Count == 0 || grid.SelectedRows[0].Tag is not ModEntry mod) return;
+        if (store == null || GetPrimarySelectedMod() is not ModEntry mod) return;
         if (GameIsRunning())
         {
             MessageBox.Show(this, "림월드가 실행 중일 때는 모드 폴더를 삭제할 수 없습니다.");
@@ -1125,7 +1102,7 @@ internal sealed partial class MainForm : Form
 
     private void RemoveSelectedFromManager()
     {
-        if (store == null || grid.SelectedRows.Count == 0 || grid.SelectedRows[0].Tag is not ModEntry mod) return;
+        if (store == null || GetPrimarySelectedMod() is not ModEntry mod) return;
         if (mod.Active || mod.Official)
         {
             MessageBox.Show(this, "활성 모드와 Core/DLC는 관리 목록에서 제외할 수 없습니다.");
@@ -1159,7 +1136,7 @@ internal sealed partial class MainForm : Form
 
     private void RenameSelectedMod()
     {
-        if (store == null || grid.SelectedRows.Count == 0 || grid.SelectedRows[0].Tag is not ModEntry mod) return;
+        if (store == null || GetPrimarySelectedMod() is not ModEntry mod) return;
         ModState state = store.GetState(mod.PackageId);
         string? name = Prompt.Show(this, "목록에 표시할 모드 이름", "표시 이름 변경");
         if (name == null) return;
@@ -1169,7 +1146,7 @@ internal sealed partial class MainForm : Form
 
     private void ResetSelectedModName()
     {
-        if (store == null || grid.SelectedRows.Count == 0 || grid.SelectedRows[0].Tag is not ModEntry mod) return;
+        if (store == null || GetPrimarySelectedMod() is not ModEntry mod) return;
         store.GetState(mod.PackageId).DisplayName = null;
         RefreshGrid();
     }
@@ -1445,7 +1422,7 @@ internal sealed partial class MainForm : Form
     private FolderData? GetCurrentCategoryFolder(out CategoryData? category)
     {
         category = null;
-        if (store == null || grid.SelectedRows.Count == 0 || grid.SelectedRows[0].Tag is not ModEntry mod) return null;
+        if (store == null || GetPrimarySelectedMod() is not ModEntry mod) return null;
         category = store.Categories.FirstOrDefault(c => c.Id == mod.CategoryId);
         return category?.Folders.FirstOrDefault(f => f.ModIds.Contains(mod.PackageId, StringComparer.OrdinalIgnoreCase));
     }
@@ -1496,7 +1473,7 @@ internal sealed partial class MainForm : Form
     private FolderData? GetCurrentTagFolder(out TagData? tag)
     {
         tag = SelectedTag();
-        if (tag == null || grid.SelectedRows.Count == 0 || grid.SelectedRows[0].Tag is not ModEntry mod)
+        if (tag == null || GetPrimarySelectedMod() is not ModEntry mod)
             return null;
         return tag.Folders.FirstOrDefault(folder =>
             folder.ModIds.Contains(mod.PackageId, StringComparer.OrdinalIgnoreCase));
@@ -1556,12 +1533,11 @@ internal sealed partial class MainForm : Form
 
     private void MoveSelected(int direction)
     {
-        if (store == null || grid.SelectedRows.Count == 0) return;
-        var selected = grid.SelectedRows.Cast<DataGridViewRow>()
-            .Select(r => r.Tag as ModEntry)
-            .Where(mod => mod != null && !mod.Official)
-            .Select(mod => store.OrderedMods.IndexOf(mod!))
-            .Where(i => i >= 0).OrderBy(i => i).ToList();
+        if (store == null || selectedPackageIds.Count == 0) return;
+        var selected = SelectedIds()
+            .Select(id => store.OrderedMods.FindIndex(mod => mod.PackageId.Equals(id, StringComparison.OrdinalIgnoreCase)))
+            .Where(index => index >= 0 && !store.OrderedMods[index].Official)
+            .OrderBy(index => index).ToList();
         var selectedSet = new HashSet<int>(selected);
         if (direction < 0)
         {
@@ -1576,14 +1552,14 @@ internal sealed partial class MainForm : Form
 
     private void OpenSelectedFolder()
     {
-        if (grid.SelectedRows.Count == 0 || grid.SelectedRows[0].Tag is not ModEntry mod) return;
+        if (GetPrimarySelectedMod() is not ModEntry mod) return;
         if (!Directory.Exists(mod.Path)) { MessageBox.Show(this, "이 모드의 설치 폴더를 찾지 못했습니다."); return; }
         try { Process.Start(new ProcessStartInfo("explorer.exe", "\"" + mod.Path + "\"") { UseShellExecute = true }); } catch (Exception ex) { MessageBox.Show(ex.Message); }
     }
 
     private void OpenWorkshopPage()
     {
-        if (grid.SelectedRows.Count == 0 || grid.SelectedRows[0].Tag is not ModEntry mod || !mod.Workshop) return;
+        if (GetPrimarySelectedMod() is not ModEntry mod || !mod.Workshop) return;
         string id = new DirectoryInfo(mod.Path).Name;
         try { Process.Start(new ProcessStartInfo("https://steamcommunity.com/sharedfiles/filedetails/?id=" + Uri.EscapeDataString(id)) { UseShellExecute = true }); } catch { }
     }
