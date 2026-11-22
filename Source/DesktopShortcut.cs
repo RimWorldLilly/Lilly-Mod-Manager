@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using System.Reflection;
 using System.Runtime.InteropServices;
+using RimWorld;
 using Verse;
 
 namespace Lilly.IntegratedModManager
