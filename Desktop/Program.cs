@@ -1032,7 +1032,13 @@ internal sealed partial class MainForm : Form
         CategoryData? category = SelectedCategory();
         if (category == null) { MessageBox.Show(this, "카테고리 필터에서 카테고리를 선택하세요."); return; }
         Color? color = ChooseColor(category.ColorHex);
-        if (color.HasValue) { category.ColorHex = ColorTranslator.ToHtml(color.Value); RefreshGrid(); }
+        if (color.HasValue)
+        {
+            category.ColorHex = ColorTranslator.ToHtml(color.Value);
+            PersistManagerSettings("카테고리 색상 변경");
+            RefreshSidebar();
+            RefreshGrid();
+        }
     }
 
     private void PickTagColor()
@@ -1040,7 +1046,13 @@ internal sealed partial class MainForm : Form
         TagData? tag = SelectedTag();
         if (tag == null || tag.IsSystem) { MessageBox.Show(this, "태그 필터에서 사용자 태그를 선택하세요."); return; }
         Color? color = ChooseColor(tag.ColorHex);
-        if (color.HasValue) { tag.ColorHex = ColorTranslator.ToHtml(color.Value); RefreshGrid(); }
+        if (color.HasValue)
+        {
+            tag.ColorHex = ColorTranslator.ToHtml(color.Value);
+            PersistManagerSettings("태그 색상 변경");
+            RefreshSidebar();
+            RefreshGrid();
+        }
     }
 
     private void PickModColor()
@@ -1048,13 +1060,19 @@ internal sealed partial class MainForm : Form
         if (store == null || GetPrimarySelectedMod() is not ModEntry mod) return;
         ModState state = store.GetState(mod.PackageId);
         Color? color = ChooseColor(state.ColorHex);
-        if (color.HasValue) { state.ColorHex = ColorTranslator.ToHtml(color.Value); RefreshGrid(); }
+        if (color.HasValue)
+        {
+            state.ColorHex = ColorTranslator.ToHtml(color.Value);
+            PersistManagerSettings("모드 색상 변경");
+            RefreshGrid();
+        }
     }
 
     private void ClearModColor()
     {
         if (store == null || GetPrimarySelectedMod() is not ModEntry mod) return;
         store.GetState(mod.PackageId).ColorHex = null;
+        PersistManagerSettings("모드 색상 초기화");
         RefreshGrid();
     }
 
@@ -1141,6 +1159,7 @@ internal sealed partial class MainForm : Form
         string? name = Prompt.Show(this, "목록에 표시할 모드 이름", "표시 이름 변경");
         if (name == null) return;
         state.DisplayName = string.IsNullOrWhiteSpace(name) ? null : name.Trim();
+        PersistManagerSettings("모드 표시 이름 변경");
         RefreshGrid();
     }
 
@@ -1148,6 +1167,7 @@ internal sealed partial class MainForm : Form
     {
         if (store == null || GetPrimarySelectedMod() is not ModEntry mod) return;
         store.GetState(mod.PackageId).DisplayName = null;
+        PersistManagerSettings("모드 표시 이름 초기화");
         RefreshGrid();
     }
 
@@ -1260,6 +1280,11 @@ internal sealed partial class MainForm : Form
     private void PersistManagerSettings(string operation)
     {
         if (store == null) return;
+        if (GameIsRunning())
+        {
+            SetStatus($"{operation}: 림월드 실행 중에는 설정 파일을 덮어쓰지 않습니다. 게임 종료 후 '적용 / 저장'하세요.");
+            return;
+        }
         try { store.SaveManagerDataImmediately(); }
         catch (Exception ex)
         {
