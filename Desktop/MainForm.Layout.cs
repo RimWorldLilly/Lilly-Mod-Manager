@@ -755,6 +755,7 @@ internal sealed partial class MainForm
         string query = search.Text.Trim();
         string stateFilter = activeFilter.SelectedItem?.ToString() ?? "모두";
         string source = sourceFilter.SelectedItem?.ToString() ?? "전체";
+        string issueMode = issueFilter.SelectedItem?.ToString() ?? "전체";
 
         IEnumerable<ModEntry> candidates = store.OrderedMods;
         CategoryData? currentCategory = null;
@@ -796,6 +797,10 @@ internal sealed partial class MainForm
             if (source == "로컬" && (mod.Workshop || mod.Official)) return false;
             if (source == "창작마당" && (!mod.Workshop || mod.Official)) return false;
             if (source == "공식" && !mod.Official) return false;
+            if (issueMode == "문제 있음" && string.IsNullOrWhiteSpace(mod.Issue)) return false;
+            if (issueMode == "필수 모드" && !mod.HasMissingRequiredMod) return false;
+            if (issueMode == "불러오기 순서" && !mod.HasLoadOrderIssue) return false;
+            if (issueMode == "설치 폴더 없음" && !mod.HasMissingFolder) return false;
             if (query.Length == 0) return true;
             ModState state = store.GetState(mod.PackageId);
             string tags = string.Join(" ", state.TagIds.Select(id => store.Tags.FirstOrDefault(t => t.Id == id)?.Name));
