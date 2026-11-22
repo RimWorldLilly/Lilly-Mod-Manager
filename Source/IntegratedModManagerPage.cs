@@ -248,7 +248,10 @@ nextInstalledModRefreshTime =
             GUI.color = Color.white;
             Text.Anchor = TextAnchor.UpperLeft;
             float contentBottom = inRect.height - BottomHeight - 20f;
-            float sidebarWidth = inRect.width * 0.25f;
+            bool improvedLayout = settings.UseImprovedLayout;
+            // 개선 레이아웃은 사이드바를 기존 너비의 2/3로 줄이고,
+            // 확보한 너비만큼 모드 목록 영역을 확장한다.
+            float sidebarWidth = inRect.width * (improvedLayout ? (1f / 6f) : 0.25f);
             float mainX = 20f + sidebarWidth + 12f;
             float mainWidth = Mathf.Max(100f, inRect.width - mainX - 20f);
 
@@ -263,7 +266,8 @@ nextInstalledModRefreshTime =
 
             float contentTop = searchRect.yMax + 8f;
             float contentHeight = Mathf.Max(100f, contentBottom - contentTop);
-            float listWidth = Mathf.Min(mainWidth - 120f, inRect.width * 0.25f);
+            float listWidth = Mathf.Min(mainWidth - 120f,
+                inRect.width * (improvedLayout ? (1f / 3f) : 0.25f));
             Rect listRect = new Rect(mainX, contentTop, listWidth, contentHeight);
             Rect detailsRect = new Rect(mainX + listWidth + 10f, contentTop,
                 mainWidth - listWidth - 10f, contentHeight);
@@ -890,7 +894,7 @@ private int GetActiveCount(ManagerTagData tag)
 
         public override Vector2 InitialSize
         {
-            get { return new Vector2(460f, 190f); }
+            get { return new Vector2(460f, 250f); }
         }
 
         public override void DoWindowContents(Rect inRect)
@@ -900,25 +904,43 @@ private int GetActiveCount(ManagerTagData tag)
                 ManagerTranslation.Get("LMM_0187"));
             Text.Font = GameFont.Small;
 
+            bool oldImprovedLayout = settings.UseImprovedLayout;
             bool oldAutoTagNewMods = settings.AutoTagNewMods;
             bool oldAutoTagUpdatedMods = settings.AutoTagUpdatedMods;
 
+            Widgets.Label(new Rect(0f, 38f, inRect.width, 24f),
+                ManagerTranslation.Get("LMM_0191"));
+            if (Widgets.RadioButtonLabeled(
+                new Rect(0f, 62f, inRect.width, 26f),
+                ManagerTranslation.Get("LMM_0192"),
+                !settings.UseImprovedLayout))
+            {
+                settings.UseImprovedLayout = false;
+            }
+            if (Widgets.RadioButtonLabeled(
+                new Rect(0f, 88f, inRect.width, 26f),
+                ManagerTranslation.Get("LMM_0193"),
+                settings.UseImprovedLayout))
+            {
+                settings.UseImprovedLayout = true;
+            }
+
             Widgets.CheckboxLabeled(
-                new Rect(0f, 46f, inRect.width, 30f),
+                new Rect(0f, 132f, inRect.width, 30f),
                 ManagerTranslation.Get("LMM_0188"),
                 ref settings.AutoTagNewMods);
             Widgets.CheckboxLabeled(
-                new Rect(0f, 82f, inRect.width, 30f),
+                new Rect(0f, 168f, inRect.width, 30f),
                 ManagerTranslation.Get("LMM_0189"),
                 ref settings.AutoTagUpdatedMods);
 
-            if (oldAutoTagNewMods != settings.AutoTagNewMods ||
+            if (oldImprovedLayout != settings.UseImprovedLayout ||
+                oldAutoTagNewMods != settings.AutoTagNewMods ||
                 oldAutoTagUpdatedMods != settings.AutoTagUpdatedMods)
             {
                 IntegratedModManagerMod.Instance.WriteSettings();
             }
         }
     }
-
 }
 }
