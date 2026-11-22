@@ -1,3 +1,12 @@
-/Source/obj
-/Source/obj
-/Source/obj
+# .NET build output
+**/bin/
+**/obj/
+
+# Desktop standalone publish output
+/Desktop/publish/
+/artifacts/
+
+# IDE files
+.vs/
+*.user
+*.suo
