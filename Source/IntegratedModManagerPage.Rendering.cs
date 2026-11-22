@@ -344,17 +344,24 @@ namespace Lilly.IntegratedModManager
                                 }
                                 else
                                 {
-                                    // 일반 클릭은 항상 클릭한 모드 하나만 선택한다.
-                                    // 단, 기존 다중 선택 항목을 드래그할 수 있도록 드래그 대상은 별도로 보존한다.
-                                    List<string> selectionForDrag = selectedPackageIds.Contains(mod.PackageId)
-                                        ? selectedPackageIds.ToList()
-                                        : new List<string> { mod.PackageId };
-                
-                                    SelectModByPackageId(mod.PackageId, false, false);
-                
+                                    // 이미 선택된 항목을 드래그하면 기존 다중 선택을 유지한다.
+                                    // 선택되지 않은 항목을 드래그할 때만 해당 항목 하나를 새로 선택한다.
+                                    bool wasAlreadySelected = selectedPackageIds.Contains(mod.PackageId);
+                                    if (!wasAlreadySelected)
+                                    {
+                                        SelectModByPackageId(mod.PackageId, false, false);
+                                    }
+                                    else
+                                    {
+                                        primarySelectedPackageId = mod.PackageId;
+                                        lastSelectedIndex = visibleMods.FindIndex(item =>
+                                            item != null && string.Equals(item.PackageId, mod.PackageId,
+                                                StringComparison.OrdinalIgnoreCase));
+                                    }
+
                                     dragPackageId = mod.PackageId;
                                     dragSelection.Clear();
-                                    dragSelection.AddRange(selectionForDrag);
+                                    dragSelection.AddRange(selectedPackageIds);
                                     isDraggingMod = true;
                                 }
                                 Event.current.Use();
