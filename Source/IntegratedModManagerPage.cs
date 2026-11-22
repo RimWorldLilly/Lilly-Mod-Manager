@@ -1067,6 +1067,10 @@ Widgets.DrawBoxSolid(rowRect, tagRowColor);
     GetActiveCount(tag) + "/" +
     GetInstalledCount(tag) + ")";
 
+// 태그 배경의 상대 휘도에 따라 글자색을 검정 또는 흰색으로 자동 선택한다.
+GUI.contentColor = ManagerTagColors.IsValidHex(tag.ColorHex)
+    ? ManagerTagColors.Foreground(tag.ColorHex)
+    : Color.white;
 Widgets.Label(labelRect, label);
 GUI.contentColor = previousTagContentColor;
 
