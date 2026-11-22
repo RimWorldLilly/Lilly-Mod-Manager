@@ -100,10 +100,9 @@ internal sealed class GamePaths
             foreach (string candidate in candidates)
                 if (File.Exists(candidate) && ContainsManagerData(candidate)) return candidate;
 
-            foreach (string directory in new[] { ConfigRoot, System.IO.Path.Combine(ConfigRoot, "ModSettings") })
+            if (Directory.Exists(ConfigRoot))
             {
-                if (!Directory.Exists(directory)) continue;
-                foreach (string file in Directory.GetFiles(directory, "*.xml"))
+                foreach (string file in Directory.GetFiles(ConfigRoot, "*.xml", SearchOption.AllDirectories))
                     if (ContainsManagerData(file)) return file;
             }
 
@@ -117,9 +116,29 @@ internal sealed class GamePaths
         try
         {
             XDocument doc = XDocument.Load(file);
-            return doc.Root?.DescendantsAndSelf().Any(e => e.Name.LocalName == "Lilly.ModManager") == true;
+            return FindManagerSettingsNode(doc.Root) != null;
         }
         catch { return false; }
+    }
+
+    internal static XElement? FindManagerSettingsNode(XElement? root)
+    {
+        if (root == null) return null;
+
+        // RimWorld ModSettings.Write stores the settings object under <settings Class="...">.
+        // Match the distinctive fields used by IntegratedModManagerSettings rather than a
+        // made-up wrapper element so existing in-game data is read and updated in place.
+        return root.DescendantsAndSelf().FirstOrDefault(element =>
+        {
+            string[] names = element.Elements().Select(child => child.Name.LocalName).ToArray();
+            bool hasCollections = names.Contains("categories") &&
+                names.Contains("tags") && names.Contains("mods");
+            bool hasManagerOptions = names.Contains("autoTagNewMods") ||
+                names.Contains("autoTagUpdatedMods") ||
+                names.Contains("favoriteFolderKeys") ||
+                names.Contains("excludedPackageIds");
+            return hasCollections && hasManagerOptions;
+        });
     }
     public string PresetDirectory => System.IO.Path.Combine(ConfigRoot, "Lilly Mod Manager Presets");
     public string WorkshopDirectory => System.IO.Path.Combine(GameRoot, "..", "..", "workshop", "content", "294100");
@@ -272,7 +291,10 @@ internal sealed class ModStore
         }
     }
 
-    private static string Value(XElement parent, string name) => parent.Elements().FirstOrDefault(e => e.Name.LocalName == name)?.Value.Trim() ?? "";
+    private static XElement? Child(XElement? parent, string name) =>
+        parent?.Elements().FirstOrDefault(e => e.Name.LocalName == name);
+
+    private static string Value(XElement parent, string name) => Child(parent, name)?.Value.Trim() ?? "";
     private static List<string> ListValues(XElement parent, string listName)
     {
         XElement? list = parent.Elements().FirstOrDefault(e => e.Name.LocalName == listName);
@@ -289,10 +311,13 @@ internal sealed class ModStore
             try
             {
                 XDocument doc = XDocument.Load(Paths.ManagerSettings);
-                XElement manager = doc.Root?.DescendantsAndSelf().FirstOrDefault(e => e.Name.LocalName == "Lilly.ModManager") ?? doc.Root ?? new XElement("Lilly.ModManager");
-                Categories = ParseCategories(manager.Element("categories"));
-                Tags = ParseTags(manager.Element("tags"));
-                States = ParseStates(manager.Element("mods"));
+                XElement? managerSettings = GamePaths.FindManagerSettingsNode(doc.Root);
+                if (managerSettings != null)
+                {
+                    Categories = ParseCategories(Child(managerSettings, "categories"));
+                    Tags = ParseTags(Child(managerSettings, "tags"));
+                    States = ParseStates(Child(managerSettings, "mods"));
+                }
             }
             catch { }
         }
@@ -322,20 +347,20 @@ internal sealed class ModStore
     private static CategoryData NewCategory(string id, string name) => new() { Id = id, Name = name, Folders = [NewFolder()] };
     private static FolderData NewFolder() => new() { Id = "uncategorized", Name = "미분류" };
 
-    private static List<CategoryData> ParseCategories(XElement? list) => list?.Elements("li").Select(e => new CategoryData
+    private static List<CategoryData> ParseCategories(XElement? list) => list?.Elements().Where(e => e.Name.LocalName == "li").Select(e => new CategoryData
     {
         Id = Value(e, "id"), Name = Value(e, "name"), Enabled = BoolValue(e, "enabled", true), ColorHex = NullIfEmpty(Value(e, "colorHex")),
-        ModIds = ListValues(e, "mods"), Folders = ParseFolders(e.Element("folders"))
+        ModIds = ListValues(e, "mods"), Folders = ParseFolders(Child(e, "folders"))
     }).Where(c => c.Id.Length > 0).ToList() ?? [];
-    private static List<TagData> ParseTags(XElement? list) => list?.Elements("li").Select(e => new TagData
+    private static List<TagData> ParseTags(XElement? list) => list?.Elements().Where(e => e.Name.LocalName == "li").Select(e => new TagData
     {
         Id = Value(e, "id"), Name = Value(e, "name"), IsSystem = BoolValue(e, "isSystem", false), ColorHex = NullIfEmpty(Value(e, "colorHex")), Folders = ParseFolders(e.Element("folders"))
     }).Where(t => t.Id.Length > 0).ToList() ?? [];
-    private static List<ModState> ParseStates(XElement? list) => list?.Elements("li").Select(e => new ModState
+    private static List<ModState> ParseStates(XElement? list) => list?.Elements().Where(e => e.Name.LocalName == "li").Select(e => new ModState
     {
         PackageId = Value(e, "packageId"), Enabled = BoolValue(e, "enabled", true), DisplayName = NullIfEmpty(Value(e, "displayName")), ColorHex = NullIfEmpty(Value(e, "colorHex")), InstalledVersion = NullIfEmpty(Value(e, "installedVersion")), TagIds = ListValues(e, "tags")
     }).Where(s => s.PackageId.Length > 0).ToList() ?? [];
-    private static List<FolderData> ParseFolders(XElement? list) => list?.Elements("li").Select(e => new FolderData
+    private static List<FolderData> ParseFolders(XElement? list) => list?.Elements().Where(e => e.Name.LocalName == "li").Select(e => new FolderData
     {
         Id = Value(e, "id"), Name = Value(e, "name"), Collapsed = BoolValue(e, "collapsed", false), ModIds = ListValues(e, "mods")
     }).Where(f => f.Id.Length > 0).ToList() ?? [];
@@ -507,11 +532,16 @@ internal sealed class ModStore
         Directory.CreateDirectory(System.IO.Path.GetDirectoryName(Paths.ManagerSettings)!);
         XDocument doc = File.Exists(Paths.ManagerSettings) ? XDocument.Load(Paths.ManagerSettings) : new XDocument(new XElement("ModSettings"));
         XElement root = doc.Root ?? throw new InvalidDataException("ModSettings XML root is missing.");
-        XElement manager = root.DescendantsAndSelf().FirstOrDefault(e => e.Name.LocalName == "Lilly.ModManager") ?? new XElement("Lilly.ModManager");
-        if (manager != root && manager.Parent == null) root.Add(manager);
-        ReplaceCollection(manager, "categories", Categories.Select(WriteCategory));
-        ReplaceCollection(manager, "tags", Tags.Select(WriteTag));
-        ReplaceCollection(manager, "mods", States.Select(WriteState));
+        XElement? managerSettings = GamePaths.FindManagerSettingsNode(root);
+        if (managerSettings == null)
+        {
+            managerSettings = new XElement("settings",
+                new XAttribute("Class", "Lilly.IntegratedModManager.IntegratedModManagerSettings"));
+            root.Add(managerSettings);
+        }
+        ReplaceCollection(managerSettings, "categories", Categories.Select(WriteCategory));
+        ReplaceCollection(managerSettings, "tags", Tags.Select(WriteTag));
+        ReplaceCollection(managerSettings, "mods", States.Select(WriteState));
         BackupFile(Paths.ManagerSettings);
         SaveAtomic(doc, Paths.ManagerSettings);
     }
