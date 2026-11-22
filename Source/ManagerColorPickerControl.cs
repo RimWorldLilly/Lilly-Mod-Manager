@@ -172,7 +172,7 @@ namespace Lilly.IntegratedModManager
                 "LillyModManagerHSVColorWheel");
 
             if (!SameColor(previousColor, wheelColor))
-                SetColor(ColorUtility.ToHtmlStringRGB(wheelColor), false);
+                SetColor(ColorUtility.ToHtmlStringRGB(wheelColor));
 
             float controlX = wheelRect.xMax + 12f;
             float controlWidth = Mathf.Max(80f, rect.xMax - controlX);
@@ -194,7 +194,7 @@ namespace Lilly.IntegratedModManager
             {
                 Color.RGBToHSV(wheelColor, out hue, out saturation, out value);
                 wheelColor = Color.HSVToRGB(hue, saturation, updatedValue);
-                SetColor(ColorUtility.ToHtmlStringRGB(wheelColor), false);
+                SetColor(ColorUtility.ToHtmlStringRGB(wheelColor));
             }
 
             Widgets.Label(
@@ -358,7 +358,11 @@ namespace Lilly.IntegratedModManager
                 GUI.color = new Color(0.88f, 0.72f, 0.34f, 1f);
 
             if (Widgets.ButtonText(rect, label))
+            {
                 selectedMode = mode;
+                if (mode != PickerMode)
+                    colorWheelDragging = false;
+            }
 
             GUI.color = previousColor;
             if (selected)
