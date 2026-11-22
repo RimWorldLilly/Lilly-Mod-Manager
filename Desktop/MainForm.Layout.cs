@@ -194,6 +194,11 @@ internal sealed partial class MainForm
         sourceFilter.Items.AddRange(new object[] { "전체", "로컬", "창작마당", "공식" });
         sourceFilter.SelectedIndex = 0;
         top.Controls.Add(sourceFilter);
+        AddToolbarLabel(top, "문제");
+        issueFilter.Items.Clear();
+        issueFilter.Items.AddRange(new object[] { "전체", "문제 있음", "필수 모드", "불러오기 순서", "설치 폴더 없음" });
+        issueFilter.SelectedIndex = 0;
+        top.Controls.Add(issueFilter);
         top.Controls.Add(autoTagNewModsOption);
         top.Controls.Add(autoTagUpdatedModsOption);
         autoTagNewModsOption.CheckedChanged += (_, _) =>
@@ -306,6 +311,7 @@ internal sealed partial class MainForm
         search.TextChanged += (_, _) => { RefreshSidebar(); RefreshGameLikeList(); };
         activeFilter.SelectedIndexChanged += (_, _) => { RefreshSidebar(); RefreshGameLikeList(); };
         sourceFilter.SelectedIndexChanged += (_, _) => { RefreshSidebar(); RefreshGameLikeList(); };
+        issueFilter.SelectedIndexChanged += (_, _) => { RefreshSidebar(); RefreshGameLikeList(); };
         modRows.SizeChanged += (_, _) => ResizeModRows();
         sidebarItems.SizeChanged += (_, _) => ResizeSidebarRows();
         KeyPreview = true;
