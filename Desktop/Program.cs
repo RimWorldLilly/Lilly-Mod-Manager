@@ -137,7 +137,10 @@ internal sealed class GamePaths
                 names.Contains("autoTagUpdatedMods") ||
                 names.Contains("favoriteFolderKeys") ||
                 names.Contains("excludedPackageIds");
-            return hasCollections && hasManagerOptions;
+            string? className = element.Attribute("Class")?.Value;
+            bool hasManagerClass = className?.Contains(
+                "IntegratedModManagerSettings", StringComparison.OrdinalIgnoreCase) == true;
+            return hasCollections && (hasManagerOptions || hasManagerClass);
         });
     }
     public string PresetDirectory => System.IO.Path.Combine(ConfigRoot, "Lilly Mod Manager Presets");
@@ -354,7 +357,7 @@ internal sealed class ModStore
     }).Where(c => c.Id.Length > 0).ToList() ?? [];
     private static List<TagData> ParseTags(XElement? list) => list?.Elements().Where(e => e.Name.LocalName == "li").Select(e => new TagData
     {
-        Id = Value(e, "id"), Name = Value(e, "name"), IsSystem = BoolValue(e, "isSystem", false), ColorHex = NullIfEmpty(Value(e, "colorHex")), Folders = ParseFolders(e.Element("folders"))
+        Id = Value(e, "id"), Name = Value(e, "name"), IsSystem = BoolValue(e, "isSystem", false), ColorHex = NullIfEmpty(Value(e, "colorHex")), Folders = ParseFolders(Child(e, "folders"))
     }).Where(t => t.Id.Length > 0).ToList() ?? [];
     private static List<ModState> ParseStates(XElement? list) => list?.Elements().Where(e => e.Name.LocalName == "li").Select(e => new ModState
     {
