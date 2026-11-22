@@ -894,7 +894,7 @@ private int GetActiveCount(ManagerTagData tag)
 
         public override Vector2 InitialSize
         {
-            get { return new Vector2(460f, 250f); }
+            get { return new Vector2(460f, 210f); }
         }
 
         public override void DoWindowContents(Rect inRect)
@@ -908,29 +908,16 @@ private int GetActiveCount(ManagerTagData tag)
             bool oldAutoTagNewMods = settings.AutoTagNewMods;
             bool oldAutoTagUpdatedMods = settings.AutoTagUpdatedMods;
 
-            Widgets.Label(new Rect(0f, 38f, inRect.width, 24f),
-                ManagerTranslation.Get("LMM_0191"));
-            if (Widgets.RadioButtonLabeled(
-                new Rect(0f, 62f, inRect.width, 26f),
-                ManagerTranslation.Get("LMM_0192"),
-                !settings.UseImprovedLayout))
-            {
-                settings.UseImprovedLayout = false;
-            }
-            if (Widgets.RadioButtonLabeled(
-                new Rect(0f, 88f, inRect.width, 26f),
-                ManagerTranslation.Get("LMM_0193"),
-                settings.UseImprovedLayout))
-            {
-                settings.UseImprovedLayout = true;
-            }
-
             Widgets.CheckboxLabeled(
-                new Rect(0f, 132f, inRect.width, 30f),
+                new Rect(0f, 46f, inRect.width, 30f),
+                ManagerTranslation.Get("LMM_0191"),
+                ref settings.UseImprovedLayout);
+            Widgets.CheckboxLabeled(
+                new Rect(0f, 82f, inRect.width, 30f),
                 ManagerTranslation.Get("LMM_0188"),
                 ref settings.AutoTagNewMods);
             Widgets.CheckboxLabeled(
-                new Rect(0f, 168f, inRect.width, 30f),
+                new Rect(0f, 118f, inRect.width, 30f),
                 ManagerTranslation.Get("LMM_0189"),
                 ref settings.AutoTagUpdatedMods);
 
