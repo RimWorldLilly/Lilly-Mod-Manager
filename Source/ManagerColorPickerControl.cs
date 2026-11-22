@@ -1,11 +1,12 @@
 using System;
+using System.Collections.Generic;
 using UnityEngine;
 using Verse;
 
 namespace Lilly.IntegratedModManager
 {
-    // 기존 편집 창 안에 직접 그리는 색상 선택기.
-    // 색상 선택기 / 기본 팔레트 / 상대 휘도 팔레트를 한 컨트롤에서 제공한다.
+    // 기존 편집 창 안에서 림월드 기본 색상 선택 위젯을 사용하는 컨트롤.
+    // 기본 팔레트는 Widgets.ColorSelector, 자유 색상은 Widgets.HSVColorWheel을 사용한다.
     internal sealed class ManagerColorPickerControl
     {
         private const int PickerMode = 0;
@@ -13,7 +14,8 @@ namespace Lilly.IntegratedModManager
         private const int LuminanceMode = 2;
         private const int GridColumns = 16;
         private const int GridRows = 10;
-        private const int PresetColumns = 12;
+
+        private static readonly List<Color> PresetColors = BuildPresetColors();
 
         private string colorHex;
         private string hexInput;
@@ -22,6 +24,7 @@ namespace Lilly.IntegratedModManager
         private string blueInput;
         private float selectedHue;
         private int selectedMode;
+        private bool colorWheelDragging;
 
         internal string ColorHex
         {
@@ -43,10 +46,10 @@ namespace Lilly.IntegratedModManager
             hexInput = colorHex ?? string.Empty;
             if (colorHex != null)
             {
-                Color initial = ManagerTagColors.Background(colorHex);
                 float saturation;
                 float value;
-                ToHsv(initial, out selectedHue, out saturation, out value);
+                ToHsv(ManagerTagColors.Background(colorHex),
+                    out selectedHue, out saturation, out value);
                 if (saturation <= 0.0001f)
                     selectedHue = 0f;
             }
@@ -56,6 +59,7 @@ namespace Lilly.IntegratedModManager
             }
 
             selectedMode = PickerMode;
+            colorWheelDragging = false;
             UpdateRgbInputs(colorHex);
             HasChanged = false;
             HasInvalidInput = false;
@@ -77,14 +81,15 @@ namespace Lilly.IntegratedModManager
             UpdateRgbInputs(normalized);
             if (updateHue)
             {
+                float hue;
                 float saturation;
                 float brightness;
-                float hue;
                 ToHsv(ManagerTagColors.Background(normalized),
                     out hue, out saturation, out brightness);
                 if (saturation > 0.0001f)
                     selectedHue = hue;
             }
+
             HasChanged = true;
             HasInvalidInput = false;
         }
@@ -122,43 +127,129 @@ namespace Lilly.IntegratedModManager
                 ManagerTranslation.Get("LMM_0199"),
                 LuminanceMode);
 
-            float gridY;
-            if (selectedMode == PresetMode)
+            float contentY = tabY + 29f;
+            float contentBottom;
+            if (selectedMode == PickerMode)
             {
-                gridY = tabY + 29f;
+                contentBottom = DrawNativeColorWheel(rect, contentY);
+            }
+            else if (selectedMode == PresetMode)
+            {
+                contentBottom = DrawNativePresetPalette(rect, contentY);
             }
             else
             {
-                float hueY = tabY + 28f;
-                DrawHueStrip(new Rect(rect.x, hueY, rect.width, 16f));
-                gridY = hueY + 20f;
+                DrawHueStrip(new Rect(rect.x, contentY, rect.width, 16f));
+                float gridY = contentY + 20f;
+                DrawLuminanceGrid(rect, gridY);
+                contentBottom = gridY + GridRows * 15.5f - 1.5f;
             }
 
-            DrawColorGrid(rect, gridY);
+            DrawColorDetails(rect, contentBottom + 3f);
+        }
 
-            int visibleRows = selectedMode == PresetMode
-                ? Mathf.CeilToInt(ManagerTagColors.Palette.Length / (float)PresetColumns)
-                : GridRows;
-            float cellHeight = selectedMode == PresetMode ? 30f : 14f;
-            float cellGap = selectedMode == PresetMode ? 2f : 1.5f;
-            float gridBottom = gridY + visibleRows * (cellHeight + cellGap) - cellGap;
-            float customY = gridBottom + 3f;
+        private float DrawNativeColorWheel(Rect rect, float y)
+        {
+            float wheelSize = Mathf.Min(190f, rect.width * 0.43f);
+            Rect wheelRect = new Rect(rect.x + 3f, y, wheelSize, wheelSize);
+
+            // 색상이 지정되지 않은 경우에만 임시 기본색으로 휠을 표시한다.
+            Color wheelColor = colorHex == null
+                ? Color.HSVToRGB(selectedHue, 0.72f, 0.9f)
+                : ManagerTagColors.Background(colorHex);
+            Color previousColor = wheelColor;
+            float hue;
+            float saturation;
+            float value;
+            ToHsv(wheelColor, out hue, out saturation, out value);
+
+            // RimWorld 기본 HSV 색상 휠. 클릭 후 드래그도 기본 위젯이 처리한다.
+            Widgets.HSVColorWheel(
+                wheelRect,
+                ref wheelColor,
+                ref colorWheelDragging,
+                value,
+                "LillyModManagerHSVColorWheel");
+
+            if (!SameColor(previousColor, wheelColor))
+                SetColor(ColorUtility.ToHtmlStringRGB(wheelColor), false);
+
+            float controlX = wheelRect.xMax + 12f;
+            float controlWidth = Mathf.Max(80f, rect.xMax - controlX);
             Widgets.Label(
-                new Rect(rect.x, customY, rect.width, 18f),
+                new Rect(controlX, y + 12f, controlWidth, 24f),
+                "명도 / Value");
+
+            float updatedValue = Widgets.HorizontalSlider(
+                new Rect(controlX, y + 38f, controlWidth, 18f),
+                value,
+                0f,
+                1f,
+                false,
+                null,
+                "0%",
+                "100%");
+
+            if (Mathf.Abs(updatedValue - value) > 0.0001f)
+            {
+                Color.RGBToHSV(wheelColor, out hue, out saturation, out value);
+                wheelColor = Color.HSVToRGB(hue, saturation, updatedValue);
+                SetColor(ColorUtility.ToHtmlStringRGB(wheelColor), false);
+            }
+
+            Widgets.Label(
+                new Rect(controlX, y + 64f, controlWidth, 24f),
+                "H: " + Mathf.RoundToInt(hue * 360f) + "°");
+            Widgets.Label(
+                new Rect(controlX, y + 88f, controlWidth, 24f),
+                "S: " + Mathf.RoundToInt(saturation * 100f) + "%");
+            Widgets.Label(
+                new Rect(controlX, y + 112f, controlWidth, 24f),
+                "V: " + Mathf.RoundToInt(updatedValue * 100f) + "%");
+
+            return y + wheelSize;
+        }
+
+        private float DrawNativePresetPalette(Rect rect, float y)
+        {
+            Color selected = colorHex == null
+                ? new Color(0f, 0f, 0f, 0f)
+                : ManagerTagColors.Background(colorHex);
+            float height;
+            bool changed = Widgets.ColorSelector(
+                new Rect(rect.x, y, rect.width, 150f),
+                ref selected,
+                PresetColors,
+                out height,
+                null,
+                22,
+                2);
+
+            if (changed)
+                SetColor(ColorUtility.ToHtmlStringRGB(selected));
+
+            return y + height;
+        }
+
+        private void DrawColorDetails(Rect rect, float y)
+        {
+            Widgets.Label(
+                new Rect(rect.x, y, rect.width, 18f),
                 ManagerTranslation.Get("LMM_0192"));
 
-            float previewY = customY + 18f;
+            float previewY = y + 18f;
             Rect preview = new Rect(rect.x, previewY, 48f, 26f);
             Color previewColor = colorHex == null
                 ? new Color(0.22f, 0.22f, 0.22f, 1f)
                 : ManagerTagColors.Background(colorHex);
             Widgets.DrawBoxSolid(preview, previewColor);
             Widgets.DrawBox(preview);
+
             Color previousGuiColor = GUI.color;
+            TextAnchor previousAnchor = Text.Anchor;
             GUI.color = colorHex == null
                 ? Color.white
                 : ManagerTagColors.Foreground(colorHex);
-            TextAnchor previousAnchor = Text.Anchor;
             Text.Anchor = TextAnchor.MiddleCenter;
             Widgets.Label(preview, colorHex == null ? "-" : "Aa");
             Text.Anchor = previousAnchor;
@@ -199,9 +290,9 @@ namespace Lilly.IntegratedModManager
                 {
                     colorHex = ColorUtility.ToHtmlStringRGB(parsed);
                     UpdateRgbInputs(parsed);
+                    float hue;
                     float saturation;
                     float brightness;
-                    float hue;
                     ToHsv(parsed, out hue, out saturation, out brightness);
                     if (saturation > 0.0001f)
                         selectedHue = hue;
@@ -244,9 +335,9 @@ namespace Lilly.IntegratedModManager
                     Color parsed = new Color32((byte)red, (byte)green, (byte)blue, 255);
                     colorHex = ColorUtility.ToHtmlStringRGB(parsed);
                     hexInput = colorHex;
+                    float hue;
                     float saturation;
                     float brightness;
-                    float hue;
                     ToHsv(parsed, out hue, out saturation, out brightness);
                     if (saturation > 0.0001f)
                         selectedHue = hue;
@@ -287,7 +378,7 @@ namespace Lilly.IntegratedModManager
                     rect.y,
                     segmentWidth,
                     rect.height);
-                Widgets.DrawBoxSolid(segment, ColorFromHsv(hue, 1f, 1f));
+                Widgets.DrawBoxSolid(segment, Color.HSVToRGB(hue, 1f, 1f));
                 if (Mathf.Abs(Mathf.DeltaAngle(selectedHue * 360f, hue * 360f)) < 7.5f)
                     Widgets.DrawBox(segment, 2);
 
@@ -308,14 +399,13 @@ namespace Lilly.IntegratedModManager
                 ToHsv(ManagerTagColors.Background(colorHex),
                     out hue, out saturation, out value);
 
-            // 무채색이나 검정을 선택한 상태에서도 색상 띠를 누르면 새 색조가 보이도록 한다.
             if (saturation <= 0.0001f)
                 saturation = 1f;
             if (value <= 0.0001f)
                 value = 1f;
 
             Color selected;
-            if (selectedMode == LuminanceMode && colorHex != null)
+            if (colorHex != null)
             {
                 float luminance = ManagerTagColors.RelativeLuminance(
                     ManagerTagColors.Background(colorHex));
@@ -325,76 +415,48 @@ namespace Lilly.IntegratedModManager
             }
             else
             {
-                selected = ColorFromHsv(selectedHue, saturation, value);
+                selected = Color.HSVToRGB(selectedHue, saturation, value);
             }
 
             SetColor(ColorUtility.ToHtmlStringRGB(selected), false);
         }
 
-        private void DrawColorGrid(Rect rect, float gridY)
+        private void DrawLuminanceGrid(Rect rect, float gridY)
         {
-            int columns = selectedMode == PresetMode ? PresetColumns : GridColumns;
-            int visibleRows = selectedMode == PresetMode
-                ? Mathf.CeilToInt(ManagerTagColors.Palette.Length / (float)PresetColumns)
-                : GridRows;
-            float cellHeight = selectedMode == PresetMode ? 30f : 14f;
-            float cellGap = selectedMode == PresetMode ? 2f : 1.5f;
-            float cellWidth = (rect.width - cellGap * (columns - 1)) / columns;
+            const float cellHeight = 14f;
+            const float cellGap = 1.5f;
+            float cellWidth = (rect.width - cellGap * (GridColumns - 1)) / GridColumns;
 
-            for (int row = 0; row < visibleRows; row++)
+            for (int row = 0; row < GridRows; row++)
             {
-                for (int column = 0; column < columns; column++)
+                for (int column = 0; column < GridColumns; column++)
                 {
-                    string candidate;
-                    if (selectedMode == PresetMode)
-                    {
-                        int index = row * columns + column;
-                        if (index >= ManagerTagColors.Palette.Length)
-                            continue;
-                        candidate = ManagerTagColors.Palette[index];
-                    }
-                    else
-                    {
-                        float saturation = column / (float)(GridColumns - 1);
-                        Color generated;
-                        if (selectedMode == LuminanceMode)
-                        {
-                            float targetLuminance = 1f -
-                                row / (float)(GridRows - 1) * 0.97f;
-                            generated = ColorAtLuminance(
-                                selectedHue, saturation, targetLuminance);
-                        }
-                        else
-                        {
-                            float value = 1f -
-                                row / (float)(GridRows - 1) * 0.90f;
-                            generated = ColorFromHsv(selectedHue, saturation, value);
-                        }
-
-                        candidate = ColorUtility.ToHtmlStringRGB(generated);
-                    }
+                    float saturation = column / (float)(GridColumns - 1);
+                    float targetLuminance = 1f -
+                        row / (float)(GridRows - 1) * 0.97f;
+                    Color generated = ColorAtLuminance(
+                        selectedHue, saturation, targetLuminance);
+                    string candidate = ColorUtility.ToHtmlStringRGB(generated);
 
                     Rect swatch = new Rect(
                         rect.x + column * (cellWidth + cellGap),
                         gridY + row * (cellHeight + cellGap),
                         cellWidth,
                         cellHeight);
-                    Widgets.DrawBoxSolid(swatch, ManagerTagColors.Background(candidate));
+                    Widgets.DrawBoxSolid(swatch, generated);
 
                     if (string.Equals(
                         colorHex, candidate, StringComparison.OrdinalIgnoreCase))
                         Widgets.DrawBox(swatch, 2);
 
                     if (Widgets.ButtonInvisible(swatch))
-                        SetColor(candidate, selectedMode == PresetMode);
+                        SetColor(candidate, false);
 
-                    float luminanceValue = ManagerTagColors.RelativeLuminance(
-                        ManagerTagColors.Background(candidate));
                     TooltipHandler.TipRegion(
                         swatch,
                         "#" + candidate + "  |  " +
                         ManagerTranslation.Get("LMM_0200") + ": " +
-                        Mathf.RoundToInt(luminanceValue * 100f) + "%");
+                        Mathf.RoundToInt(targetLuminance * 100f) + "%");
                 }
             }
         }
@@ -432,6 +494,22 @@ namespace Lilly.IntegratedModManager
             blueInput = Mathf.RoundToInt(color.b * 255f).ToString();
         }
 
+        private static List<Color> BuildPresetColors()
+        {
+            List<Color> result = new List<Color>();
+            for (int i = 0; i < ManagerTagColors.Palette.Length; i++)
+                result.Add(ManagerTagColors.Background(ManagerTagColors.Palette[i]));
+            return result;
+        }
+
+        private static bool SameColor(Color left, Color right)
+        {
+            return Mathf.Abs(left.r - right.r) < 0.0001f &&
+                Mathf.Abs(left.g - right.g) < 0.0001f &&
+                Mathf.Abs(left.b - right.b) < 0.0001f &&
+                Mathf.Abs(left.a - right.a) < 0.0001f;
+        }
+
         private static string Normalize(string value)
         {
             if (!ManagerTagColors.IsValidHex(value))
@@ -463,17 +541,15 @@ namespace Lilly.IntegratedModManager
 
             float saturation = Mathf.Clamp01(requestedSaturation);
             if (ManagerTagColors.RelativeLuminance(
-                ColorFromHsv(hue, saturation, 1f)) < target)
+                Color.HSVToRGB(hue, saturation, 1f)) < target)
             {
-                // 어두운 색상(특히 파랑)은 최대 채도에서 목표 휘도에 도달하지 못할 수 있다.
-                // 목표 휘도를 보존하도록 필요한 만큼 채도를 낮춘다.
                 float lowSaturation = 0f;
                 float highSaturation = saturation;
                 for (int i = 0; i < 18; i++)
                 {
                     float middle = (lowSaturation + highSaturation) * 0.5f;
                     float luminance = ManagerTagColors.RelativeLuminance(
-                        ColorFromHsv(hue, middle, 1f));
+                        Color.HSVToRGB(hue, middle, 1f));
                     if (luminance >= target)
                         lowSaturation = middle;
                     else
@@ -488,38 +564,15 @@ namespace Lilly.IntegratedModManager
             {
                 float middle = (lowValue + highValue) * 0.5f;
                 float luminance = ManagerTagColors.RelativeLuminance(
-                    ColorFromHsv(hue, saturation, middle));
+                    Color.HSVToRGB(hue, saturation, middle));
                 if (luminance < target)
                     lowValue = middle;
                 else
                     highValue = middle;
             }
 
-            return ColorFromHsv(hue, saturation, (lowValue + highValue) * 0.5f);
-        }
-
-        private static Color ColorFromHsv(float hue, float saturation, float value)
-        {
-            hue = Mathf.Repeat(hue, 1f);
-            saturation = Mathf.Clamp01(saturation);
-            value = Mathf.Clamp01(value);
-
-            float sector = hue * 6f;
-            int index = Mathf.FloorToInt(sector);
-            float fraction = sector - index;
-            float p = value * (1f - saturation);
-            float q = value * (1f - fraction * saturation);
-            float t = value * (1f - (1f - fraction) * saturation);
-
-            switch (index % 6)
-            {
-                case 0: return new Color(value, t, p, 1f);
-                case 1: return new Color(q, value, p, 1f);
-                case 2: return new Color(p, value, t, 1f);
-                case 3: return new Color(p, q, value, 1f);
-                case 4: return new Color(t, p, value, 1f);
-                default: return new Color(value, p, q, 1f);
-            }
+            return Color.HSVToRGB(
+                hue, saturation, (lowValue + highValue) * 0.5f);
         }
 
         private static void ToHsv(
@@ -528,25 +581,7 @@ namespace Lilly.IntegratedModManager
             out float saturation,
             out float value)
         {
-            float maximum = Mathf.Max(color.r, Mathf.Max(color.g, color.b));
-            float minimum = Mathf.Min(color.r, Mathf.Min(color.g, color.b));
-            float delta = maximum - minimum;
-
-            value = maximum;
-            saturation = maximum <= 0f ? 0f : delta / maximum;
-            hue = 0f;
-
-            if (delta <= 0.00001f)
-                return;
-
-            if (maximum == color.r)
-                hue = (color.g - color.b) / delta;
-            else if (maximum == color.g)
-                hue = 2f + (color.b - color.r) / delta;
-            else
-                hue = 4f + (color.r - color.g) / delta;
-
-            hue = Mathf.Repeat(hue / 6f, 1f);
+            Color.RGBToHSV(color, out hue, out saturation, out value);
         }
     }
 }
