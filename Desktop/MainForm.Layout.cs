@@ -308,6 +308,7 @@ internal sealed partial class MainForm
         if (store == null || sidebarItems.IsDisposed) return;
         rebuildingNavigation = true;
         sidebarItems.SuspendLayout();
+        foreach (Control oldControl in sidebarItems.Controls.Cast<Control>().ToArray()) oldControl.Dispose();
         sidebarItems.Controls.Clear();
 
         categoryModeButton.BackColor = sidebarTagMode ? Color.FromArgb(48, 54, 63) : Color.FromArgb(65, 91, 107);
@@ -631,6 +632,7 @@ internal sealed partial class MainForm
             .Where(id => !string.IsNullOrEmpty(id)).Cast<string>().ToArray();
         grid.Rows.Clear();
         modRows.SuspendLayout();
+        foreach (Control oldControl in modRows.Controls.Cast<Control>().ToArray()) oldControl.Dispose();
         modRows.Controls.Clear();
 
         modListHeading.Text = sidebarTagMode
@@ -868,7 +870,7 @@ internal sealed partial class MainForm
         marker.Click += selectHandler;
         name.Click += selectHandler;
         meta.Click += selectHandler;
-        check.MouseDown += (_, e) => SelectModRow(mod, e);
+        check.MouseDown += (_, e) => { if (e.Button == MouseButtons.Left) SelectModRow(mod, e); };
         check.CheckedChanged += (_, _) =>
         {
             if (rebuildingRows || store == null || mod.Official) return;
