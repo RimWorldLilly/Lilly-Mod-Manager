@@ -198,7 +198,7 @@ internal sealed class ModStore
             if (File.Exists(vdf))
             {
                 string text = File.ReadAllText(vdf);
-                foreach (Match match in Regex.Matches(text, "\"path\"\s*\"([^\"]+)\"", RegexOptions.IgnoreCase))
+                foreach (Match match in Regex.Matches(text, "\"path\"\\s*\"([^\"]+)\"", RegexOptions.IgnoreCase))
                     libraries.Add(match.Groups[1].Value.Replace("\\\\", "\\"));
             }
             foreach (string library in libraries)
