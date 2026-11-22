@@ -202,4 +202,9 @@
   <LMM_0201>Brightness</LMM_0201>
   <LMM_0202>Random luminance</LMM_0202>
   <LMM_0203>Randomize color only</LMM_0203>
+  <LMM_0204>Required missing</LMM_0204>
+  <LMM_0205>Conflict</LMM_0205>
+  <LMM_0206>Load order</LMM_0206>
+  <LMM_0207>Version mismatch</LMM_0207>
+  <LMM_0208>Outdated game version</LMM_0208>
 </LanguageData>
