@@ -168,8 +168,7 @@ namespace Lilly.IntegratedModManager
                 wheelRect,
                 ref wheelColor,
                 ref colorWheelDragging,
-                value,
-                "LillyModManagerHSVColorWheel");
+                value);
 
             if (!SameColor(previousColor, wheelColor))
                 SetColor(ColorUtility.ToHtmlStringRGB(wheelColor));
