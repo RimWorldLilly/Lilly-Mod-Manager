@@ -357,14 +357,9 @@ namespace Lilly.IntegratedModManager
                         {
                             if (tag == null || tag.IsSystem)
                                 return;
-                            Find.WindowStack.Add(new ManagerColorPickerDialog(
-                                ManagerTranslation.Get("LMM_0081") + tag.Name,
-                                tag.ColorHex,
-                                colorHex =>
-                            {
-                                tag.ColorHex = colorHex;
-                                PersistTagData();
-                            }));
+
+                            // 색상 단축 동작도 별도 팝업을 띄우지 않고 기존 태그 편집창을 사용한다.
+                            OpenRenameTagDialog(tag);
                         }
 
         private void ConfirmDeleteTag(ManagerTagData tag)
