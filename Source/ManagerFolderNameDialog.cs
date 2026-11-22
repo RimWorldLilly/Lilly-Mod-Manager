@@ -112,70 +112,29 @@ inputColor = ManagerTagColors.IsValidHex(initialColor)
                 focusNameOnNextDraw = false;
             }
 
-            // 색상 선택 UI
+            // 카테고리 색상도 공통 색상 선택 창을 사용한다.
             if (allowColorSelection)
             {
-if (Widgets.ButtonText(
-    new Rect(0f, 80f, 100f, 24f),
-    "색상 없음"))
-{
-    inputColor = null;
-}
-
-Widgets.Label(
-    new Rect(110f, 80f, rect.width - 110f, 24f),
-    "색상 선택");
-
-const int columns = 8;
-const float swatchWidth = 44f;
-const float swatchHeight = 32f;
-const float gap = 5f;
-
-                float totalWidth =
-                    columns * swatchWidth +
-                    (columns - 1) * gap;
-
-                float startX = (rect.width - totalWidth) / 2f;
-
-                for (int i = 0; i < ManagerTagColors.Palette.Length; i++)
+                if (Widgets.ButtonText(
+                    new Rect(0f, 84f, 112f, 28f),
+                    ManagerTranslation.Get("LMM_0192")))
                 {
-                    int column = i % columns;
-                    int row = i / columns;
-
-                    Rect swatch = new Rect(
-                        startX + column * (swatchWidth + gap),
-                        108f + row * (swatchHeight + gap),
-                        swatchWidth,
-                        swatchHeight);
-
-                    string colorHex = ManagerTagColors.Palette[i];
-
-                    Widgets.DrawBoxSolid(
-                        swatch,
-                        ManagerTagColors.Background(colorHex));
-
-                    // 현재 선택된 색상 테두리
-                    if (string.Equals(
+                    Find.WindowStack.Add(new ManagerColorPickerDialog(
+                        ManagerTranslation.Get("LMM_0192"),
                         inputColor,
-                        colorHex,
-                        StringComparison.OrdinalIgnoreCase))
-                    {
-                        Widgets.DrawBox(swatch, 2);
-                    }
+                        colorHex => inputColor = colorHex));
+                }
 
-                    Color previousColor = GUI.color;
-
-                    GUI.color =
-                        ManagerTagColors.Foreground(colorHex);
-
-                    Widgets.Label(swatch, "Aa");
-
-                    GUI.color = previousColor;
-
-                    if (Widgets.ButtonInvisible(swatch))
-                    {
-                        inputColor = colorHex;
-                    }
+                if (ManagerTagColors.IsValidHex(inputColor))
+                {
+                    Rect preview = new Rect(122f, 84f, 42f, 28f);
+                    Widgets.DrawBoxSolid(preview, ManagerTagColors.Background(inputColor));
+                    Widgets.DrawBox(preview);
+                    Widgets.Label(new Rect(172f, 84f, rect.width - 172f, 28f), "#" + inputColor);
+                }
+                else
+                {
+                    Widgets.Label(new Rect(122f, 84f, rect.width - 122f, 28f), "색상 없음");
                 }
             }
 
