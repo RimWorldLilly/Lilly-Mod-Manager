@@ -504,7 +504,9 @@ namespace Lilly.IntegratedModManager
                     if (filterVersionMismatch)
                     {
                         selectedCount++;
-                        if (GetModRowIssue(mod) == ModRowIssue.Version) matchedCount++;
+                        if (GetModRowIssue(mod) == ModRowIssue.Version ||
+                            (IsModActiveInManager(mod) && IsModOutdatedForCurrentGameVersion(mod)))
+                            matchedCount++;
                         else if (filterUseAnd) return false;
                     }
                     if (filterLocal)
