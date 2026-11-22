@@ -740,8 +740,9 @@ internal sealed class MainForm : Form
             string folderName = cat?.Folders.FirstOrDefault(f => f.ModIds.Contains(mod.PackageId, StringComparer.OrdinalIgnoreCase))?.Name ?? "미분류";
             if (catName != "전체" && cat?.Name != catName) continue;
             if (tagName != "모든 태그" && !names.Contains(tagName)) continue;
-            if (q.Length > 0 && !string.Join(" ", mod.Name, mod.PackageId, mod.Author, mod.Description).Contains(q, StringComparison.CurrentCultureIgnoreCase)) continue;
-            int index = grid.Rows.Add(mod.Active || mod.Official, mod.Name, cat?.Name ?? "미분류", folderName, string.Join(", ", names), mod.Version, mod.Official ? "공식" : mod.Workshop ? "창작마당" : "로컬", mod.Issue, mod.PackageId);
+            if (q.Length > 0 && !string.Join(" ", mod.Name, state.DisplayName, mod.PackageId, mod.Author, mod.Description).Contains(q, StringComparison.CurrentCultureIgnoreCase)) continue;
+            int index = grid.Rows.Add(mod.Active || mod.Official, string.IsNullOrWhiteSpace(state.DisplayName) ? mod.Name : state.DisplayName, cat?.Name ?? "미분류", folderName, string.Join(", ", names), mod.Version, mod.Official ? "공식" : mod.Workshop ? "창작마당" : "로컬", mod.Issue, mod.PackageId);
+            grid.Rows[index].Cells[0].ReadOnly = mod.Official;
             if (mod.Issue.Length > 0) grid.Rows[index].DefaultCellStyle.ForeColor = Color.Salmon;
             grid.Rows[index].Tag = mod;
         }
@@ -762,7 +763,9 @@ internal sealed class MainForm : Form
         if (grid.SelectedRows.Count == 0) { details.Clear(); return; }
         var mod = grid.SelectedRows[0].Tag as ModEntry;
         if (mod == null) return;
-        details.Text = $"{mod.Name}\n{mod.PackageId}\n제작자: {mod.Author}\n버전: {mod.Version}\n경로: {mod.Path}\n\n{mod.Description}\n\n{mod.Issue}";
+        ModState state = store?.GetState(mod.PackageId) ?? new ModState();
+        string displayName = string.IsNullOrWhiteSpace(state.DisplayName) ? mod.Name : state.DisplayName;
+        details.Text = $"{displayName}\n{mod.PackageId}\n제작자: {mod.Author}\n버전: {mod.Version}\n경로: {mod.Path}\n\n{mod.Description}\n\n{mod.Issue}";
     }
 
     private List<string> SelectedIds() => grid.SelectedRows.Cast<DataGridViewRow>().Select(r => (r.Tag as ModEntry)?.PackageId).Where(x => !string.IsNullOrEmpty(x)).Cast<string>().ToList();
@@ -826,9 +829,28 @@ internal sealed class MainForm : Form
         menu.Items.Add("선택 항목으로 태그 폴더 만들기", null, (_, _) => CreateTagFolderForSelected());
         menu.Items.Add("현재 폴더 이름 변경", null, (_, _) => RenameSelectedFolder());
         menu.Items.Add("현재 폴더 삭제", null, (_, _) => DeleteSelectedFolder());
+        menu.Items.Add("표시 이름 변경", null, (_, _) => RenameSelectedMod());
+        menu.Items.Add("표시 이름 초기화", null, (_, _) => ResetSelectedModName());
         menu.Items.Add("모드 폴더 열기", null, (_, _) => OpenSelectedFolder());
         menu.Items.Add("창작마당 페이지 열기", null, (_, _) => OpenWorkshopPage());
         menu.Show(grid, e.Location);
+    }
+
+    private void RenameSelectedMod()
+    {
+        if (store == null || grid.SelectedRows.Count == 0 || grid.SelectedRows[0].Tag is not ModEntry mod) return;
+        ModState state = store.GetState(mod.PackageId);
+        string? name = Prompt.Show(this, "목록에 표시할 모드 이름", "표시 이름 변경");
+        if (name == null) return;
+        state.DisplayName = string.IsNullOrWhiteSpace(name) ? null : name.Trim();
+        RefreshGrid();
+    }
+
+    private void ResetSelectedModName()
+    {
+        if (store == null || grid.SelectedRows.Count == 0 || grid.SelectedRows[0].Tag is not ModEntry mod) return;
+        store.GetState(mod.PackageId).DisplayName = null;
+        RefreshGrid();
     }
 
     private void Apply()
