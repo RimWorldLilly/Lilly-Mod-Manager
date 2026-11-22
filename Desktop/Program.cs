@@ -776,7 +776,7 @@ internal sealed class ModStore
     }
 }
 
-internal sealed class MainForm : Form
+internal sealed partial class MainForm : Form
 {
     private ModStore? store;
     private readonly TextBox search = new() { Width = 190, PlaceholderText = "모드 이름 / 제작자 / PackageId 검색" };
@@ -809,66 +809,7 @@ internal sealed class MainForm : Form
         catch { return null; }
     }
 
-    private void BuildUi()
-    {
-        var toolbar = new FlowLayoutPanel { Dock = DockStyle.Top, Height = 108, Padding = new Padding(8, 6, 4, 4), WrapContents = true, BackColor = Color.FromArgb(35, 39, 46) };
-        AddToolbarLabel(toolbar, "검색"); toolbar.Controls.Add(search);
-        AddToolbarLabel(toolbar, "카테고리"); toolbar.Controls.Add(categoryFilter);
-        AddToolbarLabel(toolbar, "태그"); toolbar.Controls.Add(tagFilter);
-        AddToolbarLabel(toolbar, "상태"); activeFilter.Items.AddRange(new object[] { "모두", "활성", "비활성" }); activeFilter.SelectedIndex = 0; toolbar.Controls.Add(activeFilter);
-        AddToolbarLabel(toolbar, "설치 위치"); sourceFilter.Items.AddRange(new object[] { "전체", "로컬", "창작마당", "공식" }); sourceFilter.SelectedIndex = 0; toolbar.Controls.Add(sourceFilter);
-        AddButton(toolbar, "새로고침", Reload);
-        AddButton(toolbar, "적용 / 저장", Apply);
-        AddButton(toolbar, "프리셋 저장", SavePreset);
-        AddButton(toolbar, "프리셋 불러오기", LoadPreset);
-        AddButton(toolbar, "자동 정렬", AutoSort);
-        AddButton(toolbar, "위로", () => MoveSelected(-1));
-        AddButton(toolbar, "아래로", () => MoveSelected(1));
-        AddButton(toolbar, "카테고리 추가", AddCategory);
-        AddButton(toolbar, "카테고리 이름 변경", RenameCategory);
-        AddButton(toolbar, "카테고리 삭제", DeleteCategory);
-        AddButton(toolbar, "태그 추가", AddTag);
-        AddButton(toolbar, "태그 이름 변경", RenameTag);
-        AddButton(toolbar, "태그 삭제", DeleteTag);
-        AddButton(toolbar, "카테고리 색상", PickCategoryColor);
-        AddButton(toolbar, "태그 색상", PickTagColor);
-        AddButton(toolbar, "모드 색상", PickModColor);
-        AddButton(toolbar, "모드 색상 해제", ClearModColor);
-        AddButton(toolbar, "경로 설정", ChoosePaths);
-        AddButton(toolbar, "게임 실행", LaunchGame);
-        var split = new SplitContainer { Dock = DockStyle.Fill, Orientation = Orientation.Horizontal, SplitterDistance = 610, BackColor = Color.FromArgb(23, 26, 31), Panel1MinSize = 240, Panel2MinSize = 100 };
-        split.Panel1.Controls.Add(grid); split.Panel2.Controls.Add(details);
-        Controls.Add(split); Controls.Add(toolbar); Controls.Add(status);
-
-        grid.Columns.Add(new DataGridViewCheckBoxColumn { Name = "active", HeaderText = "활성", Width = 48 });
-        grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "name", HeaderText = "모드 이름", ReadOnly = true });
-        grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "category", HeaderText = "카테고리", ReadOnly = true });
-        grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "folder", HeaderText = "폴더", ReadOnly = true });
-        grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "tags", HeaderText = "태그", ReadOnly = true });
-        grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "version", HeaderText = "버전", ReadOnly = true });
-        grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "source", HeaderText = "설치 위치", ReadOnly = true });
-        grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "issue", HeaderText = "검사", ReadOnly = true });
-        grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "package", Visible = false });
-        grid.ColumnHeadersDefaultCellStyle.BackColor = Color.FromArgb(47, 53, 62); grid.ColumnHeadersDefaultCellStyle.ForeColor = Color.White;
-        grid.DefaultCellStyle.BackColor = Color.FromArgb(31, 35, 42); grid.DefaultCellStyle.ForeColor = Color.Gainsboro;
-        grid.DefaultCellStyle.SelectionBackColor = Color.FromArgb(44, 91, 112); grid.DefaultCellStyle.SelectionForeColor = Color.White;
-        grid.AlternatingRowsDefaultCellStyle.BackColor = Color.FromArgb(36, 40, 48);
-        grid.RowTemplate.Height = 28; grid.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill;
-        grid.Columns[0].FillWeight = 35; grid.Columns[1].FillWeight = 180; grid.Columns[2].FillWeight = 75; grid.Columns[3].FillWeight = 75; grid.Columns[4].FillWeight = 120; grid.Columns[5].FillWeight = 55; grid.Columns[6].FillWeight = 60; grid.Columns[7].FillWeight = 115;
-        grid.CurrentCellDirtyStateChanged += (_, _) => { if (grid.IsCurrentCellDirty) grid.CommitEdit(DataGridViewDataErrorContexts.Commit); };
-        grid.CellValueChanged += GridCellValueChanged; grid.SelectionChanged += (_, _) => UpdateDetails();
-        grid.KeyDown += (_, e) =>
-        {
-            if (e.Control && e.KeyCode == Keys.A)
-            {
-                grid.SelectAll();
-                e.Handled = true;
-            }
-        };
-        grid.CellMouseDown += (_, e) => { if (e.Button == MouseButtons.Right && e.RowIndex >= 0 && !grid.Rows[e.RowIndex].Selected) { grid.ClearSelection(); grid.Rows[e.RowIndex].Selected = true; } };
-        grid.MouseUp += GridMouseUp;
-        search.TextChanged += (_, _) => RefreshGrid(); categoryFilter.SelectedIndexChanged += (_, _) => RefreshGrid(); tagFilter.SelectedIndexChanged += (_, _) => RefreshGrid(); activeFilter.SelectedIndexChanged += (_, _) => RefreshGrid(); sourceFilter.SelectedIndexChanged += (_, _) => RefreshGrid();
-    }
+    private void BuildUi() => BuildGameLikeUi();
 
     private static void AddToolbarLabel(FlowLayoutPanel panel, string text) => panel.Controls.Add(new Label { Text = text, AutoSize = true, Margin = new Padding(5, 9, 1, 0), ForeColor = Color.Silver });
     private static void AddButton(FlowLayoutPanel panel, string text, Action action)
@@ -909,46 +850,25 @@ internal sealed class MainForm : Form
         if (store == null) return;
         string oldCat = categoryFilter.SelectedItem?.ToString() ?? "전체";
         string oldTag = tagFilter.SelectedItem?.ToString() ?? "모든 태그";
-        categoryFilter.Items.Clear(); categoryFilter.Items.Add("전체");
-        foreach (var c in store.Categories) categoryFilter.Items.Add(c.Name);
+        categoryFilter.Items.Clear();
+        categoryFilter.Items.Add("전체");
+        foreach (var category in store.Categories) categoryFilter.Items.Add(category.Name);
         categoryFilter.SelectedItem = categoryFilter.Items.Contains(oldCat) ? oldCat : "전체";
-        tagFilter.Items.Clear(); tagFilter.Items.Add("모든 태그");
-        foreach (var t in store.Tags.Where(t => !t.IsSystem)) tagFilter.Items.Add(t.Name);
+        tagFilter.Items.Clear();
+        tagFilter.Items.Add("모든 태그");
+        foreach (var tag in store.Tags.Where(tag => !tag.IsSystem)) tagFilter.Items.Add(tag.Name);
         tagFilter.SelectedItem = tagFilter.Items.Contains(oldTag) ? oldTag : "모든 태그";
+
+        if (sidebarSelectedCategoryId != null &&
+            !store.Categories.Any(category => category.Id == sidebarSelectedCategoryId))
+            sidebarSelectedCategoryId = null;
+        if (sidebarSelectedTagId != null &&
+            !store.Tags.Any(tag => tag.Id == sidebarSelectedTagId))
+            sidebarSelectedTagId = null;
+        RefreshSidebar();
     }
 
-    private void RefreshGrid()
-    {
-        if (store == null) return;
-        grid.Rows.Clear();
-        string q = search.Text.Trim();
-        string catName = categoryFilter.SelectedItem?.ToString() ?? "전체";
-        string tagName = tagFilter.SelectedItem?.ToString() ?? "모든 태그";
-        foreach (ModEntry mod in store.OrderedMods)
-        {
-            CategoryData? cat = store.Categories.FirstOrDefault(c => c.Id == mod.CategoryId);
-            ModState state = store.GetState(mod.PackageId);
-            List<string> names = state.TagIds.Select(id => store.Tags.FirstOrDefault(t => t.Id == id)?.Name).Where(n => !string.IsNullOrWhiteSpace(n)).Cast<string>().ToList();
-            string folderName = cat?.Folders.FirstOrDefault(f => f.ModIds.Contains(mod.PackageId, StringComparer.OrdinalIgnoreCase))?.Name ?? "미분류";
-            if (catName != "전체" && cat?.Name != catName) continue;
-            if (tagName != "모든 태그" && !names.Contains(tagName)) continue;
-            string stateName = activeFilter.SelectedItem?.ToString() ?? "모두";
-            if (stateName == "활성" && !mod.Active && !mod.Official) continue;
-            if (stateName == "비활성" && (mod.Active || mod.Official)) continue;
-            string sourceName = sourceFilter.SelectedItem?.ToString() ?? "전체";
-            if (sourceName == "로컬" && (mod.Workshop || mod.Official)) continue;
-            if (sourceName == "창작마당" && (!mod.Workshop || mod.Official)) continue;
-            if (sourceName == "공식" && !mod.Official) continue;
-            if (q.Length > 0 && !string.Join(" ", mod.Name, state.DisplayName, mod.PackageId, mod.Author, mod.Description, mod.Version, cat?.Name, string.Join(" ", names)).Contains(q, StringComparison.CurrentCultureIgnoreCase)) continue;
-            int index = grid.Rows.Add(mod.Active || mod.Official, string.IsNullOrWhiteSpace(state.DisplayName) ? mod.Name : state.DisplayName, cat?.Name ?? "미분류", folderName, string.Join(", ", names), mod.Version, mod.Official ? "공식" : mod.Workshop ? "창작마당" : "로컬", mod.Issue, mod.PackageId);
-            grid.Rows[index].Cells[0].ReadOnly = mod.Official;
-            ApplyCellColor(grid.Rows[index].Cells[1], state.ColorHex);
-            ApplyCellColor(grid.Rows[index].Cells[2], cat?.ColorHex);
-            if (mod.Issue.Length > 0) grid.Rows[index].DefaultCellStyle.ForeColor = Color.Salmon;
-            grid.Rows[index].Tag = mod;
-        }
-        UpdateDetails();
-    }
+    private void RefreshGrid() => RefreshGameLikeList();
 
     private void GridCellValueChanged(object? sender, DataGridViewCellEventArgs e)
     {
@@ -961,12 +881,23 @@ internal sealed class MainForm : Form
 
     private void UpdateDetails()
     {
-        if (grid.SelectedRows.Count == 0) { details.Clear(); return; }
-        var mod = grid.SelectedRows[0].Tag as ModEntry;
-        if (mod == null) return;
+        ModEntry? mod = GetPrimarySelectedMod();
+        if (mod == null)
+        {
+            details.Clear();
+            UpdateDetailsPane();
+            return;
+        }
         ModState state = store?.GetState(mod.PackageId) ?? new ModState();
         string displayName = string.IsNullOrWhiteSpace(state.DisplayName) ? mod.Name : state.DisplayName;
-        details.Text = $"{displayName}\n{mod.PackageId}\n제작자: {mod.Author}\n버전: {mod.Version}\n경로: {mod.Path}\n\n{mod.Description}\n\n필수 모드: {string.Join(", ", mod.Required)}\nLoadAfter: {string.Join(", ", mod.LoadAfter)}\nLoadBefore: {string.Join(", ", mod.LoadBefore)}\n\n{mod.Issue}";
+        details.Text =
+            $"{displayName}\n{mod.PackageId}\n제작자: {mod.Author}\n버전: {mod.Version}\n" +
+            $"설치 위치: {(mod.Official ? "공식" : mod.Workshop ? "Steam 창작마당" : "로컬")}\n" +
+            $"경로: {mod.Path}\n\n{mod.Description}\n\n" +
+            $"필수 모드: {string.Join(", ", mod.Required)}\n" +
+            $"LoadAfter: {string.Join(", ", mod.LoadAfter)}\n" +
+            $"LoadBefore: {string.Join(", ", mod.LoadBefore)}\n\n{mod.Issue}";
+        UpdateDetailsPane();
     }
 
     private List<string> SelectedIds() => grid.SelectedRows.Cast<DataGridViewRow>().Select(r => (r.Tag as ModEntry)?.PackageId).Where(x => !string.IsNullOrEmpty(x)).Cast<string>().ToList();
@@ -1040,7 +971,7 @@ internal sealed class MainForm : Form
         menu.Items.Add("표시 이름 초기화", null, (_, _) => ResetSelectedModName());
         menu.Items.Add("모드 폴더 열기", null, (_, _) => OpenSelectedFolder());
         menu.Items.Add("창작마당 페이지 열기", null, (_, _) => OpenWorkshopPage());
-        menu.Show(grid, e.Location);
+        menu.Show(contextMenuAnchor ?? grid, contextMenuAnchor == null ? e.Location : contextMenuPoint);
     }
 
     private static void ApplyCellColor(DataGridViewCell cell, string? hex)
@@ -1245,8 +1176,10 @@ internal sealed class MainForm : Form
     private TagData? SelectedTag()
     {
         if (store == null) return null;
+        if (!string.IsNullOrEmpty(sidebarSelectedTagId))
+            return store.Tags.FirstOrDefault(tag => tag.Id == sidebarSelectedTagId);
         string name = tagFilter.SelectedItem?.ToString() ?? "모든 태그";
-        return name == "모든 태그" ? null : store.Tags.FirstOrDefault(t => t.Name == name);
+        return name == "모든 태그" ? null : store.Tags.FirstOrDefault(tag => tag.Name == name);
     }
 
     private void RenameCategory()
