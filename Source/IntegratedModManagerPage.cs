@@ -502,7 +502,7 @@ private void OpenModColorDialog(List<string> packageIds)
         ? firstMod.ColorHex
         : null;
 
-    Find.WindowStack.Add(new ManagerColorPickerDialog(
+    Find.WindowStack.Add(new ManagerFolderNameDialog(
         "모드 배경색 선택",
         initialColor,
         colorHex =>
@@ -517,7 +517,8 @@ private void OpenModColorDialog(List<string> packageIds)
 
             PersistTagData();
             RefreshVisibleMods();
-        }));
+        },
+        true));
 }
 
 
