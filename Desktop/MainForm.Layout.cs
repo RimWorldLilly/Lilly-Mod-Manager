@@ -513,8 +513,14 @@ internal sealed partial class MainForm
     {
         Color color = fallback;
         if (control != null) color = control.BackColor;
-        double luminance = (0.2126 * color.R + 0.7152 * color.G + 0.0722 * color.B) / 255.0;
-        return luminance > 0.52 ? Color.Black : Color.White;
+        static double Linearize(byte channel)
+        {
+            double value = channel / 255.0;
+            return value <= 0.04045 ? value / 12.92 : Math.Pow((value + 0.055) / 1.055, 2.4);
+        }
+        double luminance = 0.2126 * Linearize(color.R) +
+            0.7152 * Linearize(color.G) + 0.0722 * Linearize(color.B);
+        return luminance > 0.179 ? Color.Black : Color.White;
     }
 
     private static bool TryParseColor(string? hex, out Color color)
@@ -912,18 +918,44 @@ internal sealed partial class MainForm
             AutoEllipsis = true,
             Cursor = Cursors.Hand
         };
-        List<string> tagNames = state.TagIds.Select(id => store.Tags.FirstOrDefault(t => t.Id == id)?.Name)
-            .Where(value => !string.IsNullOrWhiteSpace(value)).Cast<string>().ToList();
-        var meta = new Label
+        List<TagData> assignedTags = state.TagIds
+            .Select(id => store.Tags.FirstOrDefault(tag => tag.Id.Equals(id, StringComparison.OrdinalIgnoreCase)))
+            .Where(tag => tag != null).Cast<TagData>().ToList();
+        var meta = new FlowLayoutPanel
         {
-            Top = 1,
-            Height = 29,
-            Text = string.Join(" · ", tagNames),
-            ForeColor = Color.Silver,
-            TextAlign = ContentAlignment.MiddleRight,
-            AutoEllipsis = true,
+            Top = 3,
+            Height = 25,
+            FlowDirection = FlowDirection.RightToLeft,
+            WrapContents = false,
+            AutoSize = false,
+            AutoScroll = false,
+            Padding = Padding.Empty,
+            Margin = Padding.Empty,
+            BackColor = Color.Transparent,
             Cursor = Cursors.Hand
         };
+        foreach (TagData tag in assignedTags)
+        {
+            Color chipColor = TryParseColor(tag.ColorHex, out Color parsedTagColor)
+                ? parsedTagColor : Color.FromArgb(55, 63, 74);
+            var chip = new Label
+            {
+                Text = tag.Name,
+                AutoSize = true,
+                MaximumSize = new Size(145, 22),
+                Height = 22,
+                Margin = new Padding(2, 1, 2, 1),
+                Padding = new Padding(5, 1, 5, 1),
+                BorderStyle = BorderStyle.FixedSingle,
+                BackColor = chipColor,
+                ForeColor = ColorForBackground(null, chipColor),
+                TextAlign = ContentAlignment.MiddleCenter,
+                AutoEllipsis = true,
+                Cursor = Cursors.Hand
+            };
+            rowToolTip.SetToolTip(chip, tag.Name);
+            meta.Controls.Add(chip);
+        }
         row.AllowDrop = true;
         row.DragEnter += ModRowDragEnter;
         row.DragDrop += (_, e) => DropOnModRow(mod, e);
@@ -943,10 +975,20 @@ internal sealed partial class MainForm
         rowToolTip.SetToolTip(row, $"{mod.Name}\n{mod.PackageId}\n제작자: {mod.Author}\n버전: {mod.Version}\n{mod.Issue}");
         rowToolTip.SetToolTip(name, $"{mod.Name}\n{mod.PackageId}\n{mod.Description}");
         EventHandler selectHandler = (_, _) => SelectModRow(mod, new MouseEventArgs(MouseButtons.Left, 1, 0, 0, 0));
+        MouseEventHandler rowMouseDown = (source, e) => HandleModRowMouseDown(mod, source, e);
+        MouseEventHandler rowMouseMove = HandleModRowMouseMove;
+        MouseEventHandler rowRightClick = rightClick;
         row.Click += selectHandler;
         marker.Click += selectHandler;
         name.Click += selectHandler;
         meta.Click += selectHandler;
+        foreach (Control chip in meta.Controls)
+        {
+            chip.Click += selectHandler;
+            chip.MouseDown += rowMouseDown;
+            chip.MouseMove += rowMouseMove;
+            chip.MouseUp += rowRightClick;
+        }
         check.MouseDown += (_, e) => { if (e.Button == MouseButtons.Left) SelectModRow(mod, e); };
         check.CheckedChanged += (_, _) =>
         {
