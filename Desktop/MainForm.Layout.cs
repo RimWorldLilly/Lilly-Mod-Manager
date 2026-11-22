@@ -1223,6 +1223,67 @@ internal sealed partial class MainForm
         SetStatus($"'{moving.Name}' 카테고리 순서를 변경했습니다.");
     }
 
+    private void MoveCategoryFolderToCategory(
+        (bool IsTag, string OwnerId, string FolderId) source,
+        CategoryData targetCategory)
+    {
+        if (store == null || source.IsTag ||
+            source.FolderId.Equals("uncategorized", StringComparison.OrdinalIgnoreCase) ||
+            source.OwnerId.Equals(targetCategory.Id, StringComparison.OrdinalIgnoreCase))
+            return;
+
+        CategoryData? sourceCategory = store.Categories.FirstOrDefault(category =>
+            category.Id.Equals(source.OwnerId, StringComparison.OrdinalIgnoreCase));
+        if (sourceCategory == null || sourceCategory.Folders == null)
+            return;
+
+        FolderData? movingFolder = sourceCategory.Folders.FirstOrDefault(folder =>
+            folder.Id.Equals(source.FolderId, StringComparison.OrdinalIgnoreCase));
+        if (movingFolder == null ||
+            movingFolder.Id.Equals("uncategorized", StringComparison.OrdinalIgnoreCase))
+            return;
+
+        if (targetCategory.Folders == null)
+            targetCategory.Folders = new List<FolderData>();
+        if (targetCategory.Folders.Any(folder =>
+            folder.Id.Equals(movingFolder.Id, StringComparison.OrdinalIgnoreCase)))
+            movingFolder.Id = Guid.NewGuid().ToString("N");
+
+        List<string> movingIds = movingFolder.ModIds
+            .Where(id => !string.IsNullOrWhiteSpace(id))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        var movingSet = new HashSet<string>(movingIds, StringComparer.OrdinalIgnoreCase);
+        sourceCategory.ModIds.RemoveAll(id => movingSet.Contains(id));
+
+        foreach (string id in movingIds)
+        {
+            if (!targetCategory.ModIds.Contains(id, StringComparer.OrdinalIgnoreCase))
+                targetCategory.ModIds.Add(id);
+            ModEntry? mod = store.OrderedMods.FirstOrDefault(item =>
+                item.PackageId.Equals(id, StringComparison.OrdinalIgnoreCase));
+            if (mod != null) mod.CategoryId = targetCategory.Id;
+        }
+
+        sourceCategory.Folders.Remove(movingFolder);
+        movingFolder.Collapsed = false;
+        targetCategory.Folders.Add(movingFolder);
+
+        sidebarTagMode = false;
+        sidebarSelectedCategoryId = targetCategory.Id;
+        sidebarSelectedTagId = null;
+        categoryFilter.SelectedItem = targetCategory.Name;
+        tagFilter.SelectedItem = "모든 태그";
+        selectedPackageIds.Clear();
+        primarySelectedPackageId = null;
+        selectionAnchorRow = -1;
+
+        PersistManagerSettings("카테고리 간 폴더 이동");
+        RefreshSidebar();
+        RefreshGameLikeList();
+        SetStatus($"'{sourceCategory.Name}/{movingFolder.Name}' 폴더를 '{targetCategory.Name}'로 이동했습니다.");
+    }
+
     private void HandleFolderHeaderMouseDown(FolderData folder, bool isTagFolder,
         CategoryData? category, Control source, MouseEventArgs e)
     {
@@ -1348,8 +1409,10 @@ internal sealed partial class MainForm
 
     private void CategoryNavigationDragEnter(object? sender, DragEventArgs e)
     {
+        var folderPayload = ReadFolderDrag(e.Data);
         e.Effect = ReadDraggedIds(e.Data).Count > 0 ||
-            (e.Data != null && e.Data.GetDataPresent(CategoryDragDataFormat))
+            (e.Data != null && e.Data.GetDataPresent(CategoryDragDataFormat)) ||
+            (folderPayload.HasValue && !folderPayload.Value.IsTag)
             ? DragDropEffects.Move : DragDropEffects.None;
     }
 
@@ -1367,6 +1430,15 @@ internal sealed partial class MainForm
             if (!string.IsNullOrWhiteSpace(sourceId)) ReorderCategory(sourceId, category);
             return;
         }
+
+        var folderPayload = ReadFolderDrag(e.Data);
+        if (folderPayload.HasValue)
+        {
+            if (!folderPayload.Value.IsTag)
+                MoveCategoryFolderToCategory(folderPayload.Value, category);
+            return;
+        }
+
         List<string> ids = ReadDraggedIds(e.Data);
         if (ids.Count == 0) return;
         store.AssignCategory(ids, category.Id);
