@@ -657,7 +657,7 @@ namespace Lilly.IntegratedModManager
                             if (Widgets.ButtonText(new Rect(x, rect.y, buttonWidth, rect.height), modeLabel))
                                 ToggleManagementMode();
                             x += buttonWidth + gap;
-                
+
                             if (Widgets.ButtonText(new Rect(x, rect.y, buttonWidth, rect.height),
                                 tagMode ? ManagerTranslation.Get("LMM_0086") : ManagerTranslation.Get("LMM_0079")))
                             {
@@ -667,21 +667,16 @@ namespace Lilly.IntegratedModManager
                                     OpenCreateCategoryDialog(GetSelectedCategoryInsertIndex());
                             }
                             x += buttonWidth + gap;
-                
+
                             if (Widgets.ButtonText(new Rect(x, rect.y, buttonWidth, rect.height), ManagerTranslation.Get("LMM_0067")))
                                 SortAllCategories();
                             x += buttonWidth + gap;
-                
-                            if (Widgets.ButtonText(new Rect(x, rect.y, buttonWidth, rect.height), ManagerTranslation.Get("LMM_0023")))
-                                ConfirmUnsubscribeSelected();
-                            x += buttonWidth + gap;
-                
+
                             if (Widgets.ButtonText(new Rect(x, rect.y, buttonWidth, rect.height), ManagerTranslation.Get("LMM_0185")))
                                 Find.WindowStack.Add(new WorkshopMissingItemsWindow());
                             x += buttonWidth + gap;
-                
-                            // 이전 사이드바 렌더링의 GUI.enabled 상태와 무관하게
-                            // 빠른 폴더 이동/바로가기 버튼은 첫 화면부터 입력을 받는다.
+
+                            // 폴더 바로가기 버튼은 기존 동작과 활성화 상태를 유지한다.
                             bool previousFastMoveGuiEnabled = GUI.enabled;
                             GUI.enabled = true;
                             bool openFastFolderMove = Widgets.ButtonText(
@@ -691,16 +686,12 @@ namespace Lilly.IntegratedModManager
                             if (openFastFolderMove)
                                 OpenFastFolderMoveDialog();
                             x += buttonWidth + gap;
-                
-                            if (Widgets.ButtonText(new Rect(x, rect.y, buttonWidth, rect.height), ManagerTranslation.Get("LMM_0039")))
-                                OpenSavePresetDialog();
+
+                            if (Widgets.ButtonText(new Rect(x, rect.y, buttonWidth, rect.height), ManagerTranslation.Get("LMM_0023")))
+                                ConfirmUnsubscribeSelected();
                             x += buttonWidth + gap;
-                
-                            if (Widgets.ButtonText(new Rect(x, rect.y, buttonWidth, rect.height), ManagerTranslation.Get("LMM_0038")))
-                                OpenPresetMenu();
-                            x += buttonWidth + gap;
-                
-                            // '폴더 열기'는 선택된 모드의 실제 폴더가 있을 때만 활성화한다.
+
+                            // 선택된 모드의 실제 폴더가 있을 때만 활성화한다.
                             ModMetaData selectedModForFolder = FindMod(primarySelectedPackageId);
                             bool canOpenSelectedModFolder = selectedModForFolder != null
                                 && selectedModForFolder.RootDir != null
@@ -713,17 +704,24 @@ namespace Lilly.IntegratedModManager
                             if (openSelectedModFolder)
                                 OpenModFolder(selectedModForFolder);
                             x += buttonWidth + gap;
-                
+
+                            if (Widgets.ButtonText(new Rect(x, rect.y, buttonWidth, rect.height), ManagerTranslation.Get("LMM_0039")))
+                                OpenSavePresetDialog();
+                            x += buttonWidth + gap;
+
+                            if (Widgets.ButtonText(new Rect(x, rect.y, buttonWidth, rect.height), ManagerTranslation.Get("LMM_0038")))
+                                OpenPresetMenu();
+                            x += buttonWidth + gap;
+
                             if (Widgets.ButtonText(new Rect(x, rect.y, buttonWidth, rect.height), ManagerTranslation.Get("LMM_0187")))
                                 Find.WindowStack.Add(new ManagerOptionsWindow(settings));
                             x += buttonWidth + gap;
-                
+
                             if (Widgets.ButtonText(new Rect(x, rect.y, buttonWidth, rect.height), ManagerTranslation.Get("LMM_0044")))
                                 CancelChanges();
                             x += buttonWidth + gap;
-                
+
                             if (Widgets.ButtonText(new Rect(x, rect.y, buttonWidth, rect.height), ManagerTranslation.Get("LMM_0070")))
                                 ApplyChanges();
-                        }
-    }
+                        }    }
 }
