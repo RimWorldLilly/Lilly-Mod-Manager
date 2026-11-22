@@ -750,8 +750,9 @@ private void RefreshInstalledModsIfNeeded()
             StringComparer.OrdinalIgnoreCase);
 
     // 림월드의 원본 모드 목록 갱신
-    if (!IntegratedModManagerStartup.RefreshModList())
-        return;
+    // 목록 자체에 변화가 없어도 기존 모드의 업데이트 여부를 검사해야 하므로
+    // RefreshModList()의 반환값만으로 검사를 중단하지 않는다.
+    IntegratedModManagerStartup.RefreshModList();
 
     // 현재 설치된 모드 다시 수집
     modsByPackageId.Clear();
