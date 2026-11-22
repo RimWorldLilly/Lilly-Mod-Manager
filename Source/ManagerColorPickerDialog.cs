@@ -14,8 +14,6 @@ namespace Lilly.IntegratedModManager
         private string redInput;
         private string greenInput;
         private string blueInput;
-        private string lastHexInput;
-        private string lastRgbInput;
 
         public override Vector2 InitialSize
         {
@@ -120,6 +118,19 @@ namespace Lilly.IntegratedModManager
                 Close();
             if (Widgets.ButtonText(new Rect(rect.width - 104f, buttonY, 104f, 28f), ManagerTranslation.Get("LMM_0195")))
             {
+                int checkRed, checkGreen, checkBlue;
+                bool validRgb = int.TryParse(redInput, out checkRed) &&
+                    int.TryParse(greenInput, out checkGreen) &&
+                    int.TryParse(blueInput, out checkBlue) &&
+                    checkRed >= 0 && checkRed <= 255 &&
+                    checkGreen >= 0 && checkGreen <= 255 &&
+                    checkBlue >= 0 && checkBlue <= 255;
+                if (!ManagerTagColors.IsValidHex(hexInput) || !validRgb)
+                {
+                    Messages.Message(ManagerTranslation.Get("LMM_0193") + " / " +
+                        ManagerTranslation.Get("LMM_0194"), MessageTypeDefOf.RejectInput);
+                    return;
+                }
                 if (onColorSelected != null)
                     onColorSelected(currentColor);
                 Close();
