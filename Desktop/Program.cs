@@ -809,6 +809,8 @@ internal sealed class MainForm : Form
         menu.Items.Add(tagFolderMenu);
         menu.Items.Add("선택 항목으로 폴더 만들기", null, (_, _) => CreateFolderForSelected());
         menu.Items.Add("선택 항목으로 태그 폴더 만들기", null, (_, _) => CreateTagFolderForSelected());
+        menu.Items.Add("현재 폴더 이름 변경", null, (_, _) => RenameSelectedFolder());
+        menu.Items.Add("현재 폴더 삭제", null, (_, _) => DeleteSelectedFolder());
         menu.Items.Add("모드 폴더 열기", null, (_, _) => OpenSelectedFolder());
         menu.Items.Add("창작마당 페이지 열기", null, (_, _) => OpenWorkshopPage());
         menu.Show(grid, e.Location);
@@ -926,6 +928,69 @@ internal sealed class MainForm : Form
         var folder = new FolderData { Id = folderId, Name = name.Trim(), ModIds = ids };
         category.Folders.Add(folder);
         foreach (string id in ids) { foreach (var f in category.Folders.Where(f => f.Id != folderId)) f.ModIds.Remove(id); }
+        RefreshGrid();
+    }
+
+    private void CreateTagFolderForSelected()
+    {
+        if (store == null) return;
+        TagData? tag = SelectedTag();
+        List<string> ids = SelectedIds();
+        if (tag == null || tag.IsSystem || ids.Count == 0)
+        {
+            MessageBox.Show(this, "태그 필터에서 사용자 태그를 선택한 뒤 모드를 선택하세요.");
+            return;
+        }
+        string? name = Prompt.Show(this, "새 태그 폴더 이름", "태그 폴더 추가");
+        if (string.IsNullOrWhiteSpace(name)) return;
+        var folder = new FolderData { Id = "folder-" + Guid.NewGuid().ToString("N"), Name = name.Trim(), ModIds = ids };
+        tag.Folders.Add(folder);
+        foreach (string id in ids)
+            foreach (FolderData other in tag.Folders.Where(f => f.Id != folder.Id))
+                other.ModIds.RemoveAll(value => value.Equals(id, StringComparison.OrdinalIgnoreCase));
+        store.AssignTag(ids, tag, true);
+        RefreshGrid();
+    }
+
+    private FolderData? GetCurrentCategoryFolder(out CategoryData? category)
+    {
+        category = null;
+        if (store == null || grid.SelectedRows.Count == 0 || grid.SelectedRows[0].Tag is not ModEntry mod) return null;
+        category = store.Categories.FirstOrDefault(c => c.Id == mod.CategoryId);
+        return category?.Folders.FirstOrDefault(f => f.ModIds.Contains(mod.PackageId, StringComparer.OrdinalIgnoreCase));
+    }
+
+    private void RenameSelectedFolder()
+    {
+        FolderData? folder = GetCurrentCategoryFolder(out _);
+        if (folder == null || folder.Id == "uncategorized")
+        {
+            MessageBox.Show(this, "이름을 변경할 사용자 폴더를 선택하세요.");
+            return;
+        }
+        string? name = Prompt.Show(this, "새 폴더 이름", "폴더 이름 변경");
+        if (string.IsNullOrWhiteSpace(name)) return;
+        folder.Name = name.Trim();
+        RefreshGrid();
+    }
+
+    private void DeleteSelectedFolder()
+    {
+        FolderData? folder = GetCurrentCategoryFolder(out CategoryData? category);
+        if (folder == null || category == null || folder.Id == "uncategorized")
+        {
+            MessageBox.Show(this, "삭제할 사용자 폴더를 선택하세요.");
+            return;
+        }
+        if (MessageBox.Show(this, "폴더를 삭제하고 포함된 모드를 '미분류'로 이동할까요?", "폴더 삭제", MessageBoxButtons.YesNo) != DialogResult.Yes) return;
+        FolderData? target = category.Folders.FirstOrDefault(f => f.Id == "uncategorized");
+        if (target == null)
+        {
+            target = new FolderData();
+            category.Folders.Insert(0, target);
+        }
+        foreach (string id in folder.ModIds.ToList()) target.ModIds.Add(id);
+        category.Folders.Remove(folder);
         RefreshGrid();
     }
 
