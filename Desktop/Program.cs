@@ -949,8 +949,22 @@ internal sealed partial class MainForm : Form
 
     private void Reload()
     {
-        try { store!.Load(); RefreshFilters(); RefreshGrid(); SetStatus($"모드 {store.Mods.Count}개 검색 · 활성 {store.Mods.Count(m => m.Active)}개"); }
-        catch (Exception ex) { MessageBox.Show(this, ex.Message, "모드 목록을 불러오지 못했습니다.", MessageBoxButtons.OK, MessageBoxIcon.Error); SetStatus(ex.Message); }
+        try
+        {
+            store!.Load();
+            SyncAutoTagOptionControls();
+            if (store.MetadataChanged)
+                PersistManagerSettings("신규 모드/버전 변경 정보 갱신");
+            RefreshFilters();
+            RefreshGrid();
+            SetStatus($"모드 {store.Mods.Count}개 검색 · 활성 {store.Mods.Count(m => m.Active)}개");
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(this, ex.ToString(), "모드 목록을 불러오지 못했습니다.",
+                MessageBoxButtons.OK, MessageBoxIcon.Error);
+            SetStatus(ex.Message);
+        }
     }
 
     private void RefreshFilters()
