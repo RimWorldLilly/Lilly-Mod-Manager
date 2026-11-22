@@ -644,6 +644,7 @@ internal sealed class MainForm : Form
         grid.Columns.Add(new DataGridViewCheckBoxColumn { Name = "active", HeaderText = "활성", Width = 48 });
         grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "name", HeaderText = "모드 이름", ReadOnly = true });
         grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "category", HeaderText = "카테고리", ReadOnly = true });
+        grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "folder", HeaderText = "폴더", ReadOnly = true });
         grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "tags", HeaderText = "태그", ReadOnly = true });
         grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "version", HeaderText = "버전", ReadOnly = true });
         grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "source", HeaderText = "설치 위치", ReadOnly = true });
@@ -721,10 +722,11 @@ internal sealed class MainForm : Form
             CategoryData? cat = store.Categories.FirstOrDefault(c => c.Id == mod.CategoryId);
             ModState state = store.GetState(mod.PackageId);
             List<string> names = state.TagIds.Select(id => store.Tags.FirstOrDefault(t => t.Id == id)?.Name).Where(n => !string.IsNullOrWhiteSpace(n)).Cast<string>().ToList();
+            string folderName = cat?.Folders.FirstOrDefault(f => f.ModIds.Contains(mod.PackageId, StringComparer.OrdinalIgnoreCase))?.Name ?? "미분류";
             if (catName != "전체" && cat?.Name != catName) continue;
             if (tagName != "모든 태그" && !names.Contains(tagName)) continue;
             if (q.Length > 0 && !string.Join(" ", mod.Name, mod.PackageId, mod.Author, mod.Description).Contains(q, StringComparison.CurrentCultureIgnoreCase)) continue;
-            int index = grid.Rows.Add(mod.Active || mod.Official, mod.Name, cat?.Name ?? "미분류", string.Join(", ", names), mod.Version, mod.Official ? "공식" : mod.Workshop ? "창작마당" : "로컬", mod.Issue, mod.PackageId);
+            int index = grid.Rows.Add(mod.Active || mod.Official, mod.Name, cat?.Name ?? "미분류", folderName, string.Join(", ", names), mod.Version, mod.Official ? "공식" : mod.Workshop ? "창작마당" : "로컬", mod.Issue, mod.PackageId);
             if (mod.Issue.Length > 0) grid.Rows[index].DefaultCellStyle.ForeColor = Color.Salmon;
             grid.Rows[index].Tag = mod;
         }
