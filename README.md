@@ -28,6 +28,14 @@ Loading a preset replaces the current edit draft; it does not change the active 
 
 Automatic sorting uses available mod dependency metadata while preserving the existing order where dependencies do not constrain it. Apply checks the resulting RimWorld load order and asks before applying when it finds ordering problems. Core and official DLC remain protected. Removing a mod from the manager is separate from deleting its files; Workshop unsubscribe requests do not erase its saved management data.
 
+## Standalone Windows app
+
+Running `build.bat` on Windows with the .NET 10 SDK now builds both the RimWorld mod and a self-contained x64 desktop application. The executable is written beside `build.bat` as `Lilly.ModManager.exe`; its Windows icon is embedded during publishing.
+
+The desktop app can scan local, official, and Steam Workshop mod folders; search and inspect installed mods; enable or disable mods; change load order manually or sort by declared dependencies; assign categories and tags; create category folders; save, load, and delete manager presets; open mod folders and Workshop pages; and launch RimWorld. It edits the same `ModsConfig.xml` and Lilly Mod Manager settings/preset files used by the in-game manager, creating timestamped backups before saving. Close RimWorld before applying a desktop configuration. Steam subscription/unsubscription and Workshop publishing are intentionally not included in the standalone app.
+
+The in-game manager remains available as before. On startup, it creates a desktop shortcut when the standalone EXE is present. A **Create desktop shortcut** button is also available in the in-game manager options window.
+
 ## Build
 
 Run `build.bat` (or `build.bat /nopause`) with .NET SDK 10 installed. Since `LoadFolders.xml` loads the mod root for RimWorld 1.7, the output is written to `Assemblies\Lilly.IntegratedModManager.dll`.
