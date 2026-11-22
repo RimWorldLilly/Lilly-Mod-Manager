@@ -891,7 +891,7 @@ private int GetActiveCount(ManagerTagData tag)
 
         public override Vector2 InitialSize
         {
-            get { return new Vector2(460f, 210f); }
+            get { return new Vector2(460f, 260f); }
         }
 
         public override void DoWindowContents(Rect inRect)
@@ -917,6 +917,13 @@ private int GetActiveCount(ManagerTagData tag)
                 new Rect(0f, 118f, inRect.width, 30f),
                 ManagerTranslation.Get("LMM_0189"),
                 ref settings.AutoTagUpdatedMods);
+
+            if (Widgets.ButtonText(
+                new Rect(0f, 158f, inRect.width, 34f),
+                ManagerTranslation.Get("LMM_0209")))
+            {
+                DesktopShortcut.CreateFromOptions();
+            }
 
             if (oldImprovedLayout != settings.UseImprovedLayout ||
                 oldAutoTagNewMods != settings.AutoTagNewMods ||
