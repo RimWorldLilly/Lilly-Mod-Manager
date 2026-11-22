@@ -1535,6 +1535,12 @@ internal sealed partial class MainForm
 
         ModState state = store?.GetState(mod.PackageId) ?? new ModState();
         detailTitle.Text = string.IsNullOrWhiteSpace(state.DisplayName) ? mod.Name : state.DisplayName;
+        if (string.IsNullOrWhiteSpace(mod.Path) || !Directory.Exists(mod.Path))
+        {
+            SetPreviewImage(null);
+            return;
+        }
+
         string[] candidates =
         {
             Path.Combine(mod.Path, "About", "Preview.png"),
