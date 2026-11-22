@@ -77,7 +77,6 @@ namespace Lilly.IntegratedModManager
         {
             this.title = title;
             inputName = string.Empty;
-            inputColor = initialColor;
             this.acceptAction = (name, color) =>
             {
                 if (acceptColorAction != null)
