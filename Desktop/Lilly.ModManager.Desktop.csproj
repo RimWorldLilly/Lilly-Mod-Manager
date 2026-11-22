@@ -4,6 +4,9 @@
     <TargetFramework>net8.0-windows</TargetFramework>
     <UseWindowsForms>true</UseWindowsForms>
     <EnableWindowsTargeting>true</EnableWindowsTargeting>
+    <!-- Normal builds must remain framework-dependent, even when a RID is supplied by the IDE. -->
+    <SelfContained>false</SelfContained>
+    <PublishSingleFile>false</PublishSingleFile>
     <RootNamespace>Lilly.ModManager.Desktop</RootNamespace>
     <AssemblyName>Lilly.ModManager</AssemblyName>
     <ApplicationIcon>..\Assets\LillyModManager.ico</ApplicationIcon>
