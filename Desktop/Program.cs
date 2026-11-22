@@ -157,6 +157,8 @@ internal sealed class ModStore
     public List<TagData> Tags { get; private set; } = [];
     public List<ModState> States { get; private set; } = [];
     public List<string> ExcludedPackageIds { get; private set; } = [];
+    public List<string> FavoriteFolderKeys { get; private set; } = [];
+    public List<string> RecentFolderKeys { get; private set; } = [];
     public List<ModEntry> OrderedMods { get; private set; } = [];
 
     public ModStore(GamePaths paths) => Paths = paths;
@@ -315,6 +317,8 @@ internal sealed class ModStore
         Tags = [];
         States = [];
         ExcludedPackageIds = [];
+        FavoriteFolderKeys = [];
+        RecentFolderKeys = [];
         if (File.Exists(Paths.ManagerSettings))
         {
             try
@@ -327,6 +331,8 @@ internal sealed class ModStore
                     Tags = ParseTags(Child(managerSettings, "tags"));
                     States = ParseStates(Child(managerSettings, "mods"));
                     ExcludedPackageIds = ListValues(managerSettings, "excludedPackageIds");
+                    FavoriteFolderKeys = ListValues(managerSettings, "favoriteFolderKeys");
+                    RecentFolderKeys = ListValues(managerSettings, "recentFolderKeys");
                 }
             }
             catch { }
@@ -641,6 +647,8 @@ internal sealed class ModStore
         ReplaceCollection(managerSettings, "tags", Tags.Select(WriteTag));
         ReplaceCollection(managerSettings, "mods", States.Select(WriteState));
         ReplaceCollection(managerSettings, "excludedPackageIds", ExcludedPackageIds.Select(id => new XElement("li", id)));
+        ReplaceCollection(managerSettings, "favoriteFolderKeys", FavoriteFolderKeys.Select(key => new XElement("li", key)));
+        ReplaceCollection(managerSettings, "recentFolderKeys", RecentFolderKeys.Select(key => new XElement("li", key)));
         BackupFile(Paths.ManagerSettings);
         SaveAtomic(doc, Paths.ManagerSettings);
     }
