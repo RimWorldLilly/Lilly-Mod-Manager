@@ -727,8 +727,18 @@ internal sealed class ModStore
             draftEnabledStates = States.ToDictionary(
                 state => state.PackageId, state => state.Enabled, StringComparer.OrdinalIgnoreCase);
             foreach (ModState state in States)
+            {
                 if (persistedEnabledStates.TryGetValue(state.PackageId, out bool savedEnabled))
+                {
                     state.Enabled = savedEnabled;
+                    continue;
+                }
+
+                ModEntry? installed = OrderedMods.FirstOrDefault(mod =>
+                    mod.PackageId.Equals(state.PackageId, StringComparison.OrdinalIgnoreCase));
+                if (installed != null)
+                    state.Enabled = installed.Active || installed.Official;
+            }
         }
 
         try
@@ -838,7 +848,11 @@ internal sealed class ModStore
         var previousStates = States.ToDictionary(state => state.PackageId, Clone, StringComparer.OrdinalIgnoreCase);
         Categories = preset.Categories.Select(Clone).ToList();
         Tags = preset.Tags.Select(Clone).ToList();
-        States = preset.Mods.Select(Clone).ToList();
+        States = preset.Mods
+            .Where(state => state != null && !string.IsNullOrWhiteSpace(state.PackageId))
+            .GroupBy(state => state.PackageId, StringComparer.OrdinalIgnoreCase)
+            .Select(group => Clone(group.First()))
+            .ToList();
 
         if (!Tags.Any(tag => tag.Id.Equals("untagged", StringComparison.OrdinalIgnoreCase)))
             Tags.Insert(0, new TagData { Id = "untagged", Name = "태그 없음", IsSystem = true, Folders = [NewFolder()] });
