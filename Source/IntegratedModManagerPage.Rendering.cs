@@ -535,8 +535,10 @@ namespace Lilly.IntegratedModManager
 
                             string rowName = protectedMod ? name + ManagerTranslation.Get("LMM_0001") : name;
                             Color rowTextColor = ManagerTagColors.Foreground(finalRowColor);
+                            Color previousNameGuiColor = GUI.color;
                             GUI.color = rowTextColor;
                             Widgets.Label(nameRect, rowName);
+                            GUI.color = previousNameGuiColor;
 
                             bool workshopItemMissing = false;
                             if (rowIsVisible && mod.OnSteamWorkshop)
