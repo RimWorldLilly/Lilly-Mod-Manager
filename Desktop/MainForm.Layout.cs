@@ -573,6 +573,7 @@ internal sealed partial class MainForm
     {
         if (store == null || modRows.IsDisposed || rebuildingRows) return;
         rebuildingRows = true;
+        store.RefreshIssues();
         string query = search.Text.Trim();
         string stateFilter = activeFilter.SelectedItem?.ToString() ?? "모두";
         string source = sourceFilter.SelectedItem?.ToString() ?? "전체";
