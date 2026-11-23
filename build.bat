@@ -5,7 +5,7 @@ cd /d "%~dp0"
 where dotnet >nul 2>&1
 if errorlevel 1 goto :install_sdk_prompt
 
-dotnet --list-sdks 2>nul | findstr /r /c:"^10\." >nul
+dotnet --list-sdks 2>nul | findstr /r /c:"^10\\." >nul
 if errorlevel 1 goto :install_sdk_prompt
 goto :sdk_ready
 
@@ -31,11 +31,25 @@ pause
 exit /b 1
 
 :sdk_ready
-
 echo Building the RimWorld mod...
-dotnet build "%~dp0Source\Lilly.IntegratedModManager.csproj" --configuration Release --nologo
-if errorlevel 1 exit /b %ERRORLEVEL%
+dotnet build "%~dp0Source\\Lilly.IntegratedModManager.csproj" --configuration Release --nologo
+set "BUILD_EXIT=%ERRORLEVEL%"
+
+call :cleanup
+if not "%BUILD_EXIT%"=="0" (
+    echo.
+    echo [ERROR] RimWorld mod build failed. Temporary build folders were cleaned.
+    exit /b %BUILD_EXIT%
+)
 
 echo.
-echo [SUCCESS] RimWorld mod: "%~dp0Assemblies\Lilly.IntegratedModManager.dll"
+echo [SUCCESS] RimWorld mod: "%~dp0Assemblies\\Lilly.IntegratedModManager.dll"
+exit /b 0
+
+:cleanup
+echo.
+echo Cleaning temporary build folders...
+if exist "%~dp0Desktop\\bin" rmdir /s /q "%~dp0Desktop\\bin"
+if exist "%~dp0Desktop\\obj" rmdir /s /q "%~dp0Desktop\\obj"
+if exist "%~dp0Source\\obj" rmdir /s /q "%~dp0Source\\obj"
 exit /b 0
