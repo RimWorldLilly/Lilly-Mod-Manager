@@ -680,7 +680,7 @@ internal sealed class ModStore
             // The category checkbox is a master switch; never overwrite the saved per-mod choice
             // with the current ModsConfig.xml state during startup.
             bool categoryEnabled = category?.Enabled ?? true;
-            mod.Active = mod.Official || (categoryEnabled && state.Enabled);
+            mod.Active = mod.Official || IsPinned(mod.PackageId) || (categoryEnabled && state.Enabled);
         }
     }
 
@@ -706,16 +706,14 @@ internal sealed class ModStore
 
             if (GameVersion != null && mod.SupportedVersions.Count > 0)
             {
-                bool supportsCurrentOrNewer = mod.SupportedVersions
-                    .Select(value => Regex.Match(value ?? "", @"(?<!\d)(\d+)\.(\d+)(?:\.(\d+))?"))
-                    .Where(match => match.Success)
-                    .Select(match => new Version(
-                        int.Parse(match.Groups[1].Value),
-                        int.Parse(match.Groups[2].Value),
-                        match.Groups[3].Success ? int.Parse(match.Groups[3].Value) : 0))
-                    .Any(version => version.Major > GameVersion.Major ||
-                        (version.Major == GameVersion.Major && version.Minor >= GameVersion.Minor));
-                if (!supportsCurrentOrNewer)
+                List<Version> declaredVersions = mod.SupportedVersions
+                    .Select(ParseVersion)
+                    .Where(version => version != null)
+                    .Cast<Version>()
+                    .ToList();
+                // supportedVersions is an explicit major.minor allow-list, not a minimum version.
+                if (declaredVersions.Count > 0 && !declaredVersions.Any(version =>
+                    version.Major == GameVersion.Major && version.Minor == GameVersion.Minor))
                 {
                     mod.HasVersionMismatch = true;
                     problems.Add($"게임 버전 불일치: 현재 {GameVersion.Major}.{GameVersion.Minor}");
@@ -1223,7 +1221,10 @@ internal sealed partial class MainForm : Form
                 PersistManagerSettings("신규 모드/버전 변경 정보 갱신");
             RefreshFilters();
             RefreshGrid();
-            string statusText = $"모드 {store.Mods.Count}개 검색 · 활성 {store.Mods.Count(m => m.Active)}개";
+            string detectedVersion = store.GameVersion == null
+            ? "게임 버전 확인 불가"
+            : $"게임 {store.GameVersion.Major}.{store.GameVersion.Minor}";
+        string statusText = $"{detectedVersion} · 모드 {store.Mods.Count}개 검색 · 활성 {store.Mods.Count(m => m.Active)}개";
             if (metadataChanged && GameIsRunning())
                 statusText += " · 자동 태그/버전 정보는 게임 종료 후 저장하세요.";
             SetStatus(statusText);
@@ -1239,17 +1240,6 @@ internal sealed partial class MainForm : Form
     private void RefreshFilters()
     {
         if (store == null) return;
-        string oldCat = categoryFilter.SelectedItem?.ToString() ?? "전체";
-        string oldTag = tagFilter.SelectedItem?.ToString() ?? "모든 태그";
-        categoryFilter.Items.Clear();
-        categoryFilter.Items.Add("전체");
-        foreach (var category in store.Categories) categoryFilter.Items.Add(category.Name);
-        categoryFilter.SelectedItem = categoryFilter.Items.Contains(oldCat) ? oldCat : "전체";
-        tagFilter.Items.Clear();
-        tagFilter.Items.Add("모든 태그");
-        foreach (var tag in store.Tags.Where(tag => !tag.IsSystem)) tagFilter.Items.Add(tag.Name);
-        tagFilter.SelectedItem = tagFilter.Items.Contains(oldTag) ? oldTag : "모든 태그";
-
         if (sidebarSelectedCategoryId != null &&
             !store.Categories.Any(category => category.Id == sidebarSelectedCategoryId))
             sidebarSelectedCategoryId = null;
@@ -1317,6 +1307,21 @@ internal sealed partial class MainForm : Form
                 RefreshGrid();
             });
         }
+        List<string> selectedIdsForPin = SelectedIds();
+        List<string> pinnableIds = selectedIdsForPin.Where(id =>
+            store.OrderedMods.Any(mod => mod.PackageId.Equals(id, StringComparison.OrdinalIgnoreCase) && !mod.Official)).ToList();
+        bool allSelectedPinned = pinnableIds.Count > 0 && pinnableIds.All(store.IsPinned);
+        var pinItem = new ToolStripMenuItem(allSelectedPinned ? "체크 고정 해제" : "체크 고정")
+        {
+            Enabled = pinnableIds.Count > 0
+        };
+        pinItem.Click += (_, _) =>
+        {
+            foreach (string id in pinnableIds) store.SetPinned(id, !allSelectedPinned);
+            RefreshGrid();
+            SetStatus(allSelectedPinned ? "선택한 모드의 체크 고정을 해제했습니다." : "선택한 모드를 체크 고정했습니다.");
+        };
+        menu.Items.Add(pinItem);
         menu.Items.Add("선택 모드 활성화", null, (_, _) => SetSelectedActive(true));
         menu.Items.Add("선택 모드 비활성화", null, (_, _) => SetSelectedActive(false));
         menu.Items.Add(categoryMenu);
@@ -1514,7 +1519,7 @@ internal sealed partial class MainForm : Form
         foreach (string id in SelectedIds())
         {
             ModEntry? mod = store.OrderedMods.FirstOrDefault(m => m.PackageId == id);
-            if (mod == null || mod.Official) continue;
+            if (mod == null || mod.Official || (!active && store.IsPinned(id))) continue;
             mod.Active = active;
             store.GetState(id).Enabled = active;
         }
@@ -1698,8 +1703,7 @@ internal sealed partial class MainForm : Form
         if (store == null || sidebarTagMode) return null;
         if (!string.IsNullOrEmpty(sidebarSelectedCategoryId))
             return store.Categories.FirstOrDefault(category => category.Id == sidebarSelectedCategoryId);
-        string name = categoryFilter.SelectedItem?.ToString() ?? "전체";
-        return name == "전체" ? null : store.Categories.FirstOrDefault(category => category.Name == name);
+        return null;
     }
 
     private TagData? SelectedTag()
@@ -1707,8 +1711,7 @@ internal sealed partial class MainForm : Form
         if (store == null) return null;
         if (!string.IsNullOrEmpty(sidebarSelectedTagId))
             return store.Tags.FirstOrDefault(tag => tag.Id == sidebarSelectedTagId);
-        string name = tagFilter.SelectedItem?.ToString() ?? "모든 태그";
-        return name == "모든 태그" ? null : store.Tags.FirstOrDefault(tag => tag.Name == name);
+        return null;
     }
 
     private void RenameCategory()
