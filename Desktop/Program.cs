@@ -1100,6 +1100,7 @@ internal sealed partial class MainForm : Form
         }
 
         SetStatus("모드 정보를 불러오는 중입니다...");
+        AddMessageRow("모드 정보를 불러오는 중입니다...");
         ModStore loadingStore = store;
         try
         {
