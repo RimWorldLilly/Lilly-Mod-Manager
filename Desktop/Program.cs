@@ -1608,8 +1608,8 @@ internal sealed partial class MainForm : Form
                     warnings.Add($"{mod.Name}: {dependency}보다 앞에 있어야 합니다 (LoadBefore)");
             }
 
-            if (mod.HasVersionMismatch)
-                warnings.Add($"{mod.Name}: 현재 게임 버전 {store.GameVersion?.Major}.{store.GameVersion?.Minor}을 지원하지 않을 수 있습니다.");
+            if (mod.HasOutdatedForGameVersion)
+                warnings.Add($"{mod.Name}: 현재 게임 버전 {store.GameVersion?.Major}.{store.GameVersion?.Minor}보다 낮은 버전만 지원합니다.");
         }
 
         return warnings.Distinct(StringComparer.CurrentCultureIgnoreCase).ToList();
