@@ -289,6 +289,9 @@ internal sealed partial class MainForm
                 contentSplit.SplitterDistance = Math.Max(330, (int)(contentSplit.ClientSize.Width * 0.36));
             }
             catch { }
+
+            // Keep the form hidden until both split containers have their final geometry.
+            Opacity = 1;
         };
         RefreshSidebar();
     }
@@ -728,7 +731,6 @@ internal sealed partial class MainForm
     {
         sidebarTagMode = false;
         sidebarSelectedCategoryId = null;
-        categoryFilter.SelectedItem = "전체";
         sidebarSelectedTagId = null;
         RefreshSidebar();
         RefreshGameLikeList();
@@ -739,8 +741,6 @@ internal sealed partial class MainForm
         sidebarTagMode = false;
         sidebarSelectedCategoryId = category.Id;
         sidebarSelectedTagId = null;
-        categoryFilter.SelectedItem = category.Name;
-        tagFilter.SelectedItem = "모든 태그";
         RefreshSidebar();
         RefreshGameLikeList();
     }
@@ -749,7 +749,6 @@ internal sealed partial class MainForm
     {
         sidebarTagMode = true;
         sidebarSelectedTagId = tag.Id;
-        tagFilter.SelectedItem = tag.IsSystem ? "모든 태그" : tag.Name;
         RefreshSidebar();
         RefreshGameLikeList();
     }
@@ -1130,8 +1129,7 @@ internal sealed partial class MainForm
             Width = 20,
             Height = 22,
             Checked = mod.Active || mod.Official,
-            Enabled = !mod.Official,
-            BackColor = Color.Transparent,
+            Enabled = !mod.Official && !store.IsPinned(mod.PackageId),            BackColor = Color.Transparent,
             Cursor = Cursors.Hand
         };
         var name = new Label
@@ -1202,8 +1200,6 @@ internal sealed partial class MainForm
         meta.Left = name.Right + 4;
         meta.Width = Math.Max(35, row.ClientSize.Width - meta.Left - 7);
         FitTagChips(meta);
-        rowToolTip.SetToolTip(row, $"{mod.Name}\n{mod.PackageId}\n제작자: {mod.Author}\n버전: {mod.Version}\n{mod.Issue}");
-        rowToolTip.SetToolTip(name, $"{mod.Name}\n{mod.PackageId}\n{mod.Description}");
         rowToolTip.SetToolTip(meta, assignedTags.Count == 0
             ? ""
             : "태그 전체: " + string.Join(", ", assignedTags.Select(tag => tag.Name)));
@@ -1338,8 +1334,6 @@ internal sealed partial class MainForm
         sidebarTagMode = false;
         sidebarSelectedCategoryId = targetCategory.Id;
         sidebarSelectedTagId = null;
-        categoryFilter.SelectedItem = targetCategory.Name;
-        tagFilter.SelectedItem = "모든 태그";
         selectedPackageIds.Clear();
         primarySelectedPackageId = null;
         selectionAnchorRow = -1;
