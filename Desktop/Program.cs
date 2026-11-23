@@ -281,6 +281,7 @@ internal sealed class ModStore
         if (!File.Exists(Paths.ModsConfig)) throw new FileNotFoundException("ModsConfig.xml 파일이 없습니다.", Paths.ModsConfig);
 
         GameVersion = ReadGameVersion(Paths.GameRoot);
+        LoadPinnedPackageIds();
         List<string> activeIds = ReadActiveMods();
         var activeSet = new HashSet<string>(activeIds, StringComparer.OrdinalIgnoreCase);
         Mods = ScanMods().GroupBy(m => m.PackageId, StringComparer.OrdinalIgnoreCase).Select(g => g.First()).ToList();
@@ -317,16 +318,83 @@ internal sealed class ModStore
             if (!File.Exists(path)) continue;
             try
             {
-                Match match = Regex.Match(File.ReadAllText(path), @"(?<!\d)(\d+)\.(\d+)(?:\.(\d+))?");
-                if (!match.Success) continue;
-                int major = int.Parse(match.Groups[1].Value);
-                int minor = int.Parse(match.Groups[2].Value);
-                int build = match.Groups[3].Success ? int.Parse(match.Groups[3].Value) : 0;
-                return new Version(major, minor, build);
+                Version? parsed = ParseVersion(File.ReadAllText(path));
+                if (parsed != null) return parsed;
             }
             catch { }
         }
+
+        // Core About.xml is a secondary source for installations without Version.txt.
+        string coreAbout = System.IO.Path.Combine(gameRoot, "Data", "Core", "About", "About.xml");
+        try
+        {
+            if (File.Exists(coreAbout))
+            {
+                XDocument document = XDocument.Load(coreAbout);
+                string coreVersion = Value(document.Root ?? new XElement("root"), "modVersion");
+                Version? parsed = ParseVersion(coreVersion);
+                if (parsed != null) return parsed;
+            }
+        }
+        catch { }
         return null;
+    }
+
+    private static Version? ParseVersion(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return null;
+        Match match = Regex.Match(value, @"(?<!\d)(\d+)\.(\d+)(?:\.(\d+))?");
+        if (!match.Success ||
+            !int.TryParse(match.Groups[1].Value, out int major) ||
+            !int.TryParse(match.Groups[2].Value, out int minor)) return null;
+        int build = match.Groups[3].Success && int.TryParse(match.Groups[3].Value, out int parsedBuild)
+            ? parsedBuild : 0;
+        return new Version(major, minor, build);
+    }
+
+    public List<string> PinnedPackageIds { get; } = [];
+    private string PinnedModsFile => System.IO.Path.Combine(Paths.ConfigRoot, "LillyModManagerDesktopPins.txt");
+
+    private void LoadPinnedPackageIds()
+    {
+        PinnedPackageIds.Clear();
+        if (!File.Exists(PinnedModsFile)) return;
+        try
+        {
+            PinnedPackageIds.AddRange(File.ReadAllLines(PinnedModsFile)
+                .Select(line => line.Trim())
+                .Where(line => line.Length > 0)
+                .Distinct(StringComparer.OrdinalIgnoreCase));
+        }
+        catch { }
+    }
+
+    public bool IsPinned(string packageId) =>
+        PinnedPackageIds.Contains(packageId, StringComparer.OrdinalIgnoreCase);
+
+    public void SetPinned(string packageId, bool pinned)
+    {
+        PinnedPackageIds.RemoveAll(id => id.Equals(packageId, StringComparison.OrdinalIgnoreCase));
+        if (pinned) PinnedPackageIds.Add(packageId);
+        SavePinnedPackageIds();
+        if (pinned)
+        {
+            ModEntry? mod = OrderedMods.FirstOrDefault(item =>
+                item.PackageId.Equals(packageId, StringComparison.OrdinalIgnoreCase));
+            if (mod != null && !mod.Official)
+            {
+                mod.Active = true;
+                GetState(packageId).Enabled = true;
+            }
+        }
+    }
+
+    private void SavePinnedPackageIds()
+    {
+        Directory.CreateDirectory(Paths.ConfigRoot);
+        string temporary = PinnedModsFile + ".tmp";
+        File.WriteAllLines(temporary, PinnedPackageIds.OrderBy(id => id, StringComparer.OrdinalIgnoreCase));
+        File.Move(temporary, PinnedModsFile, true);
     }
 
     private List<string> ReadActiveMods()
@@ -1055,8 +1123,6 @@ internal sealed partial class MainForm : Form
 {
     private ModStore? store;
     private readonly TextBox search = new() { Width = 190, PlaceholderText = "모드 이름 / 제작자 / PackageId 검색" };
-    private readonly ComboBox categoryFilter = new() { Width = 145, DropDownStyle = ComboBoxStyle.DropDownList };
-    private readonly ComboBox tagFilter = new() { Width = 130, DropDownStyle = ComboBoxStyle.DropDownList };
     private readonly CheckedFilterButton activeFilter = new() { Width = 112, Text = "상태" };
     private readonly CheckedFilterButton sourceFilter = new() { Width = 132, Text = "설치 위치" };
     private readonly CheckedFilterButton issueFilter = new() { Width = 150, Text = "문제 유형" };
@@ -1070,6 +1136,7 @@ internal sealed partial class MainForm : Form
         StartPosition = FormStartPosition.CenterScreen;
         BackColor = Color.FromArgb(23, 26, 31); ForeColor = Color.Gainsboro;
         Icon = LoadIcon();
+        Opacity = 0;
         BuildUi();
         Shown += (_, _) => TryInitialLoad();
     }
