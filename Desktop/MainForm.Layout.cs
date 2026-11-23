@@ -845,7 +845,8 @@ internal sealed partial class MainForm
                 bool matchesIssue = (issueFilters.Contains("문제 있음") && anyIssue) ||
                     (issueFilters.Contains("필수 모드") && mod.HasMissingRequiredMod) ||
                     (issueFilters.Contains("불러오기 순서") && mod.HasLoadOrderIssue) ||
-                    (issueFilters.Contains("게임 버전 불일치") && mod.HasVersionMismatch) ||
+                    (issueFilters.Contains("게임 버전 불일치") &&
+                        (mod.HasVersionMismatch || mod.HasOutdatedForGameVersion)) ||
                     (issueFilters.Contains("설치 폴더 없음") && mod.HasMissingFolder);
                 if (!matchesIssue) return false;
             }
@@ -1104,22 +1105,32 @@ internal sealed partial class MainForm
             (hasOverflow && overflow != null ? overflow.Width + overflow.Margin.Horizontal : 0));
 
         bool allWarningsFit = true;
+        bool stopWarnings = false;
         foreach (ManagerChipLabel chip in warnings)
         {
             int needed = chip.Width + chip.Margin.Horizontal;
-            chip.Visible = needed <= available;
-            if (chip.Visible) available -= needed;
-            else allWarningsFit = false;
+            chip.Visible = !stopWarnings && needed <= available;
+            if (chip.Visible)
+                available -= needed;
+            else
+            {
+                stopWarnings = true;
+                allWarningsFit = false;
+            }
         }
 
         // 경고가 하나라도 잘리면 사용자 태그 대신 경고 우선순위의 앞부분을 유지한다.
         if (allWarningsFit)
         {
+            bool stopTags = false;
             foreach (ManagerChipLabel chip in tags)
             {
                 int needed = chip.Width + chip.Margin.Horizontal;
-                chip.Visible = needed <= available;
-                if (chip.Visible) available -= needed;
+                chip.Visible = !stopTags && needed <= available;
+                if (chip.Visible)
+                    available -= needed;
+                else
+                    stopTags = true;
             }
         }
         else
