@@ -1,6 +1,5 @@
 using System;
 using System.Drawing;
-using System.Drawing.Drawing2D;
 using System.Globalization;
 using System.Windows.Forms;
 
@@ -27,7 +26,7 @@ internal sealed class ColorPickerForm : Form
     ];
 
     private readonly HsvWheelControl wheel = new() { Size = new Size(224, 224), Margin = new Padding(8) };
-    private readonly TrackBar brightness = new() { Minimum = 5, Maximum = 100, TickFrequency = 10, Value = 90, Orientation = Orientation.Vertical, Height = 210, Width = 48 };
+    private readonly TrackBar brightness = new() { Minimum = 0, Maximum = 100, TickFrequency = 10, Value = 90, Orientation = Orientation.Vertical, Height = 210, Width = 48 };
     private readonly TextBox hexInput = new() { Width = 104, MaxLength = 7 };
     private readonly TextBox redInput = new() { Width = 48, MaxLength = 3 };
     private readonly TextBox greenInput = new() { Width = 48, MaxLength = 3 };
@@ -494,10 +493,10 @@ internal sealed class HsvWheelControl : Control
             float markerRadius = saturation * radius;
             float x = destination.Left + radius + MathF.Cos(angle) * markerRadius;
             float y = destination.Top + radius + MathF.Sin(angle) * markerRadius;
-            using var whitePen = new Pen(Color.White, 3f);
-            using var blackPen = new Pen(Color.Black, 1f);
-            e.Graphics.DrawEllipse(whitePen, x - 6f, y - 6f, 12f, 12f);
-            e.Graphics.DrawEllipse(blackPen, x - 6f, y - 6f, 12f, 12f);
+            using var blackPen = new Pen(Color.Black, 3f);
+            using var whitePen = new Pen(Color.White, 1f);
+            e.Graphics.DrawEllipse(blackPen, x - 7f, y - 7f, 14f, 14f);
+            e.Graphics.DrawEllipse(whitePen, x - 5f, y - 5f, 10f, 10f);
         }
     }
 
