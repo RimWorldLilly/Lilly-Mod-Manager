@@ -67,3 +67,6 @@ if exist "%~dp0Desktop\bin" rmdir /s /q "%~dp0Desktop\bin"
 if exist "%~dp0Desktop\obj" rmdir /s /q "%~dp0Desktop\obj"
 if exist "%~dp0Source\obj" rmdir /s /q "%~dp0Source\obj"
 exit /b 0
+@echo off
+start "" "Y:\SteamLibrary\steamapps\common\RimWorld\Mods\Lilly Mod Manager\Desktop\publish\win-x64\Lilly.ModManager.exe"
+exit
