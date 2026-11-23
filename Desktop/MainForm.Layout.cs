@@ -1088,27 +1088,49 @@ internal sealed partial class MainForm
 
     private void FitTagChips(FlowLayoutPanel panel)
     {
-        Label? overflow = panel.Controls.OfType<Label>()
-            .FirstOrDefault(control => Equals(control.Tag, "overflow"));
-        List<Control> chips = panel.Controls.Cast<Control>()
-            .Where(control => control != overflow).ToList();
+        ManagerChipLabel? overflow = panel.Controls.OfType<ManagerChipLabel>()
+            .FirstOrDefault(control => control.IsOverflow);
+        List<ManagerChipLabel> warnings = panel.Controls.OfType<ManagerChipLabel>()
+            .Where(control => control.IsWarning)
+            .OrderBy(control => control.DisplayPriority).ToList();
+        List<ManagerChipLabel> tags = panel.Controls.OfType<ManagerChipLabel>()
+            .Where(control => !control.IsWarning && !control.IsOverflow)
+            .OrderBy(control => control.DisplayPriority).ToList();
 
-        int totalWidth = chips.Sum(control => control.Width + control.Margin.Horizontal);
+        int totalWidth = warnings.Concat(tags)
+            .Sum(control => control.Width + control.Margin.Horizontal);
         bool hasOverflow = totalWidth > panel.ClientSize.Width;
         int available = Math.Max(0, panel.ClientSize.Width -
             (hasOverflow && overflow != null ? overflow.Width + overflow.Margin.Horizontal : 0));
 
-        // RightToLeft 배치에서 먼저 추가한 경고 칩을 우선 표시하고, 남은 공간에 사용자 태그를 표시한다.
-        foreach (Control chip in chips)
+        bool allWarningsFit = true;
+        foreach (ManagerChipLabel chip in warnings)
         {
             int needed = chip.Width + chip.Margin.Horizontal;
-            bool visible = needed <= available;
-            chip.Visible = visible;
-            if (visible) available -= needed;
+            chip.Visible = needed <= available;
+            if (chip.Visible) available -= needed;
+            else allWarningsFit = false;
         }
 
+        // 경고가 하나라도 잘리면 사용자 태그 대신 경고 우선순위의 앞부분을 유지한다.
+        if (allWarningsFit)
+        {
+            foreach (ManagerChipLabel chip in tags)
+            {
+                int needed = chip.Width + chip.Margin.Horizontal;
+                chip.Visible = needed <= available;
+                if (chip.Visible) available -= needed;
+            }
+        }
+        else
+        {
+            foreach (ManagerChipLabel chip in tags)
+                chip.Visible = false;
+        }
+
+        bool hidden = warnings.Any(chip => !chip.Visible) || tags.Any(chip => !chip.Visible);
         if (overflow != null)
-            overflow.Visible = hasOverflow && panel.ClientSize.Width >= overflow.Width;
+            overflow.Visible = hidden && panel.ClientSize.Width >= overflow.Width + overflow.Margin.Horizontal;
     }
 
     private void AddModRow(ModEntry mod)
@@ -1176,12 +1198,12 @@ internal sealed partial class MainForm
         };
 
         List<Label> warningChips = CreateModWarningChips(mod);
-        foreach (Label chip in warningChips.AsEnumerable().Reverse())
-            meta.Controls.Add(chip);
-        foreach (TagData tag in assignedTags.AsEnumerable().Reverse())
-            meta.Controls.Add(CreateModTagChip(tag));
         Label overflowChip = CreateTagOverflowChip();
         meta.Controls.Add(overflowChip);
+        for (int index = warningChips.Count - 1; index >= 0; index--)
+            meta.Controls.Add(warningChips[index]);
+        for (int index = assignedTags.Count - 1; index >= 0; index--)
+            meta.Controls.Add(CreateModTagChip(assignedTags[index], index));
         rowToolTip.SetToolTip(meta, assignedTags.Count == 0 && warningChips.Count == 0
             ? ""
             : "표시 항목 전체: " +
