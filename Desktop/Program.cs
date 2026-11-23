@@ -742,7 +742,10 @@ internal sealed class ModStore
 
                 foreach (string incompatibleId in mod.IncompatibleWith)
                 {
-                    if (!activeIds.Contains(incompatibleId)) continue;
+                    bool conflictingModIsInstalledAndActive = Mods.Any(candidate =>
+                        candidate.PackageId.Equals(incompatibleId, StringComparison.OrdinalIgnoreCase) &&
+                        (candidate.Active || candidate.Official));
+                    if (!conflictingModIsInstalledAndActive) continue;
                     mod.HasActiveIncompatibleMod = true;
                     problems.Add("활성 모드와 충돌: " + incompatibleId);
                 }
