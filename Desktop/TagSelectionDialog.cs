@@ -100,6 +100,18 @@ internal sealed class TagSelectionDialog : Form
         AcceptButton = addButton;
         CancelButton = closeButton;
 
+        tagList.Resize += (_, _) =>
+        {
+            int rowWidth = Math.Max(300, tagList.ClientSize.Width -
+                (tagList.VerticalScroll.Visible ? SystemInformation.VerticalScrollBarWidth : 0) - 4);
+            foreach (Panel row in tagList.Controls.OfType<Panel>())
+            {
+                row.Width = rowWidth;
+                ManagerChipLabel? chip = row.Controls.OfType<ManagerChipLabel>().FirstOrDefault();
+                if (chip != null) chip.Width = row.Width - 46;
+            }
+        };
+
         RebuildTagRows();
     }
 
@@ -132,7 +144,8 @@ internal sealed class TagSelectionDialog : Form
             {
                 Left = 0,
                 Top = rowIndex * 38,
-                Width = Math.Max(300, tagList.ClientSize.Width - SystemInformation.VerticalScrollBarWidth - 4),
+                Width = Math.Max(300, tagList.ClientSize.Width -
+                    (tagList.VerticalScroll.Visible ? SystemInformation.VerticalScrollBarWidth : 0) - 4),
                 Height = 36,
                 BackColor = rowIndex % 2 == 0
                     ? Color.FromArgb(19, 21, 25)
@@ -148,7 +161,7 @@ internal sealed class TagSelectionDialog : Form
                 BackColor = Color.Transparent
             };
             Color background = ColorPickerForm.ParseColor(tag.ColorHex, Color.FromArgb(89, 102, 115));
-            var chip = new Label
+            var chip = new ManagerChipLabel
             {
                 Left = 38,
                 Top = 4,
@@ -159,7 +172,7 @@ internal sealed class TagSelectionDialog : Form
                 Padding = new Padding(8, 0, 6, 0),
                 BackColor = background,
                 ForeColor = ColorPickerForm.GetContrastingText(background),
-                BorderStyle = BorderStyle.FixedSingle,
+                BorderColor = Color.White,
                 AutoEllipsis = true,
                 Cursor = Cursors.Hand
             };
@@ -169,7 +182,6 @@ internal sealed class TagSelectionDialog : Form
                 if (!rebuilding) onToggle(tag, check.Checked);
             };
             chip.Click += (_, _) => check.Checked = !check.Checked;
-            row.Click += (_, _) => check.Checked = !check.Checked;
             row.Controls.Add(check);
             row.Controls.Add(chip);
             tagList.Controls.Add(row);
