@@ -64,7 +64,7 @@ internal sealed partial class MainForm
         if (mod.HasActiveIncompatibleMod)
         {
             string conflicts = string.Join(", ", mod.IncompatibleWith.Where(id =>
-                store!.OrderedMods.Any(item => item.PackageId.Equals(id, StringComparison.OrdinalIgnoreCase) &&
+                store!.Mods.Any(item => item.PackageId.Equals(id, StringComparison.OrdinalIgnoreCase) &&
                     (item.Active || item.Official))));
             warnings.Add(("충돌", Color.FromArgb(255, 106, 66),
                 "활성 모드와 충돌하는 모드입니다." +
