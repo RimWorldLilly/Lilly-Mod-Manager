@@ -717,14 +717,9 @@ internal sealed class ModStore
                     .Where(version => version != null)
                     .Cast<Version>()
                     .ToList();
-                // supportedVersions is an explicit major.minor allow-list, not a minimum version.
-                if (declaredVersions.Count > 0 && !declaredVersions.Any(version =>
-                    version.Major == GameVersion.Major && version.Minor == GameVersion.Minor))
-                {
-                    mod.HasVersionMismatch = true;
-                    problems.Add($"게임 버전 불일치: 현재 {GameVersion.Major}.{GameVersion.Minor}");
-                }
-
+                // In-game warning distinguishes a mod built only for an older game from
+                // an ordinary supportedVersions list that does not contain the current version.
+                // Do not mislabel every non-matching allow-list as a dependency-version conflict.
                 if ((mod.Active || mod.Official) && declaredVersions.Count > 0 &&
                     declaredVersions.All(version =>
                         version.Major < GameVersion.Major ||
