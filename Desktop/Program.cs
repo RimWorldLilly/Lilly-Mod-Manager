@@ -83,11 +83,14 @@ internal sealed class ModEntry
     public List<string> LoadAfter { get; set; } = [];
     public List<string> LoadBefore { get; set; } = [];
     public List<string> Required { get; set; } = [];
+    public List<string> IncompatibleWith { get; set; } = [];
     public string Issue { get; set; } = "";
     public bool HasMissingFolder { get; set; }
     public bool HasMissingRequiredMod { get; set; }
+    public bool HasActiveIncompatibleMod { get; set; }
     public bool HasLoadOrderIssue { get; set; }
     public bool HasVersionMismatch { get; set; }
+    public bool HasOutdatedForGameVersion { get; set; }
 }
 
 internal sealed class FolderData
@@ -444,6 +447,7 @@ internal sealed class ModStore
             };
             m.LoadAfter = ListValues(root, "loadAfter");
             m.LoadBefore = ListValues(root, "loadBefore");
+            m.IncompatibleWith = ListValues(root, "incompatibleWith");
             XElement? dependencies = root.Elements().FirstOrDefault(e => e.Name.LocalName == "modDependencies");
             m.Required = dependencies?.Elements().Where(e => e.Name.LocalName == "li")
                 .Where(e => !bool.TryParse(Value(e, "MayRequire"), out bool optional) || !optional)
@@ -699,8 +703,10 @@ internal sealed class ModStore
             var problems = new List<string>();
             mod.HasMissingFolder = string.IsNullOrWhiteSpace(mod.Path);
             mod.HasMissingRequiredMod = false;
+            mod.HasActiveIncompatibleMod = false;
             mod.HasLoadOrderIssue = false;
             mod.HasVersionMismatch = false;
+            mod.HasOutdatedForGameVersion = false;
             if (mod.HasMissingFolder)
                 problems.Add("설치된 모드 폴더 없음");
 
@@ -718,6 +724,15 @@ internal sealed class ModStore
                     mod.HasVersionMismatch = true;
                     problems.Add($"게임 버전 불일치: 현재 {GameVersion.Major}.{GameVersion.Minor}");
                 }
+
+                if ((mod.Active || mod.Official) && declaredVersions.Count > 0 &&
+                    declaredVersions.All(version =>
+                        version.Major < GameVersion.Major ||
+                        (version.Major == GameVersion.Major && version.Minor < GameVersion.Minor)))
+                {
+                    mod.HasOutdatedForGameVersion = true;
+                    problems.Add("현재 게임 버전보다 낮은 버전만 지원합니다.");
+                }
             }
 
             if (mod.Active || mod.Official)
@@ -728,6 +743,13 @@ internal sealed class ModStore
                     string state = installedIds.Contains(dependency) ? "비활성" : "미설치";
                     mod.HasMissingRequiredMod = true;
                     problems.Add("필수 모드 확인: " + dependency + " (" + state + ")");
+                }
+
+                foreach (string incompatibleId in mod.IncompatibleWith)
+                {
+                    if (!activeIds.Contains(incompatibleId)) continue;
+                    mod.HasActiveIncompatibleMod = true;
+                    problems.Add("활성 모드와 충돌: " + incompatibleId);
                 }
 
                 int position = activePositions.TryGetValue(mod.PackageId, out int found) ? found : -1;
@@ -1325,20 +1347,7 @@ internal sealed partial class MainForm : Form
         menu.Items.Add("선택 모드 활성화", null, (_, _) => SetSelectedActive(true));
         menu.Items.Add("선택 모드 비활성화", null, (_, _) => SetSelectedActive(false));
         menu.Items.Add(categoryMenu);
-        var tagMenu = new ToolStripMenuItem("태그 지정 / 해제");
-        foreach (TagData tag in store.Tags.Where(t => !t.IsSystem))
-        {
-            TagData captured = tag;
-            var item = new ToolStripMenuItem(tag.Name) { CheckOnClick = true, Checked = SelectedIds().Any(id => store.GetState(id).TagIds.Contains(captured.Id)) };
-            item.Click += (_, _) =>
-            {
-                store.AssignTag(SelectedIds(), captured, item.Checked);
-                PersistManagerSettings("태그 지정");
-                RefreshGrid();
-            };
-            tagMenu.DropDownItems.Add(item);
-        }
-        menu.Items.Add(tagMenu);
+        menu.Items.Add("태그 편집...", null, (_, _) => OpenTagSelectionDialog(SelectedIds()));
 
         var folderMenu = new ToolStripMenuItem("카테고리 폴더로 이동");
         ModEntry? currentMod = contextMenuAnchor?.Tag as ModEntry ??
@@ -1392,24 +1401,13 @@ internal sealed partial class MainForm : Form
         menu.Show(contextMenuAnchor ?? (Control)modRows, contextMenuAnchor == null ? e.Location : contextMenuPoint);
     }
 
-    private static Color? ChooseColor(string? current)
-    {
-        using var dialog = new ColorDialog { FullOpen = true, AnyColor = true };
-        if (!string.IsNullOrWhiteSpace(current))
-        {
-            try { dialog.Color = ColorTranslator.FromHtml(current); } catch { }
-        }
-        return dialog.ShowDialog() == DialogResult.OK ? dialog.Color : null;
-    }
-
     private void PickCategoryColor()
     {
         CategoryData? category = SelectedCategory();
         if (category == null) { MessageBox.Show(this, "카테고리 필터에서 카테고리를 선택하세요."); return; }
-        Color? color = ChooseColor(category.ColorHex);
-        if (color.HasValue)
+        if (ColorPickerForm.TryPickColor(this, category.ColorHex, out Color? color))
         {
-            category.ColorHex = ColorTranslator.ToHtml(color.Value);
+            category.ColorHex = color.HasValue ? ColorTranslator.ToHtml(color.Value) : null;
             PersistManagerSettings("카테고리 색상 변경");
             RefreshSidebar();
             RefreshGrid();
@@ -1420,10 +1418,9 @@ internal sealed partial class MainForm : Form
     {
         TagData? tag = SelectedTag();
         if (tag == null || tag.IsSystem) { MessageBox.Show(this, "태그 필터에서 사용자 태그를 선택하세요."); return; }
-        Color? color = ChooseColor(tag.ColorHex);
-        if (color.HasValue)
+        if (ColorPickerForm.TryPickColor(this, tag.ColorHex, out Color? color))
         {
-            tag.ColorHex = ColorTranslator.ToHtml(color.Value);
+            tag.ColorHex = color.HasValue ? ColorTranslator.ToHtml(color.Value) : null;
             PersistManagerSettings("태그 색상 변경");
             RefreshSidebar();
             RefreshGrid();
@@ -1434,10 +1431,9 @@ internal sealed partial class MainForm : Form
     {
         if (store == null || GetPrimarySelectedMod() is not ModEntry mod) return;
         ModState state = store.GetState(mod.PackageId);
-        Color? color = ChooseColor(state.ColorHex);
-        if (color.HasValue)
+        if (ColorPickerForm.TryPickColor(this, state.ColorHex, out Color? color))
         {
-            state.ColorHex = ColorTranslator.ToHtml(color.Value);
+            state.ColorHex = color.HasValue ? ColorTranslator.ToHtml(color.Value) : null;
             PersistManagerSettings("모드 색상 변경");
             RefreshGrid();
         }
