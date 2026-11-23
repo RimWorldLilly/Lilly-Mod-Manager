@@ -427,9 +427,26 @@ internal sealed partial class MainForm
         };
         options.Controls.Add(autoNew);
         options.Controls.Add(autoUpdated);
-        dialog.Controls.Add(options);
-        dialog.Controls.Add(close);
-        dialog.Controls.Add(heading);
+        var layout = new TableLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            ColumnCount = 1,
+            RowCount = 3,
+            BackColor = Color.FromArgb(27, 30, 36),
+            Margin = Padding.Empty,
+            Padding = Padding.Empty
+        };
+        layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f));
+        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 38f));
+        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 38f));
+        layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100f));
+        heading.Dock = DockStyle.Fill;
+        close.Dock = DockStyle.Fill;
+        options.Dock = DockStyle.Fill;
+        layout.Controls.Add(heading, 0, 0);
+        layout.Controls.Add(close, 0, 1);
+        layout.Controls.Add(options, 0, 2);
+        dialog.Controls.Add(layout);
         dialog.AcceptButton = close;
         dialog.ShowDialog(this);
     }
