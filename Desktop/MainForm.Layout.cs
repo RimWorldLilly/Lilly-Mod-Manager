@@ -1088,14 +1088,27 @@ internal sealed partial class MainForm
 
     private void FitTagChips(FlowLayoutPanel panel)
     {
-        int remaining = Math.Max(0, panel.ClientSize.Width - panel.Padding.Horizontal);
-        foreach (Control chip in panel.Controls)
+        Label? overflow = panel.Controls.OfType<Label>()
+            .FirstOrDefault(control => Equals(control.Tag, "overflow"));
+        List<Control> chips = panel.Controls.Cast<Control>()
+            .Where(control => control != overflow).ToList();
+
+        int totalWidth = chips.Sum(control => control.Width + control.Margin.Horizontal);
+        bool hasOverflow = totalWidth > panel.ClientSize.Width;
+        int available = Math.Max(0, panel.ClientSize.Width -
+            (hasOverflow && overflow != null ? overflow.Width + overflow.Margin.Horizontal : 0));
+
+        // RightToLeft 배치에서 먼저 추가한 경고 칩을 우선 표시하고, 남은 공간에 사용자 태그를 표시한다.
+        foreach (Control chip in chips)
         {
             int needed = chip.Width + chip.Margin.Horizontal;
-            bool visible = needed <= remaining;
+            bool visible = needed <= available;
             chip.Visible = visible;
-            if (visible) remaining -= needed;
+            if (visible) available -= needed;
         }
+
+        if (overflow != null)
+            overflow.Visible = hasOverflow && panel.ClientSize.Width >= overflow.Width;
     }
 
     private void AddModRow(ModEntry mod)
@@ -1140,7 +1153,7 @@ internal sealed partial class MainForm
             Width = 240,
             Height = 29,
             Text = string.IsNullOrWhiteSpace(state.DisplayName) ? mod.Name : state.DisplayName,
-            ForeColor = mod.Issue.Length > 0 ? Color.Salmon : Color.Gainsboro,
+            ForeColor = Color.Gainsboro,
             TextAlign = ContentAlignment.MiddleLeft,
             AutoEllipsis = true,
             Cursor = Cursors.Hand
@@ -1161,28 +1174,19 @@ internal sealed partial class MainForm
             BackColor = Color.Transparent,
             Cursor = Cursors.Hand
         };
-        foreach (TagData tag in assignedTags)
-        {
-            Color chipColor = TryParseColor(tag.ColorHex, out Color parsedTagColor)
-                ? parsedTagColor : Color.FromArgb(55, 63, 74);
-            var chip = new Label
-            {
-                Text = tag.Name,
-                AutoSize = false,
-                Width = Math.Min(145, TextRenderer.MeasureText(tag.Name, meta.Font).Width + 14),
-                Height = 22,
-                Margin = new Padding(2, 1, 2, 1),
-                Padding = new Padding(5, 1, 5, 1),
-                BorderStyle = BorderStyle.FixedSingle,
-                BackColor = chipColor,
-                ForeColor = ColorForBackground(null, chipColor),
-                TextAlign = ContentAlignment.MiddleCenter,
-                AutoEllipsis = true,
-                Cursor = Cursors.Hand
-            };
-            rowToolTip.SetToolTip(chip, tag.Name);
+
+        List<Label> warningChips = CreateModWarningChips(mod);
+        foreach (Label chip in warningChips.AsEnumerable().Reverse())
             meta.Controls.Add(chip);
-        }
+        foreach (TagData tag in assignedTags.AsEnumerable().Reverse())
+            meta.Controls.Add(CreateModTagChip(tag));
+        Label overflowChip = CreateTagOverflowChip();
+        meta.Controls.Add(overflowChip);
+        rowToolTip.SetToolTip(meta, assignedTags.Count == 0 && warningChips.Count == 0
+            ? ""
+            : "표시 항목 전체: " +
+              string.Join(", ", assignedTags.Select(tag => tag.Name)
+                  .Concat(warningChips.Select(chip => chip.Tag?.ToString() ?? chip.Text))));
         row.AllowDrop = true;
         row.DragEnter += ModRowDragEnter;
         row.DragDrop += (_, e) => DropOnModRow(mod, e);
