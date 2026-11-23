@@ -300,12 +300,12 @@ internal sealed class ColorPickerForm : Form
         float m = v - chroma;
         (float r, float g, float b) = h switch
         {
-            < 1f / 6f => (chroma, x, 0),
-            < 2f / 6f => (x, chroma, 0),
-            < 3f / 6f => (0, chroma, x),
-            < 4f / 6f => (0, x, chroma),
-            < 5f / 6f => (x, 0, chroma),
-            _ => (chroma, 0, x)
+            < 1f / 6f => (chroma, x, 0f),
+            < 2f / 6f => (x, chroma, 0f),
+            < 3f / 6f => (0f, chroma, x),
+            < 4f / 6f => (0f, x, chroma),
+            < 5f / 6f => (x, 0f, chroma),
+            _ => (chroma, 0f, x)
         };
         return Color.FromArgb(255,
             (int)Math.Round((r + m) * 255f),
@@ -605,12 +605,12 @@ internal sealed class HsvWheelControl : Control
         float m = v - chroma;
         (float r, float g, float b) = h switch
         {
-            < 1f / 6f => (chroma, x, 0),
-            < 2f / 6f => (x, chroma, 0),
-            < 3f / 6f => (0, chroma, x),
-            < 4f / 6f => (0, x, chroma),
-            < 5f / 6f => (x, 0, chroma),
-            _ => (chroma, 0, x)
+            < 1f / 6f => (chroma, x, 0f),
+            < 2f / 6f => (x, chroma, 0f),
+            < 3f / 6f => (0f, chroma, x),
+            < 4f / 6f => (0f, x, chroma),
+            < 5f / 6f => (x, 0f, chroma),
+            _ => (chroma, 0f, x)
         };
         return Color.FromArgb(255, (int)((r + m) * 255f), (int)((g + m) * 255f), (int)((b + m) * 255f));
     }
