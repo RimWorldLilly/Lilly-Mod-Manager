@@ -639,7 +639,7 @@ internal sealed class ModStore
             if (GameVersion != null && mod.SupportedVersions.Count > 0)
             {
                 bool supportsCurrentOrNewer = mod.SupportedVersions
-                    .Select(value => Regex.Match(value ?? "", @"(?<!d)(d+).(d+)(?:.(d+))?"))
+                    .Select(value => Regex.Match(value ?? "", @"(?<!\d)(\d+)\.(\d+)(?:\.(\d+))?"))
                     .Where(match => match.Success)
                     .Select(match => new Version(
                         int.Parse(match.Groups[1].Value),
@@ -1057,9 +1057,9 @@ internal sealed partial class MainForm : Form
     private readonly TextBox search = new() { Width = 190, PlaceholderText = "모드 이름 / 제작자 / PackageId 검색" };
     private readonly ComboBox categoryFilter = new() { Width = 145, DropDownStyle = ComboBoxStyle.DropDownList };
     private readonly ComboBox tagFilter = new() { Width = 130, DropDownStyle = ComboBoxStyle.DropDownList };
-    private readonly ComboBox activeFilter = new() { Width = 95, DropDownStyle = ComboBoxStyle.DropDownList };
-    private readonly ComboBox sourceFilter = new() { Width = 115, DropDownStyle = ComboBoxStyle.DropDownList };
-    private readonly ComboBox issueFilter = new() { Width = 135, DropDownStyle = ComboBoxStyle.DropDownList };
+    private readonly CheckedFilterButton activeFilter = new() { Width = 112, Text = "상태" };
+    private readonly CheckedFilterButton sourceFilter = new() { Width = 132, Text = "설치 위치" };
+    private readonly CheckedFilterButton issueFilter = new() { Width = 150, Text = "문제 유형" };
     private readonly RichTextBox details = new() { Dock = DockStyle.Fill, ReadOnly = true, BackColor = Color.FromArgb(28, 31, 37), ForeColor = Color.Gainsboro, BorderStyle = BorderStyle.None };
     private readonly Label status = new() { Dock = DockStyle.Bottom, Height = 26, TextAlign = ContentAlignment.MiddleLeft, Padding = new Padding(8, 0, 0, 0) };
 
@@ -1089,11 +1089,31 @@ internal sealed partial class MainForm : Form
         button.FlatAppearance.BorderColor = Color.FromArgb(83, 94, 109); button.Click += (_, _) => action(); panel.Controls.Add(button);
     }
 
-    private void TryInitialLoad()
+    private async void TryInitialLoad()
     {
-        GamePaths paths = ModStore.DiscoverPaths(); store = new ModStore(paths);
-        if (Directory.Exists(paths.GameRoot) && File.Exists(paths.ModsConfig) && Directory.Exists(paths.ConfigRoot)) Reload();
-        else ChoosePaths();
+        GamePaths paths = ModStore.DiscoverPaths();
+        store = new ModStore(paths);
+        if (!Directory.Exists(paths.GameRoot) || !File.Exists(paths.ModsConfig) || !Directory.Exists(paths.ConfigRoot))
+        {
+            ChoosePaths();
+            return;
+        }
+
+        SetStatus("모드 정보를 불러오는 중입니다...");
+        ModStore loadingStore = store;
+        try
+        {
+            await Task.Run(() => loadingStore.Load());
+            if (IsDisposed || Disposing || !ReferenceEquals(store, loadingStore)) return;
+            CompleteReload();
+        }
+        catch (Exception ex)
+        {
+            if (IsDisposed || Disposing) return;
+            MessageBox.Show(this, ex.ToString(), "모드 목록을 불러오지 못했습니다.",
+                MessageBoxButtons.OK, MessageBoxIcon.Error);
+            SetStatus(ex.Message);
+        }
     }
 
     private void ChoosePaths()
@@ -1115,7 +1135,21 @@ internal sealed partial class MainForm : Form
         try
         {
             store!.Load();
-            SyncAutoTagOptionControls();
+            CompleteReload();
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(this, ex.ToString(), "모드 목록을 불러오지 못했습니다.",
+                MessageBoxButtons.OK, MessageBoxIcon.Error);
+            SetStatus(ex.Message);
+        }
+    }
+
+    private void CompleteReload()
+    {
+        if (store == null) return;
+        try
+        {
             bool metadataChanged = store.MetadataChanged;
             if (metadataChanged)
                 PersistManagerSettings("신규 모드/버전 변경 정보 갱신");
@@ -1128,7 +1162,7 @@ internal sealed partial class MainForm : Form
         }
         catch (Exception ex)
         {
-            MessageBox.Show(this, ex.ToString(), "모드 목록을 불러오지 못했습니다.",
+            MessageBox.Show(this, ex.ToString(), "화면 갱신 실패",
                 MessageBoxButtons.OK, MessageBoxIcon.Error);
             SetStatus(ex.Message);
         }
