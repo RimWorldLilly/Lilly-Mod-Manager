@@ -126,23 +126,6 @@ internal sealed partial class MainForm
     private int selectionAnchorRow = -1;
     private readonly List<ModEntry> visibleMods = [];
     private readonly HashSet<string> selectedPackageIds = new(StringComparer.OrdinalIgnoreCase);
-    private readonly CheckBox autoTagNewModsOption = new()
-    {
-        Text = "신규 모드 자동 태그",
-        AutoSize = true,
-        ForeColor = Color.Gainsboro,
-        BackColor = Color.Transparent,
-        Margin = new Padding(12, 7, 3, 0)
-    };
-    private readonly CheckBox autoTagUpdatedModsOption = new()
-    {
-        Text = "버전 변경 자동 태그",
-        AutoSize = true,
-        ForeColor = Color.Gainsboro,
-        BackColor = Color.Transparent,
-        Margin = new Padding(8, 7, 3, 0)
-    };
-    private bool syncingAutoTagOptions;
     private Control? contextMenuAnchor;
     private Point contextMenuPoint;
     private const string ModDragDataFormat = "Lilly.ModManager.Desktop.PackageIds";
@@ -177,36 +160,14 @@ internal sealed partial class MainForm
         search.Width = 390;
         top.Controls.Add(search);
         AddToolbarLabel(top, "상태");
-        activeFilter.Width = 95;
-        activeFilter.Items.Clear();
-        activeFilter.Items.AddRange(new object[] { "모두", "활성", "비활성" });
-        activeFilter.SelectedIndex = 0;
+        activeFilter.SetItems(new[] { "활성", "비활성" });
         top.Controls.Add(activeFilter);
         AddToolbarLabel(top, "설치 위치");
-        sourceFilter.Width = 115;
-        sourceFilter.Items.Clear();
-        sourceFilter.Items.AddRange(new object[] { "전체", "로컬", "창작마당", "공식" });
-        sourceFilter.SelectedIndex = 0;
+        sourceFilter.SetItems(new[] { "로컬", "창작마당", "공식" });
         top.Controls.Add(sourceFilter);
         AddToolbarLabel(top, "문제");
-        issueFilter.Items.Clear();
-        issueFilter.Items.AddRange(new object[] { "전체", "문제 있음", "필수 모드", "불러오기 순서", "게임 버전 불일치", "설치 폴더 없음" });
-        issueFilter.SelectedIndex = 0;
+        issueFilter.SetItems(new[] { "문제 있음", "필수 모드", "불러오기 순서", "게임 버전 불일치", "설치 폴더 없음" });
         top.Controls.Add(issueFilter);
-        top.Controls.Add(autoTagNewModsOption);
-        top.Controls.Add(autoTagUpdatedModsOption);
-        autoTagNewModsOption.CheckedChanged += (_, _) =>
-        {
-            if (syncingAutoTagOptions || store == null) return;
-            store.AutoTagNewMods = autoTagNewModsOption.Checked;
-            PersistManagerSettings("신규 모드 자동 태그 설정");
-        };
-        autoTagUpdatedModsOption.CheckedChanged += (_, _) =>
-        {
-            if (syncingAutoTagOptions || store == null) return;
-            store.AutoTagUpdatedMods = autoTagUpdatedModsOption.Checked;
-            PersistManagerSettings("버전 변경 자동 태그 설정");
-        };
 
         var sidebar = new Panel { Dock = DockStyle.Fill, BackColor = Color.FromArgb(27, 30, 36) };
         navModeTabs.Controls.Add(categoryModeButton);
@@ -275,6 +236,7 @@ internal sealed partial class MainForm
         AddButton(actions, "모드 색상", PickModColor);
         AddButton(actions, "모드 색상 해제", ClearModColor);
         AddButton(actions, "경로 설정", ChoosePaths);
+        AddButton(actions, "옵션", OpenOptionsDialog);
         AddButton(actions, "게임 실행", LaunchGame);
 
         var root = new TableLayoutPanel
@@ -303,9 +265,9 @@ internal sealed partial class MainForm
         navRenameButton.Click += (_, _) => { if (sidebarTagMode) RenameTag(); else RenameCategory(); };
         navDeleteButton.Click += (_, _) => { if (sidebarTagMode) DeleteTag(); else DeleteCategory(); };
         search.TextChanged += (_, _) => { RefreshSidebar(); RefreshGameLikeList(); };
-        activeFilter.SelectedIndexChanged += (_, _) => { RefreshSidebar(); RefreshGameLikeList(); };
-        sourceFilter.SelectedIndexChanged += (_, _) => { RefreshSidebar(); RefreshGameLikeList(); };
-        issueFilter.SelectedIndexChanged += (_, _) => { RefreshSidebar(); RefreshGameLikeList(); };
+        activeFilter.SelectionChanged += (_, _) => { RefreshSidebar(); RefreshGameLikeList(); };
+        sourceFilter.SelectionChanged += (_, _) => { RefreshSidebar(); RefreshGameLikeList(); };
+        issueFilter.SelectionChanged += (_, _) => { RefreshSidebar(); RefreshGameLikeList(); };
         modRows.SizeChanged += (_, _) => ResizeModRows();
         sidebarItems.SizeChanged += (_, _) => ResizeSidebarRows();
         KeyPreview = true;
@@ -409,13 +371,67 @@ internal sealed partial class MainForm
         dialog.ShowDialog(this);
     }
 
-    private void SyncAutoTagOptionControls()
+    private void OpenOptionsDialog()
     {
         if (store == null) return;
-        syncingAutoTagOptions = true;
-        autoTagNewModsOption.Checked = store.AutoTagNewMods;
-        autoTagUpdatedModsOption.Checked = store.AutoTagUpdatedMods;
-        syncingAutoTagOptions = false;
+        using var dialog = new Form
+        {
+            Text = "Lilly Mod Manager 옵션", Width = 430, Height = 210,
+            MinimumSize = new Size(430, 210), MaximumSize = new Size(430, 210),
+            StartPosition = FormStartPosition.CenterParent,
+            FormBorderStyle = FormBorderStyle.FixedDialog,
+            MaximizeBox = false, MinimizeBox = false,
+            BackColor = Color.FromArgb(27, 30, 36), ForeColor = Color.Gainsboro
+        };
+        var heading = new Label
+        {
+            Text = "자동 태그", Dock = DockStyle.Top, Height = 38,
+            TextAlign = ContentAlignment.MiddleLeft, Padding = new Padding(12, 0, 0, 0),
+            Font = new Font("Segoe UI", 10f, FontStyle.Bold), ForeColor = Color.White
+        };
+        var options = new FlowLayoutPanel
+        {
+            Dock = DockStyle.Fill, FlowDirection = FlowDirection.TopDown,
+            WrapContents = false, Padding = new Padding(12, 8, 8, 4),
+            BackColor = Color.FromArgb(27, 30, 36)
+        };
+        var autoNew = new CheckBox
+        {
+            Text = "신규 모드 자동 태그", AutoSize = true,
+            Checked = store.AutoTagNewMods, ForeColor = Color.Gainsboro,
+            BackColor = Color.Transparent, Margin = new Padding(3, 5, 3, 8)
+        };
+        var autoUpdated = new CheckBox
+        {
+            Text = "버전 변경 자동 태그", AutoSize = true,
+            Checked = store.AutoTagUpdatedMods, ForeColor = Color.Gainsboro,
+            BackColor = Color.Transparent, Margin = new Padding(3, 5, 3, 8)
+        };
+        var close = new Button
+        {
+            Text = "닫기", Dock = DockStyle.Bottom, Height = 34,
+            FlatStyle = FlatStyle.Flat, BackColor = Color.FromArgb(54, 63, 74),
+            ForeColor = Color.White, DialogResult = DialogResult.OK
+        };
+        autoNew.CheckedChanged += (_, _) =>
+        {
+            if (store == null) return;
+            store.AutoTagNewMods = autoNew.Checked;
+            PersistManagerSettings("신규 모드 자동 태그 설정");
+        };
+        autoUpdated.CheckedChanged += (_, _) =>
+        {
+            if (store == null) return;
+            store.AutoTagUpdatedMods = autoUpdated.Checked;
+            PersistManagerSettings("버전 변경 자동 태그 설정");
+        };
+        options.Controls.Add(autoNew);
+        options.Controls.Add(autoUpdated);
+        dialog.Controls.Add(options);
+        dialog.Controls.Add(close);
+        dialog.Controls.Add(heading);
+        dialog.AcceptButton = close;
+        dialog.ShowDialog(this);
     }
 
     private void MainFormKeyDown(object? sender, KeyEventArgs e)
@@ -761,9 +777,9 @@ internal sealed partial class MainForm
         rebuildingRows = true;
         store.RefreshIssues();
         string query = search.Text.Trim();
-        string stateFilter = activeFilter.SelectedItem?.ToString() ?? "모두";
-        string source = sourceFilter.SelectedItem?.ToString() ?? "전체";
-        string issueMode = issueFilter.SelectedItem?.ToString() ?? "전체";
+        HashSet<string> stateFilters = activeFilter.CheckedValues;
+        HashSet<string> sourceFilters = sourceFilter.CheckedValues;
+        HashSet<string> issueFilters = issueFilter.CheckedValues;
 
         IEnumerable<ModEntry> candidates = store.OrderedMods;
         CategoryData? currentCategory = null;
@@ -800,16 +816,23 @@ internal sealed partial class MainForm
 
         List<ModEntry> filtered = candidates.Where(mod =>
         {
-            if (stateFilter == "활성" && !mod.Active && !mod.Official) return false;
-            if (stateFilter == "비활성" && (mod.Active || mod.Official)) return false;
-            if (source == "로컬" && (mod.Workshop || mod.Official)) return false;
-            if (source == "창작마당" && (!mod.Workshop || mod.Official)) return false;
-            if (source == "공식" && !mod.Official) return false;
-            if (issueMode == "문제 있음" && string.IsNullOrWhiteSpace(mod.Issue)) return false;
-            if (issueMode == "필수 모드" && !mod.HasMissingRequiredMod) return false;
-            if (issueMode == "불러오기 순서" && !mod.HasLoadOrderIssue) return false;
-            if (issueMode == "게임 버전 불일치" && !mod.HasVersionMismatch) return false;
-            if (issueMode == "설치 폴더 없음" && !mod.HasMissingFolder) return false;
+            if (stateFilters.Count > 0 && !(
+                (stateFilters.Contains("활성") && (mod.Active || mod.Official)) ||
+                (stateFilters.Contains("비활성") && !mod.Active && !mod.Official))) return false;
+            if (sourceFilters.Count > 0 && !(
+                (sourceFilters.Contains("로컬") && !mod.Workshop && !mod.Official) ||
+                (sourceFilters.Contains("창작마당") && mod.Workshop && !mod.Official) ||
+                (sourceFilters.Contains("공식") && mod.Official))) return false;
+            if (issueFilters.Count > 0)
+            {
+                bool anyIssue = !string.IsNullOrWhiteSpace(mod.Issue);
+                bool matchesIssue = (issueFilters.Contains("문제 있음") && anyIssue) ||
+                    (issueFilters.Contains("필수 모드") && mod.HasMissingRequiredMod) ||
+                    (issueFilters.Contains("불러오기 순서") && mod.HasLoadOrderIssue) ||
+                    (issueFilters.Contains("게임 버전 불일치") && mod.HasVersionMismatch) ||
+                    (issueFilters.Contains("설치 폴더 없음") && mod.HasMissingFolder);
+                if (!matchesIssue) return false;
+            }
             if (query.Length == 0) return true;
             ModState state = store.GetState(mod.PackageId);
             string tags = string.Join(" ", state.TagIds
@@ -1668,6 +1691,61 @@ internal sealed partial class MainForm
         currentPreviewImage = image;
         previewImage.Image = image;
         if (old != null && !ReferenceEquals(old, image)) old.Dispose();
+    }
+}
+
+internal sealed class CheckedFilterButton : Button
+{
+    private readonly ContextMenuStrip menu = new() { ShowCheckMargin = true, ShowImageMargin = false };
+    private readonly CheckedListBox choices = new()
+    {
+        CheckOnClick = true, BorderStyle = BorderStyle.None, IntegralHeight = false,
+        Width = 190, Height = 150, BackColor = Color.FromArgb(34, 39, 47),
+        ForeColor = Color.Gainsboro
+    };
+    private readonly ToolStripControlHost host;
+    private readonly List<string> items = new();
+    private string caption = "";
+    public event EventHandler? SelectionChanged;
+    public HashSet<string> CheckedValues => items
+        .Where((item, index) => choices.GetItemChecked(index))
+        .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+    public CheckedFilterButton()
+    {
+        AutoSize = false; Height = 29; FlatStyle = FlatStyle.Flat;
+        BackColor = Color.FromArgb(54, 63, 74); ForeColor = Color.White;
+        TextAlign = ContentAlignment.MiddleLeft; Padding = new Padding(7, 0, 4, 0);
+        FlatAppearance.BorderColor = Color.FromArgb(83, 94, 109);
+        host = new ToolStripControlHost(choices)
+        {
+            AutoSize = false, Size = new Size(196, 154), Margin = Padding.Empty,
+            Padding = new Padding(3), BackColor = choices.BackColor
+        };
+        menu.Items.Add(host);
+        choices.ItemCheck += (_, _) => BeginInvoke(new Action(() =>
+        {
+            UpdateCaption();
+            SelectionChanged?.Invoke(this, EventArgs.Empty);
+        }));
+        Click += (_, _) => menu.Show(this, new Point(0, Height));
+    }
+
+    public void SetItems(IEnumerable<string> values)
+    {
+        items.Clear(); items.AddRange(values);
+        choices.Items.Clear();
+        foreach (string item in items) choices.Items.Add(item, false);
+        choices.Height = Math.Max(70, Math.Min(260, items.Count * 24 + 8));
+        host.Size = new Size(196, choices.Height + 4);
+        if (string.IsNullOrEmpty(caption)) caption = Text;
+        UpdateCaption();
+    }
+
+    private void UpdateCaption()
+    {
+        int count = choices.CheckedItems.Count;
+        Text = count == 0 ? $"{caption}: 전체" : $"{caption}: {count}개 선택";
     }
 }
 
