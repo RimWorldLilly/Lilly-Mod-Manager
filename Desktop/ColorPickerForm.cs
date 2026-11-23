@@ -240,7 +240,18 @@ internal sealed class ColorPickerForm : Form
 
     public static Color ParseColor(string? value, Color fallback)
     {
-        return TryParseHex(value, out Color parsed) ? parsed : fallback;
+        if (TryParseHex(value, out Color parsed))
+            return parsed;
+        try
+        {
+            if (!string.IsNullOrWhiteSpace(value))
+                return ColorTranslator.FromHtml(value.Trim());
+        }
+        catch
+        {
+            // Unknown values use the supplied fallback color.
+        }
+        return fallback;
     }
 
     public static Color GetContrastingText(Color background)
