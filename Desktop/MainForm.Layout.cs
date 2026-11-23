@@ -759,7 +759,7 @@ internal sealed partial class MainForm
         category.Enabled = enabled;
         foreach (ModEntry mod in store.OrderedMods.Where(m => category.ModIds.Contains(m.PackageId, StringComparer.OrdinalIgnoreCase)))
         {
-            if (mod.Official) continue;
+            if (mod.Official || (!enabled && store.IsPinned(mod.PackageId))) continue;
             mod.Active = enabled;
             store.GetState(mod.PackageId).Enabled = enabled;
         }
@@ -778,7 +778,7 @@ internal sealed partial class MainForm
             bool belongs = tag.Id == "untagged"
                 ? state.TagIds.Count == 0
                 : state.TagIds.Contains(tag.Id, StringComparer.OrdinalIgnoreCase);
-            if (!belongs || mod.Official) continue;
+            if (!belongs || mod.Official || (!enabled && store.IsPinned(mod.PackageId))) continue;
             mod.Active = enabled;
             state.Enabled = enabled;
         }
@@ -929,7 +929,7 @@ internal sealed partial class MainForm
         if (store == null) return;
         foreach (ModEntry mod in members)
         {
-            if (mod.Official) continue;
+            if (mod.Official || (!enabled && store.IsPinned(mod.PackageId))) continue;
             mod.Active = enabled;
             store.GetState(mod.PackageId).Enabled = enabled;
         }
@@ -1129,7 +1129,8 @@ internal sealed partial class MainForm
             Width = 20,
             Height = 22,
             Checked = mod.Active || mod.Official,
-            Enabled = !mod.Official && !store.IsPinned(mod.PackageId),            BackColor = Color.Transparent,
+            Enabled = !mod.Official && !store.IsPinned(mod.PackageId),
+            BackColor = Color.Transparent,
             Cursor = Cursors.Hand
         };
         var name = new Label
