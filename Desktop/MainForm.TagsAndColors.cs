@@ -89,17 +89,11 @@ internal sealed partial class MainForm
                 "이 모드는 현재 게임 버전보다 낮은 버전만 지원합니다." +
                 Environment.NewLine + "지원 버전: " + string.Join(", ", mod.SupportedVersions)));
         }
-        if (mod.HasMissingFolder)
-        {
-            warnings.Add(("폴더 없음", Color.FromArgb(255, 71, 71),
-                "모드 설치 폴더를 찾을 수 없습니다." +
-                (string.IsNullOrWhiteSpace(mod.Path) ? "" : Environment.NewLine + mod.Path)));
-        }
-
         var result = new List<Label>(warnings.Count);
-        foreach ((string label, Color color, string tooltip) in warnings)
+        for (int index = 0; index < warnings.Count; index++)
         {
-            int width = Math.Clamp(TextRenderer.MeasureText(label, new Font("Segoe UI", 7.5f)).Width + 12, 34, 112);
+            (string label, Color color, string tooltip) = warnings[index];
+            int width = Math.Clamp(TextRenderer.MeasureText(label, SystemFonts.SmallCaptionFont).Width + 12, 34, 112);
             var chip = new ManagerChipLabel
             {
                 Text = label,
@@ -110,6 +104,8 @@ internal sealed partial class MainForm
                 BackColor = Color.Black,
                 ForeColor = color,
                 BorderColor = color,
+                IsWarning = true,
+                DisplayPriority = index,
                 TextAlign = ContentAlignment.MiddleCenter,
                 AutoEllipsis = true,
                 Font = new Font("Segoe UI", 7.5f),
@@ -121,10 +117,10 @@ internal sealed partial class MainForm
         return result;
     }
 
-    private Label CreateModTagChip(TagData tag)
+    private Label CreateModTagChip(TagData tag, int priority)
     {
         Color background = ColorPickerForm.ParseColor(tag.ColorHex, Color.FromArgb(89, 102, 115));
-        int width = Math.Clamp(TextRenderer.MeasureText(tag.Name, new Font("Segoe UI", 7.5f)).Width + 12, 34, 112);
+        int width = Math.Clamp(TextRenderer.MeasureText(tag.Name, SystemFonts.SmallCaptionFont).Width + 12, 34, 112);
         var chip = new ManagerChipLabel
         {
             Text = tag.Name,
@@ -135,6 +131,8 @@ internal sealed partial class MainForm
             BackColor = background,
             ForeColor = ColorPickerForm.GetContrastingText(background),
             BorderColor = Color.White,
+            IsWarning = false,
+            DisplayPriority = priority,
             TextAlign = ContentAlignment.MiddleCenter,
             AutoEllipsis = true,
             Font = new Font("Segoe UI", 7.5f)
@@ -154,9 +152,9 @@ internal sealed partial class MainForm
             BackColor = Color.FromArgb(61, 61, 61),
             ForeColor = Color.White,
             BorderColor = Color.White,
+            IsOverflow = true,
             TextAlign = ContentAlignment.MiddleCenter,
             Font = new Font("Segoe UI", 8f, FontStyle.Bold),
-            Tag = "overflow",
             Visible = false
         };
     }
@@ -165,6 +163,9 @@ internal sealed partial class MainForm
 internal sealed class ManagerChipLabel : Label
 {
     public Color BorderColor { get; set; } = Color.White;
+    public bool IsWarning { get; set; }
+    public bool IsOverflow { get; set; }
+    public int DisplayPriority { get; set; }
 
     protected override void OnPaint(PaintEventArgs e)
     {
