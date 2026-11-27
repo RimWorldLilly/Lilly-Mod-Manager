@@ -115,8 +115,39 @@ namespace Lilly.IntegratedModManager
                         Rect deleteRect = new Rect(rowRect.xMax - 27f, rowRect.y + 2f, 22f, 24f);
                         Rect labelRect = new Rect(enabledRect.xMax + 4f, rowRect.y,
                             Mathf.Max(24f, editRect.x - enabledRect.xMax - 7f), 26f);
-                        string label = (i + 1) + ".(" + GetActiveCount(category) + "/" +
-            GetInstalledCount(category) + ") " + category.Name;
+                        string activeTotal = "(" + GetActiveCount(category) + "/" +
+                            GetInstalledCount(category) + ")";
+                        string orderNumber = (i + 1) + ".";
+                        string categoryName = category.Name;
+                        string label;
+                        switch (Mathf.Clamp(settings.CategoryLabelOrder, 0, 5))
+                        {
+                            case 1:
+                                label = orderNumber + " " + activeTotal + " " + categoryName;
+                                break;
+                            case 2:
+                                label = categoryName + " " + activeTotal +
+                                    (settings.ShowCategoryOrderNumber ? " " + orderNumber : "");
+                                break;
+                            case 3:
+                                label = categoryName +
+                                    (settings.ShowCategoryOrderNumber ? " " + orderNumber : "") +
+                                    " " + activeTotal;
+                                break;
+                            case 4:
+                                label = activeTotal + " " + categoryName +
+                                    (settings.ShowCategoryOrderNumber ? " " + orderNumber : "");
+                                break;
+                            case 5:
+                                label = (settings.ShowCategoryOrderNumber ? orderNumber + " " : "") +
+                                    categoryName + " " + activeTotal;
+                                break;
+                            default:
+                                label = activeTotal +
+                                    (settings.ShowCategoryOrderNumber ? " " + orderNumber : "") +
+                                    " " + categoryName;
+                                break;
+                        }
         
         
         Color previousContentColor = GUI.contentColor;
