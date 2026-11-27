@@ -895,7 +895,7 @@ private int GetActiveCount(ManagerTagData tag)
 
         public override Vector2 InitialSize
         {
-            get { return new Vector2(460f, 260f); }
+            get { return new Vector2(460f, 330f); }
         }
 
         public override void DoWindowContents(Rect inRect)
@@ -908,6 +908,7 @@ private int GetActiveCount(ManagerTagData tag)
             bool oldImprovedLayout = settings.UseImprovedLayout;
             bool oldAutoTagNewMods = settings.AutoTagNewMods;
             bool oldAutoTagUpdatedMods = settings.AutoTagUpdatedMods;
+            bool oldShowCategoryOrderNumber = settings.ShowCategoryOrderNumber;
 
             Widgets.CheckboxLabeled(
                 new Rect(0f, 46f, inRect.width, 30f),
@@ -921,9 +922,41 @@ private int GetActiveCount(ManagerTagData tag)
                 new Rect(0f, 118f, inRect.width, 30f),
                 ManagerTranslation.Get("LMM_0189"),
                 ref settings.AutoTagUpdatedMods);
+            Widgets.CheckboxLabeled(
+                new Rect(0f, 154f, inRect.width, 30f),
+                "카테고리 순번 표시",
+                ref settings.ShowCategoryOrderNumber);
+
+            Widgets.Label(new Rect(0f, 190f, 112f, 30f), "카테고리 표시 순서");
+            string[] categoryLabelOrders =
+            {
+                "(활성/전체) 순번. 카테고리명",
+                "순번. (활성/전체) 카테고리명",
+                "카테고리명 (활성/전체) 순번",
+                "카테고리명 순번. (활성/전체)",
+                "(활성/전체) 카테고리명 순번",
+                "순번. 카테고리명 (활성/전체)"
+            };
+            int selectedOrder = Mathf.Clamp(settings.CategoryLabelOrder, 0, categoryLabelOrders.Length - 1);
+            if (Widgets.ButtonText(
+                new Rect(116f, 190f, inRect.width - 116f, 30f),
+                categoryLabelOrders[selectedOrder]))
+            {
+                List<FloatMenuOption> orderOptions = new List<FloatMenuOption>();
+                for (int i = 0; i < categoryLabelOrders.Length; i++)
+                {
+                    int order = i;
+                    orderOptions.Add(new FloatMenuOption(categoryLabelOrders[i], () =>
+                    {
+                        settings.CategoryLabelOrder = order;
+                        IntegratedModManagerMod.Instance.WriteSettings();
+                    }));
+                }
+                Find.WindowStack.Add(new FloatMenu(orderOptions));
+            }
 
             if (Widgets.ButtonText(
-                new Rect(0f, 158f, inRect.width, 34f),
+                new Rect(0f, 230f, inRect.width, 34f),
                 ManagerTranslation.Get("LMM_0209")))
             {
                 DesktopShortcut.CreateFromOptions();
@@ -931,7 +964,8 @@ private int GetActiveCount(ManagerTagData tag)
 
             if (oldImprovedLayout != settings.UseImprovedLayout ||
                 oldAutoTagNewMods != settings.AutoTagNewMods ||
-                oldAutoTagUpdatedMods != settings.AutoTagUpdatedMods)
+                oldAutoTagUpdatedMods != settings.AutoTagUpdatedMods ||
+                oldShowCategoryOrderNumber != settings.ShowCategoryOrderNumber)
             {
                 IntegratedModManagerMod.Instance.WriteSettings();
             }
