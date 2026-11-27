@@ -22,6 +22,61 @@ namespace Lilly.IntegratedModManager
         {
             return "Lilly - Integrated Mod Manager";
         }
+
+        public override void DoSettingsWindowContents(UnityEngine.Rect inRect)
+        {
+            if (Settings == null)
+                return;
+
+            float y = 0f;
+            bool changed = false;
+
+            bool improvedLayout = Settings.UseImprovedLayout;
+            Widgets.CheckboxLabeled(
+                new UnityEngine.Rect(0f, y, inRect.width, 30f),
+                ManagerTranslation.Get("LMM_0191"),
+                ref improvedLayout);
+            y += 36f;
+            if (improvedLayout != Settings.UseImprovedLayout)
+            {
+                Settings.UseImprovedLayout = improvedLayout;
+                changed = true;
+            }
+
+            bool autoTagNewMods = Settings.AutoTagNewMods;
+            Widgets.CheckboxLabeled(
+                new UnityEngine.Rect(0f, y, inRect.width, 30f),
+                ManagerTranslation.Get("LMM_0188"),
+                ref autoTagNewMods);
+            y += 36f;
+            if (autoTagNewMods != Settings.AutoTagNewMods)
+            {
+                Settings.AutoTagNewMods = autoTagNewMods;
+                changed = true;
+            }
+
+            bool autoTagUpdatedMods = Settings.AutoTagUpdatedMods;
+            Widgets.CheckboxLabeled(
+                new UnityEngine.Rect(0f, y, inRect.width, 30f),
+                ManagerTranslation.Get("LMM_0189"),
+                ref autoTagUpdatedMods);
+            y += 40f;
+            if (autoTagUpdatedMods != Settings.AutoTagUpdatedMods)
+            {
+                Settings.AutoTagUpdatedMods = autoTagUpdatedMods;
+                changed = true;
+            }
+
+            if (Widgets.ButtonText(
+                new UnityEngine.Rect(0f, y, inRect.width, 34f),
+                ManagerTranslation.Get("LMM_0209")))
+            {
+                DesktopShortcut.CreateFromOptions();
+            }
+
+            if (changed)
+                WriteSettings();
+        }
     }
 
     public sealed class IntegratedModManagerSettings : ModSettings
