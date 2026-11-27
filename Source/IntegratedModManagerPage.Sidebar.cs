@@ -123,7 +123,8 @@ namespace Lilly.IntegratedModManager
                         switch (Mathf.Clamp(settings.CategoryLabelOrder, 0, 5))
                         {
                             case 1:
-                                label = orderNumber + " " + activeTotal + " " + categoryName;
+                                label = (settings.ShowCategoryOrderNumber ? orderNumber + " " : "") +
+                                    activeTotal + " " + categoryName;
                                 break;
                             case 2:
                                 label = categoryName + " " + activeTotal +
