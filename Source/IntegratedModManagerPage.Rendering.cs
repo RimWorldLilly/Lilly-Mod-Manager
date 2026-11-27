@@ -391,10 +391,12 @@ namespace Lilly.IntegratedModManager
                                         ManagerTagColors.Background(assignedCategory.ColorHex));
                                     GUI.color = ManagerTagColors.Foreground(assignedCategory.ColorHex);
                                     Text.Anchor = TextAnchor.MiddleCenter;
-                                    Widgets.Label(categoryChipRect.ContractedBy(3f), assignedCategory.Name);
+                                    int categoryOrdinal = categories.IndexOf(assignedCategory) + 1;
+                                    string categoryLabel = categoryOrdinal + ". " + assignedCategory.Name;
+                                    Widgets.Label(categoryChipRect.ContractedBy(3f), categoryLabel);
                                     GUI.color = previousCategoryGuiColor;
                                     Text.Anchor = previousCategoryAnchor;
-                                    TooltipHandler.TipRegion(categoryChipRect, assignedCategory.Name);
+                                    TooltipHandler.TipRegion(categoryChipRect, categoryLabel);
                                 }
                             }
 
