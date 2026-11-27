@@ -116,7 +116,7 @@ namespace Lilly.IntegratedModManager
                         Rect labelRect = new Rect(enabledRect.xMax + 4f, rowRect.y,
                             Mathf.Max(24f, editRect.x - enabledRect.xMax - 7f), 26f);
                         string label = "(" + GetActiveCount(category) + "/" +
-            GetInstalledCount(category) + ") " + category.Name;
+            GetInstalledCount(category) + ") " + (i + 1) + ". " + category.Name;
         
         
         Color previousContentColor = GUI.contentColor;
