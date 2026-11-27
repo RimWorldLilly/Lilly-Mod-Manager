@@ -211,7 +211,10 @@ namespace Lilly.IntegratedModManager
                         return;
                     }
         
-                    int modIndex = visibleMods.FindIndex(mod =>
+                    List<ModMetaData> navigationMods = allModsView
+                        ? GetAllModsSorted()
+                        : visibleMods;
+                    int modIndex = navigationMods.FindIndex(mod =>
                         string.Equals(mod.PackageId, primarySelectedPackageId,
                             StringComparison.OrdinalIgnoreCase));
                     int nextModIndex = modIndex < 0 ? 0 : modIndex;
@@ -223,13 +226,13 @@ namespace Lilly.IntegratedModManager
                             nextModIndex = 0;
                             break;
                         case KeyCode.End:
-                            nextModIndex = visibleMods.Count - 1;
+                            nextModIndex = navigationMods.Count - 1;
                             break;
                         case KeyCode.PageUp:
                             nextModIndex = Mathf.Max(0, nextModIndex - modPageStep);
                             break;
                         case KeyCode.PageDown:
-                            nextModIndex = Mathf.Min(visibleMods.Count - 1,
+                            nextModIndex = Mathf.Min(navigationMods.Count - 1,
                                 nextModIndex + modPageStep);
                             break;
                         case KeyCode.UpArrow:
@@ -243,9 +246,13 @@ namespace Lilly.IntegratedModManager
         
                     if (nextModIndex != modIndex)
                     {
-                        SelectMod(nextModIndex, false,
-                            current.shift && lastSelectedIndex >= 0);
-                        float modRowY = GetVisibleModRowY(visibleMods[nextModIndex].PackageId);
+                        if (allModsView)
+                            SelectModByPackageId(navigationMods[nextModIndex].PackageId, false,
+                                current.shift && lastSelectedIndex >= 0);
+                        else
+                            SelectMod(nextModIndex, false,
+                                current.shift && lastSelectedIndex >= 0);
+                        float modRowY = GetVisibleModRowY(navigationMods[nextModIndex].PackageId);
                         float modViewportHeight = Mathf.Max(1f, listRect.height - 16f);
                         if (modRowY < modListScroll.y)
                             modListScroll.y = modRowY;
@@ -260,7 +267,8 @@ namespace Lilly.IntegratedModManager
                 {
                     if (allModsView)
                     {
-                        int index = visibleMods.FindIndex(mod => mod != null &&
+                        List<ModMetaData> orderedMods = GetAllModsSorted();
+                        int index = orderedMods.FindIndex(mod => mod != null &&
                             string.Equals(mod.PackageId, packageId, StringComparison.OrdinalIgnoreCase));
                         return index < 0 ? 0f : index * RowHeight;
                     }
