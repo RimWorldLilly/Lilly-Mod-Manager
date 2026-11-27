@@ -124,23 +124,67 @@ namespace Lilly.IntegratedModManager
                             Widgets.EndScrollView();
                         }
 
+        private int allModsSortMode;
+
         private void DrawAllModsList(Rect rect)
-                        {
-                            Widgets.DrawBox(rect);
-                            Rect innerRect = rect.ContractedBy(8f);
-                            modListViewportHeight = innerRect.height;
-                            float viewHeight = Mathf.Max(innerRect.height, visibleMods.Count * RowHeight);
-                            float scrollbarWidth = viewHeight > innerRect.height
-                                ? ManagerUiMetrics.VerticalScrollbarWidth
-                                : 0f;
-                            Rect viewRect = new Rect(0f, 0f, innerRect.width - scrollbarWidth, viewHeight);
-                            Widgets.BeginScrollView(innerRect, ref modListScroll, viewRect);
-                
-                            for (int i = 0; i < visibleMods.Count; i++)
-                                DrawModRow(visibleMods[i], i, viewRect.width, i * RowHeight);
-                
-                            Widgets.EndScrollView();
-                        }
+        {
+            Widgets.DrawBox(rect);
+            Rect innerRect = rect.ContractedBy(8f);
+            Rect sortRect = new Rect(innerRect.x, innerRect.y, innerRect.width, 28f);
+            string[] sortLabels = { "기본 순서", "이름 오름차순", "이름 내림차순", "PackageId 오름차순", "카테고리 순서" };
+            string currentSortLabel = allModsSortMode >= 0 && allModsSortMode < sortLabels.Length
+                ? sortLabels[allModsSortMode]
+                : sortLabels[0];
+            if (Widgets.ButtonText(sortRect, "정렬: " + currentSortLabel))
+            {
+                List<FloatMenuOption> options = new List<FloatMenuOption>();
+                for (int mode = 0; mode < sortLabels.Length; mode++)
+                {
+                    int selectedMode = mode;
+                    options.Add(new FloatMenuOption(sortLabels[mode], () =>
+                    {
+                        allModsSortMode = selectedMode;
+                        modListScroll = Vector2.zero;
+                    }));
+                }
+                Find.WindowStack.Add(new FloatMenu(options));
+            }
+
+            Rect listRect = new Rect(innerRect.x, innerRect.y + 30f, innerRect.width, Mathf.Max(0f, innerRect.height - 30f));
+            modListViewportHeight = listRect.height;
+            List<ModMetaData> orderedMods = visibleMods.ToList();
+            if (allModsSortMode == 1)
+                orderedMods = orderedMods.OrderBy(mod => mod.Name, StringComparer.OrdinalIgnoreCase).ToList();
+            else if (allModsSortMode == 2)
+                orderedMods = orderedMods.OrderByDescending(mod => mod.Name, StringComparer.OrdinalIgnoreCase).ToList();
+            else if (allModsSortMode == 3)
+                orderedMods = orderedMods.OrderBy(mod => mod.PackageId, StringComparer.OrdinalIgnoreCase).ToList();
+            else if (allModsSortMode == 4)
+                orderedMods = orderedMods.OrderBy(mod => GetCategorySortIndex(mod.PackageId))
+                    .ThenBy(mod => mod.Name, StringComparer.OrdinalIgnoreCase).ToList();
+
+            float viewHeight = Mathf.Max(listRect.height, orderedMods.Count * RowHeight);
+            float scrollbarWidth = viewHeight > listRect.height
+                ? ManagerUiMetrics.VerticalScrollbarWidth
+                : 0f;
+            Rect viewRect = new Rect(0f, 0f, listRect.width - scrollbarWidth, viewHeight);
+            Widgets.BeginScrollView(listRect, ref modListScroll, viewRect);
+            for (int i = 0; i < orderedMods.Count; i++)
+                DrawModRow(orderedMods[i], i, viewRect.width, i * RowHeight);
+            Widgets.EndScrollView();
+        }
+
+        private int GetCategorySortIndex(string packageId)
+        {
+            for (int categoryIndex = 0; categoryIndex < categories.Count; categoryIndex++)
+            {
+                ManagerCategoryData category = categories[categoryIndex];
+                if (category != null && category.ModIds != null &&
+                    category.ModIds.Contains(packageId))
+                    return categoryIndex;
+            }
+            return int.MaxValue;
+        }
 
         private void DrawTagModList(Rect rect)
                         {
