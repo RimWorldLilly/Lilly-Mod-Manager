@@ -1,8 +1,8 @@
 확인하고 계속 보수/구현해줘
 
-게임 dll : "Y:\SteamLibrary\steamapps\common\RimWorld\Assembly-CSharp.dll"
-하모니 dll : "Y:\SteamLibrary\steamapps\workshop\content\294100\2009463077\1.7\Assemblies\0Harmony.dll"
-만들 모드 위치 : "Y:\SteamLibrary\steamapps\common\RimWorld\Mods\Lilly Mod Manager"
+게임 dll : "G:\SteamLibrary\steamapps\common\RimWorld\Assembly-CSharp.dll"
+하모니 dll : "G:\SteamLibrary\steamapps\workshop\content\294100\2009463077\1.7\Assemblies\0Harmony.dll"
+만들 모드 위치 : "G:\SteamLibrary\steamapps\common\RimWorld\Mods\Lilly Mod Manager"
 
 # RimWorld 통합 모드 관리자
 ## 기능 및 UI 설계 제안서

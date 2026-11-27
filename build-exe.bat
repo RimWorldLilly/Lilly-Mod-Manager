@@ -66,5 +66,5 @@ echo Cleaning temporary build folders...
 if exist "%~dp0Desktop\bin" rmdir /s /q "%~dp0Desktop\bin"
 if exist "%~dp0Desktop\obj" rmdir /s /q "%~dp0Desktop\obj"
 if exist "%~dp0Source\obj" rmdir /s /q "%~dp0Source\obj"
-start "" "Y:\SteamLibrary\steamapps\common\RimWorld\Mods\Lilly Mod Manager\Desktop\publish\win-x64\Lilly.ModManager.exe"
+start "" "G:\SteamLibrary\steamapps\common\RimWorld\Mods\Lilly Mod Manager\Desktop\publish\win-x64\Lilly.ModManager.exe"
 exit /b 0
