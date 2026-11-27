@@ -181,6 +181,10 @@ nextInstalledModRefreshTime =
             currentTagId = tags.FirstOrDefault()?.Id;
             EnsureCurrentSelectionValid();
             RefreshVisibleMods();
+
+            // 첫 진입부터 방향키 탐색을 사용할 수 있도록 모드 목록에 포커스를 부여한다.
+            modListHasKeyboardFocus = true;
+            categoryTabsHaveKeyboardFocus = false;
         }
 
 
