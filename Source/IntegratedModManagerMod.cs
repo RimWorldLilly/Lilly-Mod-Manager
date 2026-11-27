@@ -91,6 +91,8 @@ namespace Lilly.IntegratedModManager
         public bool AutoTagNewMods = true;
         public bool AutoTagUpdatedMods = true;
         public bool UseImprovedLayout = false;
+        public bool ShowCategoryOrderNumber = true;
+        public int CategoryLabelOrder = 0;
 
         public override void ExposeData()
         {
@@ -98,6 +100,9 @@ namespace Lilly.IntegratedModManager
             Scribe_Values.Look(ref AutoTagNewMods, "autoTagNewMods", true);
             Scribe_Values.Look(ref AutoTagUpdatedMods, "autoTagUpdatedMods", true);
             Scribe_Values.Look(ref UseImprovedLayout, "useImprovedLayout", false);
+            Scribe_Values.Look(ref ShowCategoryOrderNumber, "showCategoryOrderNumber", true);
+            Scribe_Values.Look(ref CategoryLabelOrder, "categoryLabelOrder", 0);
+            CategoryLabelOrder = Math.Max(0, Math.Min(5, CategoryLabelOrder));
             Scribe_Collections.Look(ref Categories, "categories", LookMode.Deep);
             Scribe_Collections.Look(ref Tags, "tags", LookMode.Deep);
             Scribe_Collections.Look(ref Mods, "mods", LookMode.Deep);
