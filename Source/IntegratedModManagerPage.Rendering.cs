@@ -152,16 +152,7 @@ namespace Lilly.IntegratedModManager
 
             Rect listRect = new Rect(innerRect.x, innerRect.y + 30f, innerRect.width, Mathf.Max(0f, innerRect.height - 30f));
             modListViewportHeight = listRect.height;
-            List<ModMetaData> orderedMods = visibleMods.ToList();
-            if (allModsSortMode == 1)
-                orderedMods = orderedMods.OrderBy(mod => mod.Name, StringComparer.OrdinalIgnoreCase).ToList();
-            else if (allModsSortMode == 2)
-                orderedMods = orderedMods.OrderByDescending(mod => mod.Name, StringComparer.OrdinalIgnoreCase).ToList();
-            else if (allModsSortMode == 3)
-                orderedMods = orderedMods.OrderBy(mod => mod.PackageId, StringComparer.OrdinalIgnoreCase).ToList();
-            else if (allModsSortMode == 4)
-                orderedMods = orderedMods.OrderBy(mod => GetCategorySortIndex(mod.PackageId))
-                    .ThenBy(mod => mod.Name, StringComparer.OrdinalIgnoreCase).ToList();
+            List<ModMetaData> orderedMods = GetAllModsSorted();
 
             float viewHeight = Mathf.Max(listRect.height, orderedMods.Count * RowHeight);
             float scrollbarWidth = viewHeight > listRect.height
@@ -172,6 +163,21 @@ namespace Lilly.IntegratedModManager
             for (int i = 0; i < orderedMods.Count; i++)
                 DrawModRow(orderedMods[i], i, viewRect.width, i * RowHeight);
             Widgets.EndScrollView();
+        }
+
+        private List<ModMetaData> GetAllModsSorted()
+        {
+            List<ModMetaData> orderedMods = visibleMods.ToList();
+            if (allModsSortMode == 1)
+                return orderedMods.OrderBy(mod => mod.Name, StringComparer.OrdinalIgnoreCase).ToList();
+            if (allModsSortMode == 2)
+                return orderedMods.OrderByDescending(mod => mod.Name, StringComparer.OrdinalIgnoreCase).ToList();
+            if (allModsSortMode == 3)
+                return orderedMods.OrderBy(mod => mod.PackageId, StringComparer.OrdinalIgnoreCase).ToList();
+            if (allModsSortMode == 4)
+                return orderedMods.OrderBy(mod => GetCategorySortIndex(mod.PackageId))
+                    .ThenBy(mod => mod.Name, StringComparer.OrdinalIgnoreCase).ToList();
+            return orderedMods;
         }
 
         private int GetCategorySortIndex(string packageId)
