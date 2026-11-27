@@ -345,10 +345,13 @@ namespace Lilly.IntegratedModManager
         
         private void SelectMod(int index, bool control, bool shift)
                 {
-                    if (index < 0 || index >= visibleMods.Count)
+                    List<ModMetaData> selectionMods = allModsView
+                        ? GetAllModsSorted()
+                        : visibleMods;
+                    if (index < 0 || index >= selectionMods.Count)
                         return;
         
-                    string packageId = visibleMods[index].PackageId;
+                    string packageId = selectionMods[index].PackageId;
                     if (shift && lastSelectedIndex >= 0)
                     {
                         if (!control)
@@ -356,7 +359,7 @@ namespace Lilly.IntegratedModManager
                         int start = Mathf.Min(lastSelectedIndex, index);
                         int end = Mathf.Max(lastSelectedIndex, index);
                         for (int i = start; i <= end; i++)
-                            selectedPackageIds.Add(visibleMods[i].PackageId);
+                            selectedPackageIds.Add(selectionMods[i].PackageId);
                     }
                     else if (control)
                     {
@@ -378,7 +381,10 @@ namespace Lilly.IntegratedModManager
         
         private void SelectModByPackageId(string packageId, bool control, bool shift)
                 {
-                    int index = visibleMods.FindIndex(mod => mod != null &&
+                    List<ModMetaData> selectionMods = allModsView
+                        ? GetAllModsSorted()
+                        : visibleMods;
+                    int index = selectionMods.FindIndex(mod => mod != null &&
                         string.Equals(mod.PackageId, packageId, StringComparison.OrdinalIgnoreCase));
                     if (index >= 0)
                         SelectMod(index, control, shift);
