@@ -14,6 +14,7 @@ namespace Lilly.IntegratedModManager
         private readonly Func<string, string> getDisplayName;
         private readonly Action cancelChanges;
         private readonly Action<bool> applyChanges;
+        private readonly Action loadSelection;
         private readonly Dictionary<string, int> beforePositions;
         private readonly Dictionary<string, int> afterPositions;
         private readonly HashSet<string> movedIds;
@@ -37,12 +38,36 @@ namespace Lilly.IntegratedModManager
             Func<string, string> getDisplayName,
             Action cancelChanges,
             Action<bool> applyChanges)
+            : this(beforePackageIds, afterPackageIds, getDisplayName,
+                cancelChanges, applyChanges, null)
+        {
+        }
+
+        internal ManagerApplyChangesDialog(
+            IList<string> beforePackageIds,
+            IList<string> afterPackageIds,
+            Func<string, string> getDisplayName,
+            Action cancelChanges,
+            Action loadSelection)
+            : this(beforePackageIds, afterPackageIds, getDisplayName,
+                cancelChanges, null, loadSelection)
+        {
+        }
+
+        private ManagerApplyChangesDialog(
+            IList<string> beforePackageIds,
+            IList<string> afterPackageIds,
+            Func<string, string> getDisplayName,
+            Action cancelChanges,
+            Action<bool> applyChanges,
+            Action loadSelection)
         {
             beforeIds = CopyIds(beforePackageIds);
             afterIds = CopyIds(afterPackageIds);
             this.getDisplayName = getDisplayName;
             this.cancelChanges = cancelChanges;
             this.applyChanges = applyChanges;
+            this.loadSelection = loadSelection;
             beforePositions = BuildPositions(beforeIds);
             afterPositions = BuildPositions(afterIds);
             movedIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -94,6 +119,32 @@ namespace Lilly.IntegratedModManager
                 GUI.color = oldColor;
 
                 Text.Font = GameFont.Small;
+                if (loadSelection != null)
+                {
+                    float loadButtonGap = 8f;
+                    float loadButtonWidth = (rect.width - loadButtonGap) * 0.5f;
+                    float loadButtonY = rect.height - 36f;
+
+                    if (Widgets.ButtonText(
+                        new Rect(0f, loadButtonY, loadButtonWidth, 30f),
+                        ManagerTranslation.Get("LMM_0223")))
+                    {
+                        Close();
+                        return;
+                    }
+
+                    if (Widgets.ButtonText(
+                        new Rect(loadButtonWidth + loadButtonGap, loadButtonY, loadButtonWidth, 30f),
+                        ManagerTranslation.Get("LMM_0123")))
+                    {
+                        Close();
+                        loadSelection();
+                        return;
+                    }
+
+                    return;
+                }
+
                 float buttonGap = 8f;
                 float buttonWidth = (rect.width - buttonGap * 3f) * 0.25f;
                 float x = 0f;

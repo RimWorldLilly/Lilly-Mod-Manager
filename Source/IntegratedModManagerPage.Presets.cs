@@ -318,7 +318,12 @@ namespace Lilly.IntegratedModManager
                         return;
                     }
                     Find.WindowStack.Add(new ManagerPresetLoadDialog(
-                        presets, LoadPreset, ConfirmDeletePreset, ImportVanillaModList));
+                        presets,
+                        LoadPreset,
+                        ConfirmDeletePreset,
+                        ImportVanillaModList,
+                        BuildPresetActivePackageIds,
+                        GetApplyComparisonDisplayName));
                 }
         
         private static void OpenPresetFolder()
@@ -367,6 +372,170 @@ namespace Lilly.IntegratedModManager
                         MessageTypeDefOf.PositiveEvent);
                 }
         
+        private List<string> BuildPresetActivePackageIds(ManagerPresetData preset)
+        {
+            List<ManagerCategoryData> previewCategories = (preset.Categories ??
+                new List<ManagerCategoryData>())
+                .Where(category => category != null)
+                .Select(category => category.Copy())
+                .ToList();
+
+            foreach (ManagerCategoryData currentCategory in categories)
+            {
+                if (currentCategory == null)
+                    continue;
+                if (!previewCategories.Any(category => string.Equals(
+                    category.Id, currentCategory.Id, StringComparison.OrdinalIgnoreCase)))
+                    previewCategories.Add(currentCategory.Copy());
+            }
+
+            List<ManagerModData> previewStates = (preset.Mods ??
+                new List<ManagerModData>())
+                .Where(state => state != null)
+                .Select(state => state.Copy())
+                .ToList();
+            HashSet<string> excluded = new HashSet<string>(
+                settings.ExcludedPackageIds ?? new List<string>(),
+                StringComparer.OrdinalIgnoreCase);
+            previewStates.RemoveAll(state => state == null ||
+                excluded.Contains(state.PackageId));
+
+            foreach (ManagerCategoryData category in previewCategories)
+            {
+                if (category == null)
+                    continue;
+                if (category.ModIds != null)
+                    category.ModIds.RemoveAll(excluded.Contains);
+                if (category.Folders != null)
+                {
+                    foreach (ManagerFolderData folder in category.Folders)
+                    {
+                        if (folder != null && folder.ModIds != null)
+                            folder.ModIds.RemoveAll(excluded.Contains);
+                    }
+                }
+            }
+
+            ManagerCategoryData normalCategory = previewCategories.FirstOrDefault(category =>
+                string.Equals(category.Id, "normal", StringComparison.OrdinalIgnoreCase));
+            if (normalCategory == null)
+            {
+                normalCategory = new ManagerCategoryData(
+                    "normal", ManagerTranslation.Get("LMM_0065"));
+                previewCategories.Add(normalCategory);
+            }
+            if (normalCategory.ModIds == null)
+                normalCategory.ModIds = new List<string>();
+            if (normalCategory.Folders == null)
+                normalCategory.Folders = new List<ManagerFolderData>();
+
+            ManagerFolderData normalUnfiled = normalCategory.Folders.FirstOrDefault(folder =>
+                folder != null && string.Equals(
+                    folder.Id, "uncategorized", StringComparison.OrdinalIgnoreCase));
+            if (normalUnfiled == null)
+            {
+                normalUnfiled = new ManagerFolderData(
+                    "uncategorized", ManagerTranslation.Get("LMM_0040"));
+                normalCategory.Folders.Insert(0, normalUnfiled);
+            }
+            if (normalUnfiled.ModIds == null)
+                normalUnfiled.ModIds = new List<string>();
+
+            foreach (ManagerCategoryData category in previewCategories)
+            {
+                if (category == null)
+                    continue;
+                if (category.ModIds == null)
+                    category.ModIds = new List<string>();
+                if (category.Folders == null)
+                    category.Folders = new List<ManagerFolderData>();
+            }
+
+            // LoadPreset 뒤 AddInstalledModsMissingFromPreset가 채우는 기본 항목을
+            // 미리 같은 방식으로 보충하되, 현재 편집 중인 데이터는 변경하지 않는다.
+            foreach (ModMetaData mod in ModsConfig.ActiveModsInLoadOrder.Concat(ModLister.AllInstalledMods))
+            {
+                if (mod == null || mod.PackageId.NullOrEmpty() || excluded.Contains(mod.PackageId))
+                    continue;
+
+                ManagerModData state = previewStates.FirstOrDefault(candidate =>
+                    candidate != null && string.Equals(
+                        candidate.PackageId, mod.PackageId, StringComparison.OrdinalIgnoreCase));
+                if (state == null)
+                {
+                    state = new ManagerModData(mod.PackageId, mod.Active);
+                    previewStates.Add(state);
+                }
+
+                bool alreadyAssigned = previewCategories.Any(category =>
+                    category != null && category.ModIds != null &&
+                    category.ModIds.Any(packageId => string.Equals(
+                        packageId, mod.PackageId, StringComparison.OrdinalIgnoreCase)));
+                if (alreadyAssigned)
+                    continue;
+
+                ManagerCategoryData destination = mod.IsCoreMod || mod.Official
+                    ? previewCategories.FirstOrDefault(category =>
+                        string.Equals(category.Id, "core", StringComparison.OrdinalIgnoreCase))
+                    : normalCategory;
+                if (destination == null)
+                    destination = normalCategory;
+                if (destination.ModIds == null)
+                    destination.ModIds = new List<string>();
+                if (destination.Folders == null)
+                    destination.Folders = new List<ManagerFolderData>();
+
+                ManagerFolderData destinationUnfiled = destination.Folders.FirstOrDefault(folder =>
+                    folder != null && string.Equals(
+                        folder.Id, "uncategorized", StringComparison.OrdinalIgnoreCase));
+                if (destinationUnfiled == null)
+                {
+                    destinationUnfiled = new ManagerFolderData(
+                        "uncategorized", ManagerTranslation.Get("LMM_0040"));
+                    destination.Folders.Insert(0, destinationUnfiled);
+                }
+                if (destinationUnfiled.ModIds == null)
+                    destinationUnfiled.ModIds = new List<string>();
+
+                destination.ModIds.Add(mod.PackageId);
+                destinationUnfiled.ModIds.Add(mod.PackageId);
+            }
+
+            Dictionary<string, ManagerModData> statesByPackageId =
+                previewStates.Where(state => state != null && !state.PackageId.NullOrEmpty())
+                    .GroupBy(state => state.PackageId, StringComparer.OrdinalIgnoreCase)
+                    .ToDictionary(group => group.Key, group => group.First(),
+                        StringComparer.OrdinalIgnoreCase);
+            List<string> activePackageIds = new List<string>();
+
+            foreach (ManagerCategoryData category in previewCategories)
+            {
+                if (category == null || category.Folders == null)
+                    continue;
+
+                foreach (ManagerFolderData folder in category.Folders)
+                {
+                    if (folder == null || folder.ModIds == null)
+                        continue;
+
+                    foreach (string packageId in folder.ModIds)
+                    {
+                        ModMetaData mod = FindMod(packageId);
+                        if (mod == null)
+                            continue;
+
+                        ManagerModData state;
+                        if (IsProtected(mod) ||
+                            (category.Enabled && statesByPackageId.TryGetValue(packageId, out state) &&
+                             state.Enabled))
+                            activePackageIds.Add(mod.PackageId);
+                    }
+                }
+            }
+
+            return OrderByDependencies(activePackageIds);
+        }
+
         private void LoadPreset(ManagerPresetData preset)
                 {
                     if (preset == null)

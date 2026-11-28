@@ -16,6 +16,8 @@ namespace Lilly.IntegratedModManager
         private readonly Action<ManagerPresetData> onLoad;
         private readonly Action<ManagerPresetData> onDelete;
         private readonly Action<IList<string>> onImportVanillaList;
+        private readonly Func<ManagerPresetData, IList<string>> getPresetPackageIds;
+        private readonly Func<string, string> getDisplayName;
         private Vector2 presetScrollPosition;
         private Vector2 vanillaScrollPosition;
 
@@ -27,12 +29,16 @@ namespace Lilly.IntegratedModManager
             IList<ManagerPresetData> presets,
             Action<ManagerPresetData> onLoad,
             Action<ManagerPresetData> onDelete,
-            Action<IList<string>> onImportVanillaList)
+            Action<IList<string>> onImportVanillaList,
+            Func<ManagerPresetData, IList<string>> getPresetPackageIds,
+            Func<string, string> getDisplayName)
         {
             this.presets = presets ?? new List<ManagerPresetData>();
             this.onLoad = onLoad;
             this.onDelete = onDelete;
             this.onImportVanillaList = onImportVanillaList;
+            this.getPresetPackageIds = getPresetPackageIds;
+            this.getDisplayName = getDisplayName;
             vanillaLists = GenFilePaths.AllModListFiles
                 .OrderByDescending(file => file.LastWriteTimeUtc)
                 .ThenByDescending(file => file.Name, StringComparer.OrdinalIgnoreCase).ToList();
@@ -142,13 +148,13 @@ private void DrawVanillaLists(Rect listRect)
 
         Widgets.Label(
             new Rect(rowRect.x + 8f, rowRect.y + 4f,
-                Mathf.Max(40f, rowRect.width - 164f), 28f),
+                Mathf.Max(40f, rowRect.width - 236f), 28f),
             name);
 
         // 불러오기
         if (Widgets.ButtonText(
-            new Rect(rowRect.xMax - 152f, rowRect.y + 4f,
-                84f, 28f),
+            new Rect(rowRect.xMax - 228f, rowRect.y + 4f,
+                72f, 28f),
             ManagerTranslation.Get("LMM_0123")))
         {
             List<string> activeIds;
@@ -169,6 +175,15 @@ private void DrawVanillaLists(Rect listRect)
 
             Widgets.EndScrollView();
             return;
+        }
+
+        // 비교하기
+        if (Widgets.ButtonText(
+            new Rect(rowRect.xMax - 150f, rowRect.y + 4f,
+                72f, 28f),
+            ManagerTranslation.Get("LMM_0224")))
+        {
+            CompareVanillaList(file);
         }
 
         // 삭제
@@ -199,9 +214,9 @@ private void DrawVanillaLists(Rect listRect)
                 Rect rowRect = new Rect(0f, i * RowHeight, viewRect.width, RowHeight);
                 DrawAlternatingRow(rowRect, i);
                 Widgets.Label(new Rect(8f, rowRect.y + 4f,
-                    Mathf.Max(40f, rowRect.width - 190f), 28f), preset.Name);
-                if (Widgets.ButtonText(new Rect(rowRect.xMax - 176f, rowRect.y + 4f,
-                    88f, 28f), ManagerTranslation.Get("LMM_0123")))
+                    Mathf.Max(40f, rowRect.width - 254f), 28f), preset.Name);
+                if (Widgets.ButtonText(new Rect(rowRect.xMax - 246f, rowRect.y + 4f,
+                    76f, 28f), ManagerTranslation.Get("LMM_0123")))
                 {
                     Close();
                     if (onLoad != null)
@@ -210,11 +225,66 @@ private void DrawVanillaLists(Rect listRect)
                     return;
                 }
 
+                if (Widgets.ButtonText(new Rect(rowRect.xMax - 164f, rowRect.y + 4f,
+                    76f, 28f), ManagerTranslation.Get("LMM_0224")))
+                {
+                    ComparePreset(preset);
+                }
+
                 if (Widgets.ButtonText(new Rect(rowRect.xMax - 82f, rowRect.y + 4f,
                     74f, 28f), ManagerTranslation.Get("LMM_0045")) && onDelete != null)
                     onDelete(preset);
             }
             Widgets.EndScrollView();
+        }
+
+        private void CompareVanillaList(FileInfo file)
+        {
+            List<string> targetPackageIds;
+            if (!TryReadVanillaModList(file, out targetPackageIds))
+            {
+                string name = Path.GetFileNameWithoutExtension(file.Name);
+                Messages.Message(
+                    ManagerTranslation.Get("LMM_0132") + name,
+                    MessageTypeDefOf.RejectInput);
+                return;
+            }
+
+            OpenComparison(targetPackageIds, () =>
+            {
+                Close();
+                if (onImportVanillaList != null)
+                    onImportVanillaList(targetPackageIds);
+            });
+        }
+
+        private void ComparePreset(ManagerPresetData preset)
+        {
+            if (preset == null || getPresetPackageIds == null)
+                return;
+
+            IList<string> targetPackageIds = getPresetPackageIds(preset);
+            OpenComparison(targetPackageIds, () =>
+            {
+                Close();
+                if (onLoad != null)
+                    onLoad(preset);
+            });
+        }
+
+        private void OpenComparison(IList<string> targetPackageIds, Action loadAction)
+        {
+            List<string> currentPackageIds = ModsConfig.ActiveModsInLoadOrder
+                .Where(mod => mod != null && !mod.PackageId.NullOrEmpty())
+                .Select(mod => mod.PackageId)
+                .ToList();
+
+            Find.WindowStack.Add(new ManagerApplyChangesDialog(
+                currentPackageIds,
+                targetPackageIds,
+                getDisplayName,
+                null,
+                loadAction));
         }
 
         private static void DrawAlternatingRow(Rect rect, int index)
