@@ -121,30 +121,21 @@ namespace Lilly.IntegratedModManager
             this.applyChanges = applyChanges;
             this.loadSelection = loadSelection;
 
-            // 추가/제거된 모드는 뒤쪽 항목의 절대 순번을 밀어내므로,
-            // 양쪽에 공통으로 존재하는 모드만 추려 상대 순서를 비교한다.
+            // 실제 목록 인덱스를 보관해 반대편 모드로 스크롤할 때 사용한다.
+            beforePositions = BuildPositions(beforeIds);
+            afterPositions = BuildPositions(afterIds);
+
             HashSet<string> beforeIdSet =
                 new HashSet<string>(beforeIds, StringComparer.OrdinalIgnoreCase);
             HashSet<string> afterIdSet =
                 new HashSet<string>(afterIds, StringComparer.OrdinalIgnoreCase);
-            beforePositions = BuildPositions(
-                beforeIds.Where(afterIdSet.Contains).ToList());
-            afterPositions = BuildPositions(
-                afterIds.Where(beforeIdSet.Contains).ToList());
-            movedIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            movedIds = FindMovedIdsByLIS(beforeIds, afterIds, beforePositions);
             addedIds = new HashSet<string>(
                 afterIds.Where(id => !beforeIdSet.Contains(id)),
                 StringComparer.OrdinalIgnoreCase);
             removedIds = new HashSet<string>(
                 beforeIds.Where(id => !afterIdSet.Contains(id)),
                 StringComparer.OrdinalIgnoreCase);
-
-            foreach (KeyValuePair<string, int> pair in beforePositions)
-            {
-                int newIndex;
-                if (afterPositions.TryGetValue(pair.Key, out newIndex) && pair.Value != newIndex)
-                    movedIds.Add(pair.Key);
-            }
 
             // 추가/제거 개수와 행 강조는 양쪽 원본 목록의 실제 포함 여부를 기준으로 한다.
             addedCount = addedIds.Count;
@@ -274,6 +265,8 @@ namespace Lilly.IntegratedModManager
 
             Rect viewport = new Rect(rect.x + 4f, rect.y + 32f, rect.width - 8f,
                 Mathf.Max(40f, rect.height - 36f));
+            IList<string> otherIds = scrollIndex == 0 ? afterIds : beforeIds;
+            int otherScrollIndex = scrollIndex == 0 ? 1 : 0;
             float contentHeight = Mathf.Max(viewport.height, ids.Count * RowHeight);
             float barWidth = contentHeight > viewport.height
                 ? ManagerUiMetrics.VerticalScrollbarWidth : 0f;
@@ -298,7 +291,7 @@ namespace Lilly.IntegratedModManager
                     Color? highlightColor = null;
                     if (movedIds.Contains(id) && otherPositions.ContainsKey(id))
                     {
-                        // 양쪽에 모두 있는 모드의 상대 순서가 변경된 경우.
+                        // LIS에 포함되지 않은 최소 이동 모드.
                         highlightColor = new Color(1f, 0.58f, 0.16f, 1f);
                     }
                     else if (scrollIndex == 0 && removedIds.Contains(id))
@@ -354,6 +347,24 @@ namespace Lilly.IntegratedModManager
                     Widgets.Label(new Rect(nameX, row.y + 2f,
                         Mathf.Max(30f, nameRight - nameX), RowHeight - 4f),
                         string.IsNullOrEmpty(name) ? id : name);
+
+                    // 모드를 클릭하면 반대편 목록의 같은 모드가 보이도록 스크롤한다.
+                    if (Widgets.ButtonInvisible(row))
+                    {
+                        int otherIndex;
+                        if (otherPositions.TryGetValue(id, out otherIndex))
+                        {
+                            float otherContentHeight =
+                                Mathf.Max(viewport.height, otherIds.Count * RowHeight);
+                            float maxScroll = Mathf.Max(0f,
+                                otherContentHeight - viewport.height);
+                            float targetScroll = otherIndex * RowHeight -
+                                (viewport.height - RowHeight) * 0.5f;
+                            Vector2 otherScroll = scroll[otherScrollIndex];
+                            otherScroll.y = Mathf.Clamp(targetScroll, 0f, maxScroll);
+                            scroll[otherScrollIndex] = otherScroll;
+                        }
+                    }
                 }
             }
 
@@ -427,6 +438,82 @@ namespace Lilly.IntegratedModManager
             TooltipHandler.TipRegion(rect,
                 string.Join(", ", tags.Where(tag => tag != null)
                     .Select(tag => tag.Name).ToArray()));
+        }
+
+        private static HashSet<string> FindMovedIdsByLIS(
+            IList<string> beforeIds,
+            IList<string> afterIds,
+            IDictionary<string, int> beforePositions)
+        {
+            HashSet<string> moved = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            if (beforeIds == null || afterIds == null || beforePositions == null)
+                return moved;
+
+            // 적용 후 순서대로, 적용 전 공통 모드들의 인덱스 수열을 만든다.
+            List<string> commonIdsInAfterOrder = new List<string>();
+            List<int> beforeIndexSequence = new List<int>();
+            for (int i = 0; i < afterIds.Count; i++)
+            {
+                string packageId = afterIds[i];
+                int beforeIndex;
+                if (packageId.NullOrEmpty() ||
+                    !beforePositions.TryGetValue(packageId, out beforeIndex))
+                    continue;
+
+                commonIdsInAfterOrder.Add(packageId);
+                beforeIndexSequence.Add(beforeIndex);
+            }
+
+            int count = beforeIndexSequence.Count;
+            if (count <= 1)
+                return moved;
+
+            // O(n log n) patience/LIS 알고리즘. 이전 인덱스가 증가하는
+            // 가장 긴 부분 수열에 포함된 모드들은 상대 순서를 유지한 것으로 본다.
+            List<int> tailSequenceIndices = new List<int>();
+            int[] previousSequenceIndex = new int[count];
+            for (int i = 0; i < count; i++)
+            {
+                int low = 0;
+                int high = tailSequenceIndices.Count;
+                while (low < high)
+                {
+                    int middle = low + (high - low) / 2;
+                    if (beforeIndexSequence[tailSequenceIndices[middle]] <
+                        beforeIndexSequence[i])
+                        low = middle + 1;
+                    else
+                        high = middle;
+                }
+
+                previousSequenceIndex[i] = low > 0
+                    ? tailSequenceIndices[low - 1]
+                    : -1;
+
+                if (low == tailSequenceIndices.Count)
+                    tailSequenceIndices.Add(i);
+                else
+                    tailSequenceIndices[low] = i;
+            }
+
+            HashSet<string> unchangedIds =
+                new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            int sequenceIndex = tailSequenceIndices[tailSequenceIndices.Count - 1];
+            while (sequenceIndex >= 0)
+            {
+                unchangedIds.Add(commonIdsInAfterOrder[sequenceIndex]);
+                sequenceIndex = previousSequenceIndex[sequenceIndex];
+            }
+
+            // LIS에서 제외된 공통 모드만 최소 이동 집합으로 표시한다.
+            for (int i = 0; i < commonIdsInAfterOrder.Count; i++)
+            {
+                string packageId = commonIdsInAfterOrder[i];
+                if (!unchangedIds.Contains(packageId))
+                    moved.Add(packageId);
+            }
+
+            return moved;
         }
 
         private static List<string> CopyIds(IList<string> source)
