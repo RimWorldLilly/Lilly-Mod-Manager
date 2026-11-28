@@ -8,10 +8,52 @@ namespace Lilly.IntegratedModManager
 {
     internal sealed class ManagerApplyChangesDialog : Window
     {
+        internal sealed class TagMetadata
+        {
+            internal readonly string Name;
+            internal readonly string ColorHex;
+
+            internal TagMetadata(string name, string colorHex)
+            {
+                Name = name;
+                ColorHex = colorHex;
+            }
+        }
+
+        internal sealed class ModMetadata
+        {
+            internal readonly string CategoryLabel;
+            internal readonly string CategoryColorHex;
+            internal readonly List<TagMetadata> Tags = new List<TagMetadata>();
+
+            internal ModMetadata(string categoryLabel, string categoryColorHex)
+            {
+                CategoryLabel = categoryLabel;
+                CategoryColorHex = categoryColorHex;
+            }
+        }
+
+        internal sealed class ComparisonData
+        {
+            internal readonly List<string> PackageIds;
+            internal readonly Dictionary<string, ModMetadata> Metadata;
+
+            internal ComparisonData(
+                IList<string> packageIds,
+                Dictionary<string, ModMetadata> metadata)
+            {
+                PackageIds = CopyIds(packageIds);
+                Metadata = metadata ?? new Dictionary<string, ModMetadata>(
+                    StringComparer.OrdinalIgnoreCase);
+            }
+        }
+
         private const float RowHeight = 27f;
         private readonly List<string> beforeIds;
         private readonly List<string> afterIds;
         private readonly Func<string, string> getDisplayName;
+        private readonly IDictionary<string, ModMetadata> beforeMetadata;
+        private readonly IDictionary<string, ModMetadata> afterMetadata;
         private readonly Action cancelChanges;
         private readonly Action<bool> applyChanges;
         private readonly Action loadSelection;
@@ -36,10 +78,12 @@ namespace Lilly.IntegratedModManager
             IList<string> beforePackageIds,
             IList<string> afterPackageIds,
             Func<string, string> getDisplayName,
+            IDictionary<string, ModMetadata> beforeMetadata,
+            IDictionary<string, ModMetadata> afterMetadata,
             Action cancelChanges,
             Action<bool> applyChanges)
             : this(beforePackageIds, afterPackageIds, getDisplayName,
-                cancelChanges, applyChanges, null)
+                beforeMetadata, afterMetadata, cancelChanges, applyChanges, null)
         {
         }
 
@@ -47,10 +91,12 @@ namespace Lilly.IntegratedModManager
             IList<string> beforePackageIds,
             IList<string> afterPackageIds,
             Func<string, string> getDisplayName,
+            IDictionary<string, ModMetadata> beforeMetadata,
+            IDictionary<string, ModMetadata> afterMetadata,
             Action cancelChanges,
             Action loadSelection)
             : this(beforePackageIds, afterPackageIds, getDisplayName,
-                cancelChanges, null, loadSelection)
+                beforeMetadata, afterMetadata, cancelChanges, null, loadSelection)
         {
         }
 
@@ -58,6 +104,8 @@ namespace Lilly.IntegratedModManager
             IList<string> beforePackageIds,
             IList<string> afterPackageIds,
             Func<string, string> getDisplayName,
+            IDictionary<string, ModMetadata> beforeMetadata,
+            IDictionary<string, ModMetadata> afterMetadata,
             Action cancelChanges,
             Action<bool> applyChanges,
             Action loadSelection)
@@ -65,11 +113,22 @@ namespace Lilly.IntegratedModManager
             beforeIds = CopyIds(beforePackageIds);
             afterIds = CopyIds(afterPackageIds);
             this.getDisplayName = getDisplayName;
+            this.beforeMetadata = beforeMetadata;
+            this.afterMetadata = afterMetadata;
             this.cancelChanges = cancelChanges;
             this.applyChanges = applyChanges;
             this.loadSelection = loadSelection;
-            beforePositions = BuildPositions(beforeIds);
-            afterPositions = BuildPositions(afterIds);
+
+            // 추가/제거된 모드는 뒤쪽 항목의 절대 순번을 밀어내므로,
+            // 양쪽에 공통으로 존재하는 모드만 추려 상대 순서를 비교한다.
+            HashSet<string> beforeIdSet =
+                new HashSet<string>(beforeIds, StringComparer.OrdinalIgnoreCase);
+            HashSet<string> afterIdSet =
+                new HashSet<string>(afterIds, StringComparer.OrdinalIgnoreCase);
+            beforePositions = BuildPositions(
+                beforeIds.Where(afterIdSet.Contains).ToList());
+            afterPositions = BuildPositions(
+                afterIds.Where(beforeIdSet.Contains).ToList());
             movedIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
             foreach (KeyValuePair<string, int> pair in beforePositions)
@@ -79,8 +138,9 @@ namespace Lilly.IntegratedModManager
                     movedIds.Add(pair.Key);
             }
 
-            addedCount = afterIds.Count(id => !beforePositions.ContainsKey(id));
-            removedCount = beforeIds.Count(id => !afterPositions.ContainsKey(id));
+            // 추가/제거 개수는 공통 항목이 아닌 원본 전체 목록을 기준으로 계산한다.
+            addedCount = afterIds.Count(id => !beforeIdSet.Contains(id));
+            removedCount = beforeIds.Count(id => !afterIdSet.Contains(id));
             doCloseX = true;
             closeOnAccept = false;
             closeOnCancel = true;
@@ -108,8 +168,10 @@ namespace Lilly.IntegratedModManager
                 const float footer = 70f;
                 float width = (rect.width - gap) * 0.5f;
                 float height = Mathf.Max(100f, rect.height - top - footer);
-                DrawColumn(new Rect(0f, top, width, height), "LMM_0214", beforeIds, afterPositions, 0);
-                DrawColumn(new Rect(width + gap, top, width, height), "LMM_0215", afterIds, beforePositions, 1);
+                DrawColumn(new Rect(0f, top, width, height), "LMM_0214",
+                    beforeIds, afterPositions, beforeMetadata, 0);
+                DrawColumn(new Rect(width + gap, top, width, height), "LMM_0215",
+                    afterIds, beforePositions, afterMetadata, 1);
 
                 Text.Font = GameFont.Tiny;
                 Rect legend = new Rect(0f, rect.height - 66f, rect.width, 22f);
@@ -192,6 +254,7 @@ namespace Lilly.IntegratedModManager
             string headingKey,
             IList<string> ids,
             Dictionary<string, int> otherPositions,
+            IDictionary<string, ModMetadata> metadataByPackageId,
             int scrollIndex)
         {
             Widgets.DrawBoxSolid(rect, new Color(0.065f, 0.065f, 0.065f, 1f));
@@ -233,17 +296,112 @@ namespace Lilly.IntegratedModManager
                     }
 
                     Text.Font = GameFont.Tiny;
-                    Widgets.Label(new Rect(row.x + 8f, row.y + 2f, 34f, RowHeight - 4f),
+                    Widgets.Label(new Rect(row.x + 6f, row.y + 2f, 30f, RowHeight - 4f),
                         (i + 1).ToString());
+
+                    ModMetadata metadata = null;
+                    if (metadataByPackageId != null)
+                        metadataByPackageId.TryGetValue(id, out metadata);
+
+                    float categoryWidth = metadata != null &&
+                        !string.IsNullOrEmpty(metadata.CategoryLabel)
+                            ? Mathf.Clamp(view.width * 0.19f, 76f, 104f)
+                            : 0f;
+                    float tagsWidth = metadata != null && metadata.Tags.Count > 0
+                        ? Mathf.Clamp(view.width * 0.29f, 90f, 148f)
+                        : 0f;
+
+                    float categoryX = row.x + 40f;
+                    if (categoryWidth > 0f)
+                        DrawCategoryChip(
+                            new Rect(categoryX, row.y + 3f, categoryWidth, 21f), metadata);
+
+                    float nameX = categoryX + categoryWidth +
+                        (categoryWidth > 0f ? 6f : 0f);
+                    float tagsX = row.xMax - tagsWidth - 6f;
+                    if (tagsWidth > 0f)
+                        DrawTagChips(
+                            new Rect(tagsX, row.y + 3f, tagsWidth, 21f), metadata.Tags);
+
                     Text.Font = GameFont.Small;
                     string name = getDisplayName == null ? id : getDisplayName(id);
-                    Widgets.Label(new Rect(row.x + 44f, row.y + 2f,
-                        Mathf.Max(30f, row.width - 52f), RowHeight - 4f),
+                    float nameRight = tagsWidth > 0f ? tagsX - 5f : row.xMax - 6f;
+                    Widgets.Label(new Rect(nameX, row.y + 2f,
+                        Mathf.Max(30f, nameRight - nameX), RowHeight - 4f),
                         string.IsNullOrEmpty(name) ? id : name);
                 }
             }
 
             Widgets.EndScrollView();
+        }
+
+        private static void DrawCategoryChip(Rect rect, ModMetadata metadata)
+        {
+            if (metadata == null || string.IsNullOrEmpty(metadata.CategoryLabel))
+                return;
+
+            Color oldColor = GUI.color;
+            GameFont oldFont = Text.Font;
+            TextAnchor oldAnchor = Text.Anchor;
+            Widgets.DrawBoxSolid(rect, ManagerTagColors.Background(metadata.CategoryColorHex));
+            GUI.color = ManagerTagColors.Foreground(metadata.CategoryColorHex);
+            Text.Font = GameFont.Tiny;
+            Text.Anchor = TextAnchor.MiddleCenter;
+            Widgets.Label(rect.ContractedBy(2f), metadata.CategoryLabel);
+            GUI.color = oldColor;
+            Text.Font = oldFont;
+            Text.Anchor = oldAnchor;
+            TooltipHandler.TipRegion(rect, metadata.CategoryLabel);
+        }
+
+        private static void DrawTagChips(Rect rect, IList<TagMetadata> tags)
+        {
+            if (tags == null || tags.Count == 0 || rect.width <= 0f)
+                return;
+
+            Color oldColor = GUI.color;
+            GameFont oldFont = Text.Font;
+            TextAnchor oldAnchor = Text.Anchor;
+            Text.Font = GameFont.Tiny;
+            Text.Anchor = TextAnchor.MiddleCenter;
+
+            float x = rect.x;
+            for (int i = 0; i < tags.Count; i++)
+            {
+                TagMetadata tag = tags[i];
+                if (tag == null || string.IsNullOrEmpty(tag.Name))
+                    continue;
+
+                float chipWidth = Mathf.Clamp(Text.CalcSize(tag.Name).x + 10f, 28f, 74f);
+                if (x + chipWidth > rect.xMax)
+                {
+                    int hiddenCount = tags.Count - i;
+                    float overflowWidth = Mathf.Min(34f, rect.xMax - x);
+                    if (overflowWidth >= 24f)
+                    {
+                        Rect moreRect = new Rect(x, rect.y, overflowWidth, rect.height);
+                        Widgets.DrawBoxSolid(moreRect, new Color(0.22f, 0.22f, 0.22f, 1f));
+                        GUI.color = Color.white;
+                        Widgets.Label(moreRect, "+" + hiddenCount);
+                        GUI.color = oldColor;
+                    }
+                    break;
+                }
+
+                Rect chipRect = new Rect(x, rect.y, chipWidth, rect.height);
+                Widgets.DrawBoxSolid(chipRect, ManagerTagColors.Background(tag.ColorHex));
+                GUI.color = ManagerTagColors.Foreground(tag.ColorHex);
+                Widgets.Label(chipRect.ContractedBy(2f), tag.Name);
+                GUI.color = oldColor;
+                x += chipWidth + 3f;
+            }
+
+            GUI.color = oldColor;
+            Text.Font = oldFont;
+            Text.Anchor = oldAnchor;
+            TooltipHandler.TipRegion(rect,
+                string.Join(", ", tags.Where(tag => tag != null)
+                    .Select(tag => tag.Name).ToArray()));
         }
 
         private static List<string> CopyIds(IList<string> source)

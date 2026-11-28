@@ -16,7 +16,8 @@ namespace Lilly.IntegratedModManager
         private readonly Action<ManagerPresetData> onLoad;
         private readonly Action<ManagerPresetData> onDelete;
         private readonly Action<IList<string>> onImportVanillaList;
-        private readonly Func<ManagerPresetData, IList<string>> getPresetPackageIds;
+        private readonly Func<ManagerPresetData, ManagerApplyChangesDialog.ComparisonData> getPresetComparisonData;
+        private readonly Func<Dictionary<string, ManagerApplyChangesDialog.ModMetadata>> getCurrentComparisonMetadata;
         private readonly Func<string, string> getDisplayName;
         private Vector2 presetScrollPosition;
         private Vector2 vanillaScrollPosition;
@@ -30,14 +31,16 @@ namespace Lilly.IntegratedModManager
             Action<ManagerPresetData> onLoad,
             Action<ManagerPresetData> onDelete,
             Action<IList<string>> onImportVanillaList,
-            Func<ManagerPresetData, IList<string>> getPresetPackageIds,
+            Func<ManagerPresetData, ManagerApplyChangesDialog.ComparisonData> getPresetComparisonData,
+            Func<Dictionary<string, ManagerApplyChangesDialog.ModMetadata>> getCurrentComparisonMetadata,
             Func<string, string> getDisplayName)
         {
             this.presets = presets ?? new List<ManagerPresetData>();
             this.onLoad = onLoad;
             this.onDelete = onDelete;
             this.onImportVanillaList = onImportVanillaList;
-            this.getPresetPackageIds = getPresetPackageIds;
+            this.getPresetComparisonData = getPresetComparisonData;
+            this.getCurrentComparisonMetadata = getCurrentComparisonMetadata;
             this.getDisplayName = getDisplayName;
             vanillaLists = GenFilePaths.AllModListFiles
                 .OrderByDescending(file => file.LastWriteTimeUtc)
@@ -250,7 +253,7 @@ private void DrawVanillaLists(Rect listRect)
                 return;
             }
 
-            OpenComparison(targetPackageIds, () =>
+            OpenComparison(targetPackageIds, null, () =>
             {
                 Close();
                 if (onImportVanillaList != null)
@@ -260,11 +263,15 @@ private void DrawVanillaLists(Rect listRect)
 
         private void ComparePreset(ManagerPresetData preset)
         {
-            if (preset == null || getPresetPackageIds == null)
+            if (preset == null || getPresetComparisonData == null)
                 return;
 
-            IList<string> targetPackageIds = getPresetPackageIds(preset);
-            OpenComparison(targetPackageIds, () =>
+            ManagerApplyChangesDialog.ComparisonData preview =
+                getPresetComparisonData(preset);
+            if (preview == null)
+                return;
+
+            OpenComparison(preview.PackageIds, preview.Metadata, () =>
             {
                 Close();
                 if (onLoad != null)
@@ -272,17 +279,29 @@ private void DrawVanillaLists(Rect listRect)
             });
         }
 
-        private void OpenComparison(IList<string> targetPackageIds, Action loadAction)
+        private void OpenComparison(
+            IList<string> targetPackageIds,
+            IDictionary<string, ManagerApplyChangesDialog.ModMetadata> targetMetadata,
+            Action loadAction)
         {
             List<string> currentPackageIds = ModsConfig.ActiveModsInLoadOrder
                 .Where(mod => mod != null && !mod.PackageId.NullOrEmpty())
                 .Select(mod => mod.PackageId)
                 .ToList();
+            Dictionary<string, ManagerApplyChangesDialog.ModMetadata> currentMetadata =
+                getCurrentComparisonMetadata == null
+                    ? new Dictionary<string, ManagerApplyChangesDialog.ModMetadata>(
+                        StringComparer.OrdinalIgnoreCase)
+                    : getCurrentComparisonMetadata();
+            if (targetMetadata == null)
+                targetMetadata = currentMetadata;
 
             Find.WindowStack.Add(new ManagerApplyChangesDialog(
                 currentPackageIds,
                 targetPackageIds,
                 getDisplayName,
+                currentMetadata,
+                targetMetadata,
                 null,
                 loadAction));
         }

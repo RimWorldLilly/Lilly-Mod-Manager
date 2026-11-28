@@ -55,6 +55,8 @@ namespace Lilly.IntegratedModManager
                 currentlyActivePackageIds,
                 activePackageIds,
                 GetApplyComparisonDisplayName,
+                BuildCurrentComparisonMetadata(),
+                BuildCurrentComparisonMetadata(),
                 CancelChanges,
                 restart => ApplyValidatedChanges(activePackageIds, restart)));
         }
@@ -322,7 +324,8 @@ namespace Lilly.IntegratedModManager
                         LoadPreset,
                         ConfirmDeletePreset,
                         ImportVanillaModList,
-                        BuildPresetActivePackageIds,
+                        BuildPresetComparisonData,
+                        BuildCurrentComparisonMetadata,
                         GetApplyComparisonDisplayName));
                 }
         
@@ -372,8 +375,14 @@ namespace Lilly.IntegratedModManager
                         MessageTypeDefOf.PositiveEvent);
                 }
         
-        private List<string> BuildPresetActivePackageIds(ManagerPresetData preset)
+        private ManagerApplyChangesDialog.ComparisonData BuildPresetComparisonData(
+            ManagerPresetData preset)
         {
+            List<ManagerTagData> previewTags = (preset.Tags ??
+                new List<ManagerTagData>())
+                .Where(tag => tag != null)
+                .Select(tag => tag.Copy())
+                .ToList();
             List<ManagerCategoryData> previewCategories = (preset.Categories ??
                 new List<ManagerCategoryData>())
                 .Where(category => category != null)
@@ -533,7 +542,90 @@ namespace Lilly.IntegratedModManager
                 }
             }
 
-            return OrderByDependencies(activePackageIds);
+            activePackageIds = OrderByDependencies(activePackageIds);
+            Dictionary<string, ManagerApplyChangesDialog.ModMetadata> previewMetadata =
+                BuildComparisonMetadata(previewCategories, previewTags, previewStates);
+            return new ManagerApplyChangesDialog.ComparisonData(
+                activePackageIds, previewMetadata);
+        }
+
+        private Dictionary<string, ManagerApplyChangesDialog.ModMetadata>
+            BuildCurrentComparisonMetadata()
+        {
+            return BuildComparisonMetadata(categories, tags, modStates);
+        }
+
+        private static Dictionary<string, ManagerApplyChangesDialog.ModMetadata>
+            BuildComparisonMetadata(
+                IList<ManagerCategoryData> sourceCategories,
+                IList<ManagerTagData> sourceTags,
+                IList<ManagerModData> sourceStates)
+        {
+            Dictionary<string, ManagerApplyChangesDialog.ModMetadata> result =
+                new Dictionary<string, ManagerApplyChangesDialog.ModMetadata>(
+                    StringComparer.OrdinalIgnoreCase);
+            if (sourceCategories != null)
+            {
+                for (int i = 0; i < sourceCategories.Count; i++)
+                {
+                    ManagerCategoryData category = sourceCategories[i];
+                    if (category == null || category.ModIds == null)
+                        continue;
+
+                    string categoryLabel = (i + 1) + ". " + category.Name;
+                    foreach (string packageId in category.ModIds)
+                    {
+                        if (packageId.NullOrEmpty() || result.ContainsKey(packageId))
+                            continue;
+                        result.Add(packageId,
+                            new ManagerApplyChangesDialog.ModMetadata(
+                                categoryLabel, category.ColorHex));
+                    }
+                }
+            }
+
+            Dictionary<string, ManagerTagData> tagsById =
+                new Dictionary<string, ManagerTagData>(StringComparer.OrdinalIgnoreCase);
+            if (sourceTags != null)
+            {
+                foreach (ManagerTagData tag in sourceTags)
+                {
+                    if (tag != null && !tag.Id.NullOrEmpty() && !tagsById.ContainsKey(tag.Id))
+                        tagsById.Add(tag.Id, tag);
+                }
+            }
+
+            if (sourceStates != null)
+            {
+                foreach (ManagerModData state in sourceStates)
+                {
+                    if (state == null || state.PackageId.NullOrEmpty())
+                        continue;
+
+                    ManagerApplyChangesDialog.ModMetadata metadata;
+                    if (!result.TryGetValue(state.PackageId, out metadata))
+                    {
+                        metadata = new ManagerApplyChangesDialog.ModMetadata(null, null);
+                        result.Add(state.PackageId, metadata);
+                    }
+
+                    if (state.TagIds == null)
+                        continue;
+                    foreach (string tagId in state.TagIds)
+                    {
+                        ManagerTagData tag;
+                        if (tagId.NullOrEmpty() || !tagsById.TryGetValue(tagId, out tag))
+                            continue;
+                        if (metadata.Tags.Any(existing => string.Equals(
+                            existing.Name, tag.Name, StringComparison.OrdinalIgnoreCase)))
+                            continue;
+                        metadata.Tags.Add(new ManagerApplyChangesDialog.TagMetadata(
+                            tag.Name, tag.ColorHex));
+                    }
+                }
+            }
+
+            return result;
         }
 
         private void LoadPreset(ManagerPresetData preset)
