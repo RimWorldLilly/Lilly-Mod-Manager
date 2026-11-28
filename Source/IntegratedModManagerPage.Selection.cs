@@ -48,6 +48,23 @@ namespace Lilly.IntegratedModManager
         private void HandleModListNavigation(Rect categoryRect, Rect listRect)
                 {
                     Event current = Event.current;
+
+                    // Alt+Tab 복귀 후 IMGUI 컨트롤이 키보드 포커스를 붙잡고 있으면
+                    // 방향키 이벤트가 목록 탐색으로 전달되지 않을 수 있다.
+                    // 탐색 키가 들어오면 컨트롤 포커스를 해제한 뒤 기존 목록 포커스 규칙을 적용한다.
+                    if (current.type == EventType.KeyDown &&
+                        (current.keyCode == KeyCode.UpArrow ||
+                         current.keyCode == KeyCode.DownArrow ||
+                         current.keyCode == KeyCode.LeftArrow ||
+                         current.keyCode == KeyCode.RightArrow ||
+                         current.keyCode == KeyCode.PageUp ||
+                         current.keyCode == KeyCode.PageDown ||
+                         current.keyCode == KeyCode.Home ||
+                         current.keyCode == KeyCode.End))
+                    {
+                        GUIUtility.keyboardControl = 0;
+                    }
+
                     if (current.type == EventType.MouseDown)
                     {
                         bool clickedCategory = categoryRect.Contains(current.mousePosition);
