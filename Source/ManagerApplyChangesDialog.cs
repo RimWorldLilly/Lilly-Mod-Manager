@@ -212,6 +212,12 @@ namespace Lilly.IntegratedModManager
                 float x = 0f;
                 float y = rect.height - 36f;
 
+                if (Widgets.ButtonText(new Rect(x, y, buttonWidth, 30f), ManagerTranslation.Get("LMM_0220")))
+                {
+                    Close();
+                    return;
+                }
+                x += buttonWidth + buttonGap;
                 if (Widgets.ButtonText(new Rect(x, y, buttonWidth, 30f), ManagerTranslation.Get("LMM_0219")))
                 {
                     Close();
@@ -220,9 +226,11 @@ namespace Lilly.IntegratedModManager
                     return;
                 }
                 x += buttonWidth + buttonGap;
-                if (Widgets.ButtonText(new Rect(x, y, buttonWidth, 30f), ManagerTranslation.Get("LMM_0220")))
+                if (Widgets.ButtonText(new Rect(x, y, buttonWidth, 30f), ManagerTranslation.Get("LMM_0222")))
                 {
                     Close();
+                    if (applyChanges != null)
+                        applyChanges(false);
                     return;
                 }
                 x += buttonWidth + buttonGap;
@@ -231,14 +239,6 @@ namespace Lilly.IntegratedModManager
                     Close();
                     if (applyChanges != null)
                         applyChanges(true);
-                    return;
-                }
-                x += buttonWidth + buttonGap;
-                if (Widgets.ButtonText(new Rect(x, y, buttonWidth, 30f), ManagerTranslation.Get("LMM_0222")))
-                {
-                    Close();
-                    if (applyChanges != null)
-                        applyChanges(false);
                     return;
                 }
             }
