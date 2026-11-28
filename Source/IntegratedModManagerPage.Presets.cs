@@ -17,62 +17,83 @@ namespace Lilly.IntegratedModManager
     internal sealed partial class IntegratedModManagerPage
     {
         private void ApplyChanges()
+        {
+            List<string> activePackageIds = new List<string>();
+            for (int categoryIndex = 0; categoryIndex < categories.Count; categoryIndex++)
+            {
+                ManagerCategoryData category = categories[categoryIndex];
+                if (category == null || category.Folders == null)
+                    continue;
+
+                for (int folderIndex = 0; folderIndex < category.Folders.Count; folderIndex++)
                 {
-                    List<string> activePackageIds = new List<string>();
-                    for (int categoryIndex = 0; categoryIndex < categories.Count; categoryIndex++)
+                    ManagerFolderData folder = category.Folders[folderIndex];
+                    if (folder == null || folder.ModIds == null)
+                        continue;
+
+                    for (int modIndex = 0; modIndex < folder.ModIds.Count; modIndex++)
                     {
-                        ManagerCategoryData category = categories[categoryIndex];
-                        if (category == null || category.Folders == null)
+                        string packageId = folder.ModIds[modIndex];
+                        ModMetaData mod = FindMod(packageId);
+                        if (mod == null)
                             continue;
-        
-                        for (int folderIndex = 0; folderIndex < category.Folders.Count; folderIndex++)
-                        {
-                            ManagerFolderData folder = category.Folders[folderIndex];
-                            if (folder == null || folder.ModIds == null)
-                                continue;
-        
-                            for (int modIndex = 0; modIndex < folder.ModIds.Count; modIndex++)
-                            {
-                                string packageId = folder.ModIds[modIndex];
-                                ModMetaData mod = FindMod(packageId);
-                                if (mod == null)
-                                    continue;
-        
-                                ManagerModData state = FindModState(packageId);
-                                if (IsProtected(mod) || (category.Enabled && state != null && state.Enabled))
-                                    activePackageIds.Add(mod.PackageId);
-                            }
-                        }
+
+                        ManagerModData state = FindModState(packageId);
+                        if (IsProtected(mod) || (category.Enabled && state != null && state.Enabled))
+                            activePackageIds.Add(mod.PackageId);
                     }
-        
-                    activePackageIds = OrderByDependencies(activePackageIds);
-        
-                    List<string> previouslyActive = ModsConfig.ActiveModsInLoadOrder
-                        .Where(mod => mod != null && !mod.PackageId.NullOrEmpty())
-                        .Select(mod => mod.PackageId).ToList();
-                    bool hasOrderingIssues = false;
-                    try
-                    {
-                        ModsConfig.SetActiveToList(activePackageIds);
-                        hasOrderingIssues = ModsConfig.ActiveModsInLoadOrder.Any(mod =>
-                            mod != null && ModsConfig.ModHasAnyOrderingIssues(mod));
-                    }
-                    finally
-                    {
-                        ModsConfig.SetActiveToList(previouslyActive);
-                    }
-        
-                    if (hasOrderingIssues)
-                    {
-                        Find.WindowStack.Add(Dialog_MessageBox.CreateConfirmation(
-                            ManagerTranslation.Get("LMM_0027"),
-                            () => CommitAppliedChanges(activePackageIds), destructive: false));
-                        return;
-                    }
-        
-                    CommitAppliedChanges(activePackageIds);
                 }
-        
+            }
+
+            activePackageIds = OrderByDependencies(activePackageIds);
+            List<string> currentlyActivePackageIds = ModsConfig.ActiveModsInLoadOrder
+                .Where(mod => mod != null && !mod.PackageId.NullOrEmpty())
+                .Select(mod => mod.PackageId)
+                .ToList();
+
+            Find.WindowStack.Add(new ManagerApplyChangesDialog(
+                currentlyActivePackageIds,
+                activePackageIds,
+                GetApplyComparisonDisplayName,
+                CancelChanges,
+                restart => ApplyValidatedChanges(activePackageIds, restart)));
+        }
+
+        private string GetApplyComparisonDisplayName(string packageId)
+        {
+            ModMetaData mod = FindMod(packageId);
+            return mod == null ? packageId : GetDisplayName(mod);
+        }
+
+        private void ApplyValidatedChanges(List<string> activePackageIds, bool restart)
+        {
+            List<string> previouslyActive = ModsConfig.ActiveModsInLoadOrder
+                .Where(mod => mod != null && !mod.PackageId.NullOrEmpty())
+                .Select(mod => mod.PackageId)
+                .ToList();
+            bool hasOrderingIssues = false;
+            try
+            {
+                ModsConfig.SetActiveToList(activePackageIds);
+                hasOrderingIssues = ModsConfig.ActiveModsInLoadOrder.Any(mod =>
+                    mod != null && ModsConfig.ModHasAnyOrderingIssues(mod));
+            }
+            finally
+            {
+                ModsConfig.SetActiveToList(previouslyActive);
+            }
+
+            if (hasOrderingIssues)
+            {
+                Find.WindowStack.Add(Dialog_MessageBox.CreateConfirmation(
+                    ManagerTranslation.Get("LMM_0027"),
+                    () => CommitAppliedChanges(activePackageIds, restart), destructive: false));
+                return;
+            }
+
+            CommitAppliedChanges(activePackageIds, restart);
+        }
+
         private static bool BackupCurrentModList()
                 {
                     string backupName = DateTime.Now.ToString("yyyyMMddHHmm") + ".backup";
@@ -132,28 +153,32 @@ namespace Lilly.IntegratedModManager
                     }
                 }
         
-        private void CommitAppliedChanges(List<string> activePackageIds)
-                {
-                    // 실제 적용 직전에 현재 활성 모드 목록을 백업한다.
-                    // 백업에 실패하면 기존 목록을 보존하기 위해 적용을 중단한다.
-                    if (!BackupCurrentModList())
-                        return;
-        
-                    ModsConfig.SetActiveToList(activePackageIds);
-                    ModsConfig.Save();
-                    settings.Categories = categories.Select(category => category.Copy()).ToList();
-                    settings.Tags = tags.Select(tag => tag.Copy()).ToList();
-                    settings.Mods = modStates.Select(mod => mod.Copy()).ToList();
-                    IntegratedModManagerMod.Instance.WriteSettings();
-                    Close();
-        
-                    Find.WindowStack.Add(new Dialog_MessageBox(
-                        ManagerTranslation.Get("LMM_0026"),
-                        ManagerTranslation.Get("LMM_0118"), null,
-                        ManagerTranslation.Get("LMM_0068"), () => GenCommandLine.Restart(),
-                        null, false, null, null, WindowLayer.Dialog));
-                }
-        
+        private void CommitAppliedChanges(List<string> activePackageIds, bool restart)
+        {
+            // 실제 적용 직전에 현재 활성 모드 목록을 백업한다.
+            // 백업에 실패하면 기존 목록을 보존하기 위해 적용을 중단한다.
+            if (!BackupCurrentModList())
+                return;
+
+            ModsConfig.SetActiveToList(activePackageIds);
+            ModsConfig.Save();
+            settings.Categories = categories.Select(category => category.Copy()).ToList();
+            settings.Tags = tags.Select(tag => tag.Copy()).ToList();
+            settings.Mods = modStates.Select(mod => mod.Copy()).ToList();
+            IntegratedModManagerMod.Instance.WriteSettings();
+            Close();
+
+            if (restart)
+            {
+                GenCommandLine.Restart();
+                return;
+            }
+
+            Messages.Message(
+                ManagerTranslation.Get("LMM_0026"),
+                MessageTypeDefOf.PositiveEvent);
+        }
+
         private void OpenSavePresetDialog()
                 {
                     Find.WindowStack.Add(new ManagerPresetSaveDialog(

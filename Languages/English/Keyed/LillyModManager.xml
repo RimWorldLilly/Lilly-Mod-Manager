@@ -212,4 +212,15 @@
   <LMM_0210>Standalone EXE not found. Run build.bat in the mod folder first.</LMM_0210>
   <LMM_0211>Desktop shortcut created.</LMM_0211>
   <LMM_0212>Could not create the desktop shortcut. Check the log.</LMM_0212>
+
+  <LMM_0213>Compare mod list changes</LMM_0213>
+  <LMM_0214>Before (current active order): {0} mods</LMM_0214>
+  <LMM_0215>After (new active order): {0} mods</LMM_0215>
+  <LMM_0216>Added {0} / Removed {1} / Reordered {2}</LMM_0216>
+  <LMM_0217>Orange outline: mod exists in both lists but has a different position</LMM_0217>
+  <LMM_0218>No active mods.</LMM_0218>
+  <LMM_0219>Cancel Apply</LMM_0219>
+  <LMM_0220>Back</LMM_0220>
+  <LMM_0221>Apply and Restart</LMM_0221>
+  <LMM_0222>Apply Without Restart</LMM_0222>
 </LanguageData>
