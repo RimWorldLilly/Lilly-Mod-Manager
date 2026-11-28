@@ -60,6 +60,8 @@ namespace Lilly.IntegratedModManager
         private readonly Dictionary<string, int> beforePositions;
         private readonly Dictionary<string, int> afterPositions;
         private readonly HashSet<string> movedIds;
+        private readonly HashSet<string> addedIds;
+        private readonly HashSet<string> removedIds;
         private readonly int addedCount;
         private readonly int removedCount;
         private readonly Vector2[] scroll = new Vector2[2];
@@ -130,6 +132,12 @@ namespace Lilly.IntegratedModManager
             afterPositions = BuildPositions(
                 afterIds.Where(beforeIdSet.Contains).ToList());
             movedIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            addedIds = new HashSet<string>(
+                afterIds.Where(id => !beforeIdSet.Contains(id)),
+                StringComparer.OrdinalIgnoreCase);
+            removedIds = new HashSet<string>(
+                beforeIds.Where(id => !afterIdSet.Contains(id)),
+                StringComparer.OrdinalIgnoreCase);
 
             foreach (KeyValuePair<string, int> pair in beforePositions)
             {
@@ -138,9 +146,9 @@ namespace Lilly.IntegratedModManager
                     movedIds.Add(pair.Key);
             }
 
-            // 추가/제거 개수는 공통 항목이 아닌 원본 전체 목록을 기준으로 계산한다.
-            addedCount = afterIds.Count(id => !beforeIdSet.Contains(id));
-            removedCount = beforeIds.Count(id => !afterIdSet.Contains(id));
+            // 추가/제거 개수와 행 강조는 양쪽 원본 목록의 실제 포함 여부를 기준으로 한다.
+            addedCount = addedIds.Count;
+            removedCount = removedIds.Count;
             doCloseX = true;
             closeOnAccept = false;
             closeOnCancel = true;
@@ -287,10 +295,27 @@ namespace Lilly.IntegratedModManager
                         ? new Color(0.09f, 0.09f, 0.09f, 1f)
                         : new Color(0.13f, 0.13f, 0.13f, 1f));
 
+                    Color? highlightColor = null;
                     if (movedIds.Contains(id) && otherPositions.ContainsKey(id))
                     {
+                        // 양쪽에 모두 있는 모드의 상대 순서가 변경된 경우.
+                        highlightColor = new Color(1f, 0.58f, 0.16f, 1f);
+                    }
+                    else if (scrollIndex == 0 && removedIds.Contains(id))
+                    {
+                        // 적용 전 목록에만 남아 있는 모드: 적용 후 제거.
+                        highlightColor = new Color(1f, 0.30f, 0.30f, 1f);
+                    }
+                    else if (scrollIndex == 1 && addedIds.Contains(id))
+                    {
+                        // 적용 후 목록에만 존재하는 모드: 새로 추가.
+                        highlightColor = new Color(0.30f, 0.85f, 0.38f, 1f);
+                    }
+
+                    if (highlightColor.HasValue)
+                    {
                         Color oldColor = GUI.color;
-                        GUI.color = new Color(1f, 0.58f, 0.16f, 1f);
+                        GUI.color = highlightColor.Value;
                         Widgets.DrawBox(row.ContractedBy(1f), 2);
                         GUI.color = oldColor;
                     }
